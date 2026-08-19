@@ -1,0 +1,47 @@
+# Local development dependencies.
+#
+# This file is for local development only. Staging and production run on AWS
+# ap-south-1 with RDS PostgreSQL; nothing here is a deployment artifact.
+#
+# Usage:
+#   docker compose up -d        start the database
+#   npm run db:migrate          apply migrations
+#   npm run db:seed             seed roles and permissions
+#   docker compose down         stop
+#   docker compose down -v      stop and destroy all data
+
+services:
+  postgres:
+    build:
+      context: ./docker/postgres
+    image: lavivenzia/postgres-dev:16
+    container_name: lavivenzia-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lavivenzia
+      POSTGRES_PASSWORD: lavivenzia_local_dev
+      POSTGRES_DB: lavivenzia
+      # Deterministic collation. Left to the default, index ordering can differ
+      # between a developer's machine and RDS, which makes sorted queries return
+      # different results in each environment.
+      LANG: C.UTF-8
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    ports:
+      # Bound to localhost only — never expose a development database on all
+      # interfaces, even one holding no real data.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # `pg_isready` alone reports ready before the init scripts finish on first
+      # boot. Querying settles that race, so `depends_on: service_healthy` and
+      # `npm run db:migrate` do not fire against a half-initialised server.
+      test: ["CMD-SHELL", "psql -U lavivenzia -d lavivenzia -c 'SELECT 1' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+volumes:
+  postgres_data:
+    name: lavivenzia_postgres_data

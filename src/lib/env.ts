@@ -1,0 +1,143 @@
+import { z } from "zod";
+import { withoutEmptyValues } from "@/lib/env-utils";
+
+/**
+ * Environment validation (ADR-0009).
+ *
+ * Parsed once, at module load, so that a misconfigured deployment fails
+ * immediately and loudly instead of throwing at the first request. There are no
+ * silent fallbacks: a missing production secret must never resolve to a
+ * placeholder that lets the process boot in a broken state.
+ */
+
+const nodeEnv = z.enum(["development", "test", "production"]);
+
+const baseSchema = z.object({
+  NODE_ENV: nodeEnv.default("development"),
+
+  /** Postgres connection string. Pooled connection used by the app and worker. */
+  DATABASE_URL: z.url().startsWith("postgres", {
+    message: "DATABASE_URL must be a postgres:// or postgresql:// URL",
+  }),
+  /** Direct (unpooled) connection, required by Prisma Migrate. */
+  DIRECT_DATABASE_URL: z
+    .url()
+    .startsWith("postgres", {
+      message: "DIRECT_DATABASE_URL must be a postgres:// or postgresql:// URL",
+    })
+    .optional(),
+
+  /** Canonical public origin, used for absolute URLs, cookies and callbacks. */
+  APP_URL: z.url().default("http://localhost:3000"),
+
+  LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
+
+  /**
+   * Signing key for server-side session cookies. Sessions are opaque IDs stored
+   * in Postgres; this key signs the cookie so a tampered value is rejected
+   * before it reaches the database (ADR-0005).
+   */
+  SESSION_SECRET: z.string().min(32, "SESSION_SECRET must be at least 32 characters"),
+
+  /** Worker tuning. Kept here so the worker fails fast on bad config too. */
+  WORKER_CONCURRENCY: z.coerce.number().int().positive().max(100).default(5),
+  WORKER_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((value) => value === "true"),
+});
+
+/**
+ * Provider credentials.
+ *
+ * Every one of these is optional at this stage: the adapters are boundaries
+ * only, with no business logic behind them yet, and several providers are still
+ * awaiting founder approval (see PROJECT_STATE.md → Pending decisions). An
+ * adapter is responsible for asserting its own credentials when it is first
+ * wired up — that keeps local development and CI runnable without production
+ * secrets, while still failing fast at the point of real use.
+ */
+const providerSchema = z.object({
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+
+  ANTHROPIC_API_KEY: z.string().optional(),
+
+  /**
+   * Embeddings provider is NOT yet approved. The variables exist so the adapter
+   * boundary can be wired, but no provider is selected and no vector dimension
+   * is committed to the schema. See docs/adr/0007-llm-and-embeddings.md.
+   */
+  EMBEDDINGS_PROVIDER: z.string().optional(),
+  EMBEDDINGS_API_KEY: z.string().optional(),
+
+  GOOGLE_MAPS_API_KEY: z.string().optional(),
+
+  AWS_REGION: z.string().default("ap-south-1"),
+  S3_MEDIA_BUCKET: z.string().optional(),
+
+  EMAIL_FROM: z.email().optional(),
+
+  SENTRY_DSN: z.string().optional(),
+  POSTHOG_KEY: z.string().optional(),
+});
+
+const envSchema = baseSchema.merge(providerSchema);
+
+export type Env = z.infer<typeof envSchema>;
+
+function parseEnv(): Env {
+  const result = envSchema.safeParse(withoutEmptyValues(process.env));
+
+  if (!result.success) {
+    const details = result.error.issues
+      .map((issue) => `  - ${issue.path.join(".") || "(root)"}: ${issue.message}`)
+      .join("\n");
+
+    // Never echo values — only the names of the offending variables.
+    throw new Error(
+      `Invalid environment configuration:\n${details}\n\n` +
+        `See .env.example for the required variables.`,
+    );
+  }
+
+  return result.data;
+}
+
+export const env: Env = parseEnv();
+
+export const isProduction = env.NODE_ENV === "production";
+export const isTest = env.NODE_ENV === "test";
+
+/**
+ * Deployment invariants — checked at server startup, not at module load.
+ *
+ * The distinction matters. "Is this variable present and well formed?" is a
+ * build-safe question, and the schema above answers it at import. "Is this a
+ * real production configuration?" is not: a CI build machine has no production
+ * database and no https origin, so asserting these during `next build` would
+ * force fake production secrets into CI and defeat the check entirely.
+ *
+ * Called from src/instrumentation.ts and from the worker entrypoint.
+ */
+export function assertDeploymentInvariants(): void {
+  if (env.NODE_ENV !== "production") return;
+
+  const problems: string[] = [];
+
+  if (env.APP_URL.startsWith("http://")) {
+    problems.push("APP_URL must use https in production");
+  }
+  if (!env.DIRECT_DATABASE_URL) {
+    problems.push("DIRECT_DATABASE_URL is required in production for migrations");
+  }
+  if (env.SESSION_SECRET.startsWith("replace-me")) {
+    problems.push("SESSION_SECRET is still the placeholder value from .env.example");
+  }
+
+  if (problems.length > 0) {
+    const details = problems.map((problem) => `  - ${problem}`).join("\n");
+    throw new Error(`Invalid production configuration:\n${details}`);
+  }
+}

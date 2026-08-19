@@ -1,0 +1,38 @@
+# dependencies
+/node_modules
+
+# build output
+/.next/
+/out/
+/build
+/dist
+next-env.d.ts
+
+# typescript
+*.tsbuildinfo
+
+# testing
+/coverage
+
+# prisma generated client
+/src/generated/
+
+# environment — never commit real credentials
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# misc
+*.pem
+.vercel

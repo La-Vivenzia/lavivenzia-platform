@@ -1,0 +1,19 @@
+node_modules
+.next
+dist
+coverage
+src/generated
+prisma/migrations
+package-lock.json
+*.png
+
+# Project specification documents are authored, not generated. Formatting them
+# would create noise in a diff that is supposed to show decisions.
+CLAUDE.md
+PROJECT.md
+REQUIREMENTS.md
+DESIGN.md
+WIREFRAME.md
+SYSTEM_DESIGN.md
+DEVELOPMENT_WORKFLOW.md
+README.md

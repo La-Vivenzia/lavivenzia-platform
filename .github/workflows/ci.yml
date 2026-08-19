@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref — a stale run tells you nothing.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Format, lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # CI validates code, not a deployment. These satisfy env validation
+      # without granting access to anything; no real secret belongs here.
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/lavivenzia_test
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/lavivenzia_test
+      APP_URL: http://localhost:3000
+      SESSION_SECRET: ci-only-session-secret-not-used-for-anything-real
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      # `npm ci` runs the postinstall hook, which generates the Prisma client.
+      # Typecheck and build both depend on those generated types.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+  migrations:
+    name: Migrations apply to a clean database
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Uses the repository's own docker-compose definition rather than a
+    # `services:` block, so CI exercises the *same* image developers run. A
+    # separate CI image would be a second thing to keep in sync, and drift there
+    # is exactly what this job exists to catch.
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://lavivenzia:lavivenzia_local_dev@localhost:5432/lavivenzia
+      DIRECT_DATABASE_URL: postgresql://lavivenzia:lavivenzia_local_dev@localhost:5432/lavivenzia
+      SHADOW_DATABASE_URL: postgresql://lavivenzia:lavivenzia_local_dev@localhost:5432/lavivenzia_shadow
+      APP_URL: http://localhost:3000
+      SESSION_SECRET: ci-only-session-secret-not-used-for-anything-real
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start database
+        run: npm run db:up
+
+      - name: Create shadow database
+        run: |
+          docker exec lavivenzia-postgres \
+            psql -U lavivenzia -d lavivenzia -c "CREATE DATABASE lavivenzia_shadow"
+
+      - name: Apply migrations to a clean database
+        run: npx prisma migrate deploy
+
+      - name: Verify extensions, tables and PostGIS
+        run: npm run db:verify
+
+      - name: Seed roles and permissions
+        run: npm run db:seed
+
+      # Re-running must produce no changes. The RBAC mapping is a working
+      # assumption (docs/ASSUMPTIONS.md A-001), and reconciling-on-reseed is
+      # what makes it reversible — so that property is tested, not trusted.
+      - name: Seed is idempotent
+        run: |
+          npm run db:seed
+          npm run db:verify
+
+      - name: Verify schema matches migrations
+        run: npx prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code
+
+      - name: Stop database
+        if: always()
+        run: docker compose down -v

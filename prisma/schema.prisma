@@ -1,0 +1,197 @@
+// La Vivenzia — database schema
+// System of record: PostgreSQL (PROJECT.md §5, SYSTEM_DESIGN.md §5).
+//
+// Scope at this stage is the identity, authorization and audit foundation only.
+// Marketplace entities (Experience, Booking, Payment, Ledger, ...) are added in
+// later phases, once the blocking product decisions listed in PROJECT_STATE.md
+// are resolved — several of them determine column-level structure.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// Connection URLs live in prisma.config.ts (Prisma 7 moved them out of the
+// schema). Runtime connections are made through the pg driver adapter in
+// src/lib/db.ts; the CLI uses the direct, unpooled URL for migrations.
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+/// A human account. One row per person regardless of how many roles they hold —
+/// a host who also books experiences is one User with two roles.
+model User {
+  id        String    @id @default(uuid()) @db.Uuid
+  /// citext: email uniqueness must be case-insensitive.
+  email     String    @unique @db.Citext
+  /// Null for passwordless accounts (traveller email-OTP flow).
+  passwordHash String? @map("password_hash")
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
+
+  /// TOTP secret, encrypted at rest by the application before storage.
+  /// Mandatory for admin/operations/finance roles (ADR-0005).
+  mfaSecret       String?   @map("mfa_secret")
+  mfaEnrolledAt   DateTime? @map("mfa_enrolled_at") @db.Timestamptz(3)
+
+  status    UserStatus @default(ACTIVE)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  /// Soft delete: retained for financial and audit traceability.
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  sessions   Session[]
+  roles      UserRole[]
+  auditLogs  AuditLog[]
+
+  @@index([status])
+  @@map("users")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+
+  @@map("user_status")
+}
+
+/// Server-side session (ADR-0005). Sessions are opaque IDs held in an httpOnly
+/// cookie, not JWTs, so that suspending a host or deprovisioning an admin takes
+/// effect immediately rather than at token expiry.
+///
+/// `tokenHash` stores a hash of the session token, never the token itself: a
+/// database disclosure must not hand over live sessions.
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash")
+
+  /// Set once the session clears MFA, for roles that require it.
+  mfaSatisfiedAt DateTime? @map("mfa_satisfied_at") @db.Timestamptz(3)
+
+  /// Recorded for audit and anomaly detection, not for authorization.
+  ipAddress String? @map("ip_address") @db.Inet
+  userAgent String? @map("user_agent")
+
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt   DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(3)
+  /// Explicit revocation, distinct from expiry, so it is visible in audit.
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ---------------------------------------------------------------------------
+// Authorization (RBAC)
+// ---------------------------------------------------------------------------
+
+/// Roles are data, not hard-coded constants, so operations can introduce a role
+/// without a deploy. REQUIREMENTS.md §2 defines six actors.
+model Role {
+  id          String @id @default(uuid()) @db.Uuid
+  /// Stable machine key, e.g. "traveller", "host", "finance".
+  key         String @unique
+  name        String
+  description String?
+
+  /// System roles cannot be deleted or renamed through the admin console.
+  isSystem    Boolean @default(false) @map("is_system")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+/// A single capability, e.g. "booking:refund". Checked at the service layer so
+/// that workers and internal callers are governed by the same rules as HTTP.
+model Permission {
+  id          String @id @default(uuid()) @db.Uuid
+  key         String @unique
+  description String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
+
+  grantedAt DateTime @default(now()) @map("granted_at") @db.Timestamptz(3)
+  /// Nullable: seeded system grants have no granting user.
+  grantedBy String?  @map("granted_by") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+
+/// Append-only record of privileged actions (FR-15, SYSTEM_DESIGN §12).
+/// Never updated or deleted; retention is handled by archival, not mutation.
+model AuditLog {
+  id        BigInt   @id @default(autoincrement())
+
+  /// Null for system-initiated actions (scheduled jobs, webhooks).
+  actorId   String?  @map("actor_id") @db.Uuid
+  /// Session that performed the action, when one exists.
+  sessionId String?  @map("session_id") @db.Uuid
+
+  /// Verb, e.g. "role.granted", "session.revoked".
+  action    String
+  /// Target type and identifier, e.g. ("user", "<uuid>").
+  subjectType String @map("subject_type")
+  subjectId   String? @map("subject_id")
+
+  /// Before/after snapshots. JSON is appropriate here: this is an audit record,
+  /// not core relational business data (DEVELOPMENT_WORKFLOW.md → Database).
+  before Json?
+  after  Json?
+
+  ipAddress     String? @map("ip_address") @db.Inet
+  correlationId String? @map("correlation_id")
+
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, occurredAt])
+  @@index([subjectType, subjectId])
+  @@index([occurredAt])
+  @@map("audit_logs")
+}

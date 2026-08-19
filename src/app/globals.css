@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens are intentionally NOT defined yet.
+ *
+ * DESIGN.md sets the visual direction but does not yet carry numeric values:
+ * the radius scale (including the `--lv-radius-sm` referenced in §35), the
+ * spacing scale, container widths and the type scale are all still described in
+ * prose. Inventing values here would create exactly the drift §35 and §36 exist
+ * to prevent.
+ *
+ * The token layer lands with the design-system foundation task, once those
+ * values are agreed. See PROJECT_STATE.md → Pending decisions.
+ */
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: #0d0d0d;
+  color: #f5ecd9;
+}
