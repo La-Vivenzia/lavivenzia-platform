@@ -9,7 +9,23 @@ change ships as a migration.
 No published image carries both PostGIS and pgvector, so `docker/postgres/Dockerfile`
 builds one from the official PostGIS image (ADR-0004, ADR-0008).
 
+Configuration lives in `.env.local` (gitignored). From a clean clone:
+
 ```bash
+cp .env.example .env.local
+```
+
+The template already points at the compose container. Credentials are local-only
+and the container listens on `127.0.0.1` alone, so nothing is reachable off the
+machine.
+
+**Precedence gotcha.** `process.loadEnvFile` does not overwrite a variable that
+is already set — first value wins. So `src/lib/load-env.ts` reads `.env.local`
+_before_ `.env`, which is what makes the local file override the shared one.
+Reversing that order silently inverts precedence; a unit test pins it.
+
+```bash
+npm ci                 # installs deps; postinstall generates the Prisma client
 npm run db:up          # build and start PostgreSQL 16 (waits for healthy)
 npm run db:migrate     # apply migrations
 npm run db:seed        # seed roles and permissions (idempotent)
@@ -57,13 +73,6 @@ name contains `test`, so a misconfigured URL cannot wipe local development data.
 The unit suite deliberately excludes them and runs with no environment variables
 set at all — that is the standing proof the domain layer is decoupled from
 infrastructure.
-
-Point `.env` at it:
-
-```
-DATABASE_URL=postgresql://lavivenzia:lavivenzia_local_dev@localhost:5432/lavivenzia
-DIRECT_DATABASE_URL=postgresql://lavivenzia:lavivenzia_local_dev@localhost:5432/lavivenzia
-```
 
 The local container uses `--lc-collate=C` for deterministic index ordering.
 **RDS must be provisioned with the same collation** — otherwise sorted queries

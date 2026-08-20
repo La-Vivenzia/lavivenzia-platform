@@ -5,9 +5,15 @@ import { defineConfig } from "prisma/config";
 // Prisma 7 dropped automatic dotenv loading, so the CLI would otherwise see an
 // empty environment and fail with "connection url is empty". Inlined rather
 // than imported because a Prisma config file must stand alone.
+//
+// Most-specific file first: process.loadEnvFile does not overwrite an already
+// set variable, so `.env.local` must be read before `.env` for it to win.
+// Mirrors src/lib/load-env.ts.
 if (process.env.NODE_ENV !== "production") {
-  const envFile = resolve(process.cwd(), ".env");
-  if (existsSync(envFile)) process.loadEnvFile(envFile);
+  for (const file of [".env.local", ".env"]) {
+    const path = resolve(process.cwd(), file);
+    if (existsSync(path)) process.loadEnvFile(path);
+  }
 }
 
 /**

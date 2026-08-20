@@ -3,7 +3,7 @@
 Living record of what exists, what is pending, and what is blocked. Updated at
 the end of every task, per `DEVELOPMENT_WORKFLOW.md`.
 
-**Last updated:** 2026-08-20
+**Last updated:** 2026-08-21
 **Current phase:** 0 — Engineering Foundation
 **Status:** Database + local infrastructure milestone complete and verified
 against a real database. No marketplace features.
@@ -134,6 +134,43 @@ the most time-sensitive item in the project.
   configured. `scripts/db-reset.ts` invokes the seed explicitly.
 - **Prisma blocks `migrate reset` for AI agents**, requiring
   `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION`. Humans are unaffected.
+
+---
+
+## Local setup — from a clean clone
+
+Requires Docker Desktop running and Node 22.
+
+```bash
+cp .env.example .env.local   # local config; gitignored, already points at the container
+npm ci                       # postinstall generates the Prisma client
+npm run db:up                # PostgreSQL 16 + PostGIS + pgvector, waits for healthy
+npm run db:migrate           # apply migrations
+npm run db:seed              # 6 roles, 38 permissions (idempotent)
+npm run db:verify            # extensions, tables, FKs, indexes, constraints
+```
+
+Then, for the test suites:
+
+```bash
+npm run db:test:setup        # creates + migrates + seeds lavivenzia_test
+npm run verify:full          # unit gate + db:verify + integration tests
+```
+
+Day to day:
+
+| Command                    | Purpose                                                      |
+| -------------------------- | ------------------------------------------------------------ |
+| `npm run dev`              | Next.js dev server                                           |
+| `npm run worker`           | pg-boss worker (idle until jobs are registered)              |
+| `npm run db:down`          | Stop the container; `docker compose down -v` also drops data |
+| `npm run db:reset`         | Drop, re-migrate, re-seed — behind a three-gate safety guard |
+| `npm test`                 | Unit tests; needs no database                                |
+| `npm run test:integration` | Database integration tests                                   |
+
+Configuration is read from `.env.local`, then `.env`, with real shell variables
+winning over both. `.env*` is gitignored except `.env.example`; no credential is
+ever committed, and the container binds to `127.0.0.1` only.
 
 ---
 
