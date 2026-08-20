@@ -25,28 +25,28 @@ datasource db {
 /// A human account. One row per person regardless of how many roles they hold —
 /// a host who also books experiences is one User with two roles.
 model User {
-  id        String    @id @default(uuid()) @db.Uuid
+  id              String    @id @default(uuid()) @db.Uuid
   /// citext: email uniqueness must be case-insensitive.
-  email     String    @unique @db.Citext
+  email           String    @unique @db.Citext
   /// Null for passwordless accounts (traveller email-OTP flow).
-  passwordHash String? @map("password_hash")
+  passwordHash    String?   @map("password_hash")
   emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(3)
 
   /// TOTP secret, encrypted at rest by the application before storage.
   /// Mandatory for admin/operations/finance roles (ADR-0005).
-  mfaSecret       String?   @map("mfa_secret")
-  mfaEnrolledAt   DateTime? @map("mfa_enrolled_at") @db.Timestamptz(3)
+  mfaSecret     String?   @map("mfa_secret")
+  mfaEnrolledAt DateTime? @map("mfa_enrolled_at") @db.Timestamptz(3)
 
-  status    UserStatus @default(ACTIVE)
+  status UserStatus @default(ACTIVE)
 
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   /// Soft delete: retained for financial and audit traceability.
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  sessions   Session[]
-  roles      UserRole[]
-  auditLogs  AuditLog[]
+  sessions  Session[]
+  roles     UserRole[]
+  auditLogs AuditLog[]
 
   @@index([status])
   @@map("users")
@@ -67,9 +67,9 @@ enum UserStatus {
 /// `tokenHash` stores a hash of the session token, never the token itself: a
 /// database disclosure must not hand over live sessions.
 model Session {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  tokenHash String   @unique @map("token_hash")
+  id        String @id @default(uuid()) @db.Uuid
+  userId    String @map("user_id") @db.Uuid
+  tokenHash String @unique @map("token_hash")
 
   /// Set once the session clears MFA, for roles that require it.
   mfaSatisfiedAt DateTime? @map("mfa_satisfied_at") @db.Timestamptz(3)
@@ -78,11 +78,11 @@ model Session {
   ipAddress String? @map("ip_address") @db.Inet
   userAgent String? @map("user_agent")
 
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  lastSeenAt   DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(3)
-  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
   /// Explicit revocation, distinct from expiry, so it is visible in audit.
-  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -98,14 +98,14 @@ model Session {
 /// Roles are data, not hard-coded constants, so operations can introduce a role
 /// without a deploy. REQUIREMENTS.md §2 defines six actors.
 model Role {
-  id          String @id @default(uuid()) @db.Uuid
+  id          String  @id @default(uuid()) @db.Uuid
   /// Stable machine key, e.g. "traveller", "host", "finance".
-  key         String @unique
+  key         String  @unique
   name        String
   description String?
 
   /// System roles cannot be deleted or renamed through the admin console.
-  isSystem    Boolean @default(false) @map("is_system")
+  isSystem Boolean @default(false) @map("is_system")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -119,8 +119,8 @@ model Role {
 /// A single capability, e.g. "booking:refund". Checked at the service layer so
 /// that workers and internal callers are governed by the same rules as HTTP.
 model Permission {
-  id          String @id @default(uuid()) @db.Uuid
-  key         String @unique
+  id          String  @id @default(uuid()) @db.Uuid
+  key         String  @unique
   description String?
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -165,17 +165,17 @@ model UserRole {
 /// Append-only record of privileged actions (FR-15, SYSTEM_DESIGN §12).
 /// Never updated or deleted; retention is handled by archival, not mutation.
 model AuditLog {
-  id        BigInt   @id @default(autoincrement())
+  id BigInt @id @default(autoincrement())
 
   /// Null for system-initiated actions (scheduled jobs, webhooks).
-  actorId   String?  @map("actor_id") @db.Uuid
+  actorId   String? @map("actor_id") @db.Uuid
   /// Session that performed the action, when one exists.
-  sessionId String?  @map("session_id") @db.Uuid
+  sessionId String? @map("session_id") @db.Uuid
 
   /// Verb, e.g. "role.granted", "session.revoked".
-  action    String
+  action      String
   /// Target type and identifier, e.g. ("user", "<uuid>").
-  subjectType String @map("subject_type")
+  subjectType String  @map("subject_type")
   subjectId   String? @map("subject_id")
 
   /// Before/after snapshots. JSON is appropriate here: this is an audit record,
@@ -194,4 +194,63 @@ model AuditLog {
   @@index([subjectType, subjectId])
   @@index([occurredAt])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Authentication
+// ---------------------------------------------------------------------------
+
+/// A one-time code issued for a passwordless flow (ADR-0005: travellers sign in
+/// with email OTP rather than a password).
+///
+/// The code itself is never stored — only a hash — so a database disclosure
+/// cannot be replayed into an account takeover. Codes are single-use:
+/// `consumedAt` is set inside the same transaction that creates the session.
+model OtpChallenge {
+  id      String     @id @default(uuid()) @db.Uuid
+  /// Recipient. Not a foreign key: a challenge may be issued for an address
+  /// that has no account yet, and must look identical either way so the
+  /// response cannot be used to enumerate registered users.
+  email   String     @db.Citext
+  purpose OtpPurpose
+
+  codeHash String @map("code_hash")
+
+  /// Failed verification attempts against this challenge. A challenge is burned
+  /// after too many, so a 6-digit code cannot be brute-forced within its life.
+  attempts Int @default(0)
+
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(3)
+
+  /// Recorded for abuse investigation, never for authorization.
+  requestedIp String? @map("requested_ip") @db.Inet
+
+  @@index([email, purpose, createdAt])
+  @@index([expiresAt])
+  @@map("otp_challenges")
+}
+
+enum OtpPurpose {
+  LOGIN
+  EMAIL_VERIFICATION
+
+  @@map("otp_purpose")
+}
+
+/// Fixed-window counter backing rate limits.
+///
+/// Lives in PostgreSQL rather than Redis, consistent with ADR-0001: the
+/// endpoints that need precise limiting (login, OTP issuance) are low-volume and
+/// high-value, and volumetric protection belongs at the edge (WAF). Keeping the
+/// counter here also leaves a durable trail of abuse attempts.
+model RateLimitCounter {
+  /// Scope plus subject, e.g. "otp:request:user@example.com" or "login:ip:1.2.3.4".
+  key         String   @id
+  windowStart DateTime @map("window_start") @db.Timestamptz(3)
+  count       Int      @default(0)
+
+  @@index([windowStart])
+  @@map("rate_limit_counters")
 }

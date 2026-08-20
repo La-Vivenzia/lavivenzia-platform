@@ -132,6 +132,5 @@ export function parseQuery<T>(request: Request, schema: ZodType<T>): T {
   return result.data;
 }
 
-export function jsonResponse<T>(body: T, status = 200): NextResponse {
-  return NextResponse.json(body, { status });
-}
+// Re-exported so route handlers keep a single import for the HTTP layer.
+export { jsonResponse } from "@/lib/responses";

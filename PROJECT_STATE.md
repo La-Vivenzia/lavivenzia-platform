@@ -5,8 +5,8 @@ the end of every task, per `DEVELOPMENT_WORKFLOW.md`.
 
 **Last updated:** 2026-08-21
 **Current phase:** 0 — Engineering Foundation
-**Status:** Database + local infrastructure milestone complete and verified
-against a real database. No marketplace features.
+**Status:** Authentication & identity vertical slice complete and verified
+end to end through real HTTP. No marketplace features.
 
 ---
 
@@ -45,30 +45,39 @@ variables set at all**.
 
 ### Foundations built
 
-| Area        | State                                                                                                                       |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Environment | Zod validation, split into build-safe shape checks and runtime deployment invariants (ADR-0009)                             |
-| Logging     | pino, JSON in production, correlation IDs via `AsyncLocalStorage`, secret redaction by path                                 |
-| Errors      | One `AppError` hierarchy with `code`, `httpStatus`, `isOperational`, `isRetryable` (ADR-0006)                               |
-| HTTP        | `withRoute` wrapper: correlation ID, request logging, centralized error mapping; Zod body/query parsing                     |
-| Database    | Prisma 7 with the `pg` driver adapter, bounded pool, singleton guard                                                        |
-| Schema      | Identity, RBAC and audit only — `users`, `sessions`, `roles`, `permissions`, `role_permissions`, `user_roles`, `audit_logs` |
-| Migrations  | Initial migration creates all five extensions plus the identity schema                                                      |
-| Local DB    | `docker-compose.yml` + custom image. **Running** — PostgreSQL 16.15, PostGIS 3.4.3, pgvector 0.8.6                          |
-| Seed        | Idempotent reconciling RBAC seed. **Applied** — 6 roles, 38 permissions, 82 grants                                          |
-| Queue       | pg-boss verified against a live database (12-table `pgboss` schema created). **No business jobs registered**                |
-| Auth domain | Session token issue/hash/validate, RBAC authorization with MFA and step-up gates                                            |
-| RBAC        | 6 roles, 38 permissions, full role-to-permission mapping (assumption A-001)                                                 |
-| Adapters    | Ports defined for payments, LLM, embeddings, email, storage, maps, analytics                                                |
-| CI          | Two jobs: verify gate, and migrations + seed idempotency + integration tests on a clean database                            |
-| Tests       | 60 unit tests (no database needed) + 32 database integration tests                                                          |
-| Test DB     | Dedicated `lavivenzia_test`, provisioned by `npm run db:test:setup`                                                         |
-| Reset       | `npm run db:reset` behind a three-gate safety guard; drops, re-migrates, re-seeds                                           |
+| Area        | State                                                                                                        |
+| ----------- | ------------------------------------------------------------------------------------------------------------ |
+| Environment | Zod validation, split into build-safe shape checks and runtime deployment invariants (ADR-0009)              |
+| Logging     | pino, JSON in production, correlation IDs via `AsyncLocalStorage`, secret redaction by path                  |
+| Errors      | One `AppError` hierarchy with `code`, `httpStatus`, `isOperational`, `isRetryable` (ADR-0006)                |
+| HTTP        | `withRoute` wrapper: correlation ID, request logging, centralized error mapping; Zod body/query parsing      |
+| Database    | Prisma 7 with the `pg` driver adapter, bounded pool, singleton guard                                         |
+| Schema      | Identity, RBAC, audit, plus `otp_challenges` and `rate_limit_counters`                                       |
+| Migrations  | Two: extensions + identity schema, then auth OTP and rate limiting                                           |
+| Local DB    | `docker-compose.yml` + custom image. **Running** — PostgreSQL 16.15, PostGIS 3.4.3, pgvector 0.8.6           |
+| Seed        | Idempotent reconciling RBAC seed. **Applied** — 6 roles, 38 permissions, 82 grants                           |
+| Queue       | pg-boss verified against a live database (12-table `pgboss` schema created). **No business jobs registered** |
+| Auth domain | Full service: registration, email OTP, password login, sessions, MFA, rate limits                            |
+| Credentials | argon2id passwords (RFC 9106), SHA-256 hashed OTP codes, TOTP via otpauth                                    |
+| Auth API    | 8 endpoints under `/api/v1/auth`, Zod-validated, correlation IDs, rate limited                               |
+| Sessions    | Server-side, hashed tokens, httpOnly + `__Host-` cookie, revocation effective immediately                    |
+| RBAC        | 6 roles, 38 permissions, full role-to-permission mapping (assumption A-001)                                  |
+| Adapters    | Ports defined for payments, LLM, embeddings, email, storage, maps, analytics                                 |
+| CI          | Two jobs: verify gate, and migrations + seed idempotency + integration tests on a clean database             |
+| Tests       | 108 unit tests (no database needed) + 70 database integration tests                                          |
+| Test DB     | Dedicated `lavivenzia_test`, provisioned by `npm run db:test:setup`                                          |
+| Reset       | `npm run db:reset` behind a three-gate safety guard; drops, re-migrates, re-seeds                            |
 
 ### Deliberately not built
 
 Marketplace features, booking flows, payment business logic, AI features, and
 polished UI.
+
+Authentication is complete as a vertical slice but **cannot serve traveller
+login in a deployed environment**: there is no email transport, so `deliverOtp`
+throws in production rather than silently failing. Google OAuth, password reset
+and email change all depend on the same missing piece. Full list in
+`docs/AUTHENTICATION.md` under Known limitations.
 
 ---
 
@@ -181,47 +190,47 @@ ever committed, and the container binds to `127.0.0.1` only.
 
 Last full run: **all green, exit 0.**
 
-- **60/60 unit tests**, passing with **no environment variables set at all** —
-  the standing proof that the domain layer needs no infrastructure.
-- **32/32 database integration tests** covering cascade behaviour, citext
-  semantics, constraint enforcement, seed-versus-code agreement, and pg-boss
-  transactional enqueue.
-- `prisma validate` — schema valid.
-- `prisma migrate diff --from-migrations` — no drift between schema and migrations.
-- Production build succeeds; `/api/v1/health` compiled as a dynamic route.
+- **108/108 unit tests**, passing with **no environment variables set at all**.
+- **70/70 database integration tests**, including the complete authentication
+  flows against real PostgreSQL.
+- `prisma validate` passes; no drift between schema and migrations.
+- Production build succeeds; all 8 auth routes compile as dynamic.
 
-`npm run db:verify` against the live local database, **passed**:
+Verified live over HTTP against a running server, not only through the service
+layer: registration, OTP issue/verify, code replay rejection, wrong-code
+rejection, password login (correct and incorrect), `me` with and without a
+session, cross-origin POST rejection, logout, and rejection of a captured token
+after revocation.
 
-```
-PostgreSQL 16.15
-  extensions   pgcrypto 1.3 · citext 1.6 · pg_trgm 1.6 · postgis 3.4.3 · vector 0.8.6
-  tables       all 7 present
-  foreign keys all 6, with ON DELETE verified
-               (audit_logs.actor_id is SET NULL, not CASCADE — by design)
-  unique       users(email) · sessions(token_hash) · roles(key) · permissions(key)
-  indexes      all 8 present, including the two composites on audit_logs
-  primary keys all 7 tables
-  seeded       6 roles · 38 permissions · 82 grants
-  behaviour    PostGIS 120 km · pgvector L2 1.4142 · citext · pg_trgm · pgcrypto
-```
+Three real defects were found and fixed during this milestone:
 
-The worker connects to the live database and pg-boss provisions its 12-table
-`pgboss` schema.
+- A template literal silently mangled `\d`, so the OTP schema compiled to
+  `/^d{6}$/` and would have rejected every valid code. Caught by lint.
+- Session `expiresAt` came from the app clock while `createdAt`/`lastSeenAt`
+  came from the database default, so clock skew between the app and PostgreSQL
+  corrupted idle-timeout calculations. Time now has one source.
+- `logout` returned 500 while still revoking the session — `NextResponse.json`
+  cannot produce a 204. Fixed in `jsonResponse` so no future endpoint can hit it.
 
 ---
 
 ## Next task
 
-**Authentication and identity.** The schema, RBAC vocabulary and authorization
-logic exist; what does not is the flow that turns a request into a `Principal` —
-registration, email OTP, password and TOTP verification, session issuance and
-cookie handling, and the middleware that resolves a session on each request.
+**Email delivery, then host onboarding and inventory.**
 
-That is the last foundational layer before marketplace features, and everything
-after it (host onboarding, listings, bookings) depends on knowing who is calling.
+The email transport is now the binding constraint rather than a nicety: without
+it traveller login cannot work in any deployed environment, and password reset,
+email change and email verification are all blocked behind the same adapter.
+Building the SES adapter behind the existing `EmailPort` is small, well-bounded,
+and unblocks four flows at once.
 
-Also worth scheduling soon, independent of feature work:
+After that, **host onboarding and experience inventory** is the natural next
+vertical: authentication can now identify a host, and inventory is the first
+thing that has to exist before search, availability or bookings mean anything.
+
+Still worth scheduling in parallel, independent of feature work:
 
 - Engage a chartered accountant on GST/TCS (A-005) — longest lead time in the project.
 - Operational bootstrap procedure for the first super admin; the seed deliberately
-  creates no users.
+  creates no users, so no account can currently reach a privileged role.
+- TOTP replay prevention, before the first money-moving endpoint ships.
