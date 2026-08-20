@@ -9,8 +9,11 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["tests/**/*.test.ts", "src/**/*.test.ts"],
-    exclude: ["node_modules/**", ".next/**", "dist/**"],
+    // Unit suite only. Integration tests live in tests/integration and need a
+    // live database; they run via vitest.integration.config.mts. Keeping them
+    // out is what lets `npm test` prove the domain layer needs no infrastructure.
+    include: ["tests/unit/**/*.test.ts", "src/**/*.test.ts"],
+    exclude: ["node_modules/**", ".next/**", "dist/**", "tests/integration/**"],
     coverage: {
       provider: "v8",
       reportsDirectory: "./coverage",

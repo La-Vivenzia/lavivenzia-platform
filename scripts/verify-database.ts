@@ -5,11 +5,12 @@ import { Pool } from "pg";
 /**
  * Verify that a database is provisioned as the schema expects.
  *
- * Checks the required extensions are installed and the expected tables exist.
- * Written as a script rather than a one-off command because it is equally
- * useful against staging and production after a migration deploy — "did the
- * extensions actually get created?" is exactly the question that goes unasked
- * until something fails at runtime.
+ * Checks extensions, tables, foreign keys, indexes, constraints and Prisma
+ * client connectivity. Written as a script rather than a one-off command
+ * because it is equally useful against staging and production after a migration
+ * deploy — "did the extensions actually get created, and are the foreign keys
+ * really there?" is exactly the question that goes unasked until something
+ * fails at runtime.
  *
  * Exits non-zero on any missing item, so it can gate a deploy.
  */
@@ -26,17 +27,65 @@ const REQUIRED_TABLES = [
   "audit_logs",
 ] as const;
 
-interface ExtensionRow {
-  extname: string;
-  extversion: string;
+/**
+ * Foreign keys that must exist, with the delete behaviour the domain depends
+ * on. Getting `ON DELETE` wrong is silent until the day someone deletes a user
+ * and either orphans their sessions or cascades away an audit trail.
+ */
+const REQUIRED_FOREIGN_KEYS: readonly {
+  table: string;
+  column: string;
+  references: string;
+  onDelete: string;
+}[] = [
+  { table: "sessions", column: "user_id", references: "users", onDelete: "CASCADE" },
+  { table: "user_roles", column: "user_id", references: "users", onDelete: "CASCADE" },
+  { table: "user_roles", column: "role_id", references: "roles", onDelete: "CASCADE" },
+  { table: "role_permissions", column: "role_id", references: "roles", onDelete: "CASCADE" },
+  {
+    table: "role_permissions",
+    column: "permission_id",
+    references: "permissions",
+    onDelete: "CASCADE",
+  },
+  // Audit rows outlive their actor deliberately: SET NULL, never CASCADE.
+  // An audit log that disappears with the user it indicts is not an audit log.
+  { table: "audit_logs", column: "actor_id", references: "users", onDelete: "SET NULL" },
+];
+
+/** Unique constraints the application relies on for correctness, not just tidiness. */
+const REQUIRED_UNIQUE: readonly { table: string; columns: string[] }[] = [
+  { table: "users", columns: ["email"] },
+  { table: "sessions", columns: ["token_hash"] },
+  { table: "roles", columns: ["key"] },
+  { table: "permissions", columns: ["key"] },
+];
+
+/** Indexes that exist for query performance rather than constraint enforcement. */
+const REQUIRED_INDEXES: readonly { table: string; columns: string[] }[] = [
+  { table: "sessions", columns: ["user_id"] },
+  { table: "sessions", columns: ["expires_at"] },
+  { table: "users", columns: ["status"] },
+  { table: "user_roles", columns: ["role_id"] },
+  { table: "role_permissions", columns: ["permission_id"] },
+  { table: "audit_logs", columns: ["occurred_at"] },
+  { table: "audit_logs", columns: ["actor_id", "occurred_at"] },
+  { table: "audit_logs", columns: ["subject_type", "subject_id"] },
+];
+
+let failed = false;
+
+function report(ok: boolean, label: string, detail = ""): void {
+  if (ok) {
+    console.log(`  ok       ${label}${detail ? `  ${detail}` : ""}`);
+  } else {
+    console.log(`  MISSING  ${label}${detail ? `  ${detail}` : ""}`);
+    failed = true;
+  }
 }
 
-interface TableRow {
-  tablename: string;
-}
-
-interface CountRow {
-  count: string;
+function section(title: string): void {
+  console.log(`\n${title}`);
 }
 
 async function main(): Promise<void> {
@@ -48,65 +97,161 @@ async function main(): Promise<void> {
   }
 
   const pool = new Pool({ connectionString, max: 1 });
-  let failed = false;
 
   try {
     const version = await pool.query<{ version: string }>("SELECT version()");
     console.log(version.rows[0]?.version ?? "unknown server version");
-    console.log("");
 
     // ── Extensions ──
-    const extensions = await pool.query<ExtensionRow>(
-      "SELECT extname, extversion FROM pg_extension ORDER BY extname",
+    section("Extensions:");
+    const extensions = await pool.query<{ extname: string; extversion: string }>(
+      "SELECT extname, extversion FROM pg_extension",
     );
     const installed = new Map(extensions.rows.map((row) => [row.extname, row.extversion]));
 
-    console.log("Extensions:");
     for (const name of REQUIRED_EXTENSIONS) {
-      const version = installed.get(name);
-      if (version) {
-        console.log(`  ok       ${name.padEnd(10)} ${version}`);
-      } else {
-        console.log(`  MISSING  ${name}`);
-        failed = true;
-      }
+      report(installed.has(name), name.padEnd(10), installed.get(name) ?? "");
     }
 
     // ── Tables ──
-    const tables = await pool.query<TableRow>(
-      "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename",
+    section("Tables:");
+    const tables = await pool.query<{ tablename: string }>(
+      "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
     );
     const present = new Set(tables.rows.map((row) => row.tablename));
 
-    console.log("\nTables:");
     for (const name of REQUIRED_TABLES) {
-      if (present.has(name)) {
-        console.log(`  ok       ${name}`);
+      report(present.has(name), name);
+    }
+
+    // ── Foreign keys ──
+    section("Foreign keys:");
+    const fks = await pool.query<{
+      table_name: string;
+      column_name: string;
+      foreign_table: string;
+      delete_rule: string;
+    }>(`
+      SELECT
+        tc.table_name,
+        kcu.column_name,
+        ccu.table_name AS foreign_table,
+        rc.delete_rule
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu
+        ON tc.constraint_name = kcu.constraint_name
+       AND tc.table_schema = kcu.table_schema
+      JOIN information_schema.constraint_column_usage ccu
+        ON ccu.constraint_name = tc.constraint_name
+       AND ccu.table_schema = tc.table_schema
+      JOIN information_schema.referential_constraints rc
+        ON rc.constraint_name = tc.constraint_name
+       AND rc.constraint_schema = tc.table_schema
+      WHERE tc.constraint_type = 'FOREIGN KEY'
+        AND tc.table_schema = 'public'
+    `);
+
+    for (const expected of REQUIRED_FOREIGN_KEYS) {
+      const match = fks.rows.find(
+        (row) =>
+          row.table_name === expected.table &&
+          row.column_name === expected.column &&
+          row.foreign_table === expected.references,
+      );
+
+      const label = `${expected.table}.${expected.column} -> ${expected.references}`;
+
+      if (!match) {
+        report(false, label);
+      } else if (match.delete_rule !== expected.onDelete) {
+        report(false, label, `expected ON DELETE ${expected.onDelete}, found ${match.delete_rule}`);
       } else {
-        console.log(`  MISSING  ${name}`);
-        failed = true;
+        report(true, label, `ON DELETE ${match.delete_rule}`);
       }
+    }
+
+    // ── Indexes and unique constraints ──
+    // pg_index is the authority: it covers both explicit indexes and the ones
+    // PostgreSQL creates to back a unique or primary key constraint.
+    const indexes = await pool.query<{
+      table_name: string;
+      columns: string[];
+      is_unique: boolean;
+      is_primary: boolean;
+    }>(`
+      SELECT
+        t.relname AS table_name,
+        -- Cast to text: array_agg over the name type yields name[], which node-pg
+        -- does not parse into a JS array, so the comparison below would see a
+        -- raw string instead.
+        array_agg(a.attname::text ORDER BY k.ord) AS columns,
+        ix.indisunique AS is_unique,
+        ix.indisprimary AS is_primary
+      FROM pg_index ix
+      JOIN pg_class i ON i.oid = ix.indexrelid
+      JOIN pg_class t ON t.oid = ix.indrelid
+      JOIN pg_namespace n ON n.oid = t.relnamespace
+      JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ord) ON true
+      JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum
+      WHERE n.nspname = 'public'
+      GROUP BY t.relname, ix.indisunique, ix.indisprimary, i.relname
+    `);
+
+    const hasIndex = (table: string, columns: string[], unique: boolean): boolean =>
+      indexes.rows.some(
+        (row) =>
+          row.table_name === table &&
+          (!unique || row.is_unique) &&
+          row.columns.length === columns.length &&
+          row.columns.every((column, i) => column === columns[i]),
+      );
+
+    section("Unique constraints:");
+    for (const expected of REQUIRED_UNIQUE) {
+      report(
+        hasIndex(expected.table, expected.columns, true),
+        `${expected.table}(${expected.columns.join(", ")})`,
+      );
+    }
+
+    section("Indexes:");
+    for (const expected of REQUIRED_INDEXES) {
+      report(
+        hasIndex(expected.table, expected.columns, false),
+        `${expected.table}(${expected.columns.join(", ")})`,
+      );
+    }
+
+    // ── Primary keys ──
+    section("Primary keys:");
+    for (const table of REQUIRED_TABLES) {
+      report(
+        indexes.rows.some((row) => row.table_name === table && row.is_primary),
+        table,
+      );
     }
 
     // ── Seeded vocabulary ──
     // Reported, not asserted: a freshly migrated database legitimately has none
     // until `npm run db:seed` runs.
-    const roles = await pool.query<CountRow>("SELECT count(*)::text AS count FROM roles");
-    const permissions = await pool.query<CountRow>(
-      "SELECT count(*)::text AS count FROM permissions",
-    );
-    const grants = await pool.query<CountRow>(
-      "SELECT count(*)::text AS count FROM role_permissions",
-    );
+    const counts = await pool.query<{ roles: string; permissions: string; grants: string }>(`
+      SELECT
+        (SELECT count(*) FROM roles)::text            AS roles,
+        (SELECT count(*) FROM permissions)::text      AS permissions,
+        (SELECT count(*) FROM role_permissions)::text AS grants
+    `);
+    const row = counts.rows[0];
 
-    console.log("\nSeeded data:");
-    console.log(`  roles            ${roles.rows[0]?.count ?? "0"}`);
-    console.log(`  permissions      ${permissions.rows[0]?.count ?? "0"}`);
-    console.log(`  role grants      ${grants.rows[0]?.count ?? "0"}`);
+    section("Seeded data:");
+    console.log(`  roles            ${row?.roles ?? "0"}`);
+    console.log(`  permissions      ${row?.permissions ?? "0"}`);
+    console.log(`  role grants      ${row?.grants ?? "0"}`);
 
-    // ── PostGIS sanity check ──
-    // Confirms the extension is not merely registered but functional. A distance
-    // between two known points is a cheap end-to-end proof.
+    // ── Extension functionality ──
+    // Confirms the extensions are not merely registered but working. Cheap
+    // end-to-end proofs beat a row in pg_extension.
+    section("Extension behaviour:");
+
     if (installed.has("postgis")) {
       const distance = await pool.query<{ metres: number }>(
         `SELECT ST_Distance(
@@ -115,7 +260,35 @@ async function main(): Promise<void> {
          ) AS metres`,
       );
       const km = Math.round((distance.rows[0]?.metres ?? 0) / 1000);
-      console.log(`\nPostGIS check:  Pune to Mumbai = ${km} km (expected ~120)`);
+      report(km > 100 && km < 140, "postgis  ", `Pune to Mumbai = ${km} km (expected ~120)`);
+    }
+
+    if (installed.has("vector")) {
+      const similarity = await pool.query<{ distance: number }>(
+        `SELECT '[1,0,0]'::vector <-> '[0,1,0]'::vector AS distance`,
+      );
+      const d = Number(similarity.rows[0]?.distance ?? 0);
+      report(Math.abs(d - Math.SQRT2) < 0.001, "vector   ", `L2 distance = ${d.toFixed(4)}`);
+    }
+
+    if (installed.has("citext")) {
+      const ci = await pool.query<{ equal: boolean }>(
+        `SELECT 'Test@Example.com'::citext = 'test@example.com'::citext AS equal`,
+      );
+      report(ci.rows[0]?.equal === true, "citext   ", "case-insensitive comparison");
+    }
+
+    if (installed.has("pg_trgm")) {
+      const trgm = await pool.query<{ similarity: number }>(
+        `SELECT similarity('Lonavala', 'Lonavla') AS similarity`,
+      );
+      const s = Number(trgm.rows[0]?.similarity ?? 0);
+      report(s > 0.4, "pg_trgm  ", `fuzzy similarity = ${s.toFixed(3)}`);
+    }
+
+    if (installed.has("pgcrypto")) {
+      const uuid = await pool.query<{ id: string }>(`SELECT gen_random_uuid()::text AS id`);
+      report(typeof uuid.rows[0]?.id === "string", "pgcrypto ", "gen_random_uuid()");
     }
   } finally {
     await pool.end();

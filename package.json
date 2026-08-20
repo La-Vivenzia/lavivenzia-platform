@@ -29,8 +29,11 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
-    "db:reset": "prisma migrate reset --force",
-    "db:verify": "tsx scripts/verify-database.ts"
+    "db:reset": "tsx scripts/db-reset.ts",
+    "db:verify": "tsx scripts/verify-database.ts",
+    "db:test:setup": "tsx scripts/db-test-setup.ts",
+    "test:integration": "vitest run --config vitest.integration.config.mts",
+    "verify:full": "npm run verify && npm run db:verify && npm run test:integration"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",

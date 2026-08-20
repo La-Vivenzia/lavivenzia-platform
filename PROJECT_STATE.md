@@ -3,9 +3,10 @@
 Living record of what exists, what is pending, and what is blocked. Updated at
 the end of every task, per `DEVELOPMENT_WORKFLOW.md`.
 
-**Last updated:** 2026-08-19
+**Last updated:** 2026-08-20
 **Current phase:** 0 — Engineering Foundation
-**Status:** Phase 0.11 complete and verified against a real database.
+**Status:** Database + local infrastructure milestone complete and verified
+against a real database. No marketplace features.
 
 ---
 
@@ -13,8 +14,8 @@ the end of every task, per `DEVELOPMENT_WORKFLOW.md`.
 
 ### Repository and toolchain
 
-Git initialised on `main`. Node 22, Next.js 16.3.1, React 19.2.8, TypeScript
-5.9.3, Tailwind CSS 4.
+Git on `main`, pushed to `La-Vivenzia/lavivenzia-platform` (private). Node 22,
+Next.js 16.3.1, React 19.2.8, TypeScript 5.9.3, Tailwind CSS 4.
 
 TypeScript is pinned to 5.9.3 rather than the newly released 7.x because
 `typescript-eslint` supports `<6.1.0`; adopting TS 7 would silently disable
@@ -59,8 +60,10 @@ variables set at all**.
 | Auth domain | Session token issue/hash/validate, RBAC authorization with MFA and step-up gates                                            |
 | RBAC        | 6 roles, 38 permissions, full role-to-permission mapping (assumption A-001)                                                 |
 | Adapters    | Ports defined for payments, LLM, embeddings, email, storage, maps, analytics                                                |
-| CI          | Two jobs: format/lint/typecheck/test/build, and migrations-apply-to-clean-database                                          |
-| Tests       | 60 unit tests across authorization, sessions, webhook verification, env parsing and the RBAC catalogue                      |
+| CI          | Two jobs: verify gate, and migrations + seed idempotency + integration tests on a clean database                            |
+| Tests       | 60 unit tests (no database needed) + 32 database integration tests                                                          |
+| Test DB     | Dedicated `lavivenzia_test`, provisioned by `npm run db:test:setup`                                                         |
+| Reset       | `npm run db:reset` behind a three-gate safety guard; drops, re-migrates, re-seeds                                           |
 
 ### Deliberately not built
 
@@ -122,41 +125,66 @@ the most time-sensitive item in the project.
 - **The repository directory name contains a space** (`D:\LA VIVENZIA`). It
   causes friction with Docker build contexts; worth settling before the first
   container build.
-- **Nothing is committed yet.** 80+ files are staged-clean and ready.
+- **Prisma pattern matching defeats citext.** `users.email` is `citext`, so
+  equality is case-insensitive, but Prisma casts the operand to `text` for
+  `contains`/`startsWith`/`endsWith`, making those case-sensitive. Pass
+  `mode: "insensitive"` when pattern-matching an email. Found by an integration
+  test; documented in `docs/DATABASE.md` under Known traps.
+- **Prisma 7 does not seed on `migrate reset`** despite `migrations.seed` being
+  configured. `scripts/db-reset.ts` invokes the seed explicitly.
+- **Prisma blocks `migrate reset` for AI agents**, requiring
+  `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION`. Humans are unaffected.
 
 ---
 
 ## Verification
 
-`npm run verify` — format check, lint, typecheck, tests, build.
+`npm run verify` — format, lint, typecheck, unit tests, build.
+`npm run verify:full` — the above plus `db:verify` and the integration suite.
 
-Last full run: **all green, exit 0.** 60/60 tests passing, build succeeds,
-`/api/v1/health` compiled as a dynamic route.
+Last full run: **all green, exit 0.**
 
-`npm run db:verify` — run against the live local database, **passed**:
+- **60/60 unit tests**, passing with **no environment variables set at all** —
+  the standing proof that the domain layer needs no infrastructure.
+- **32/32 database integration tests** covering cascade behaviour, citext
+  semantics, constraint enforcement, seed-versus-code agreement, and pg-boss
+  transactional enqueue.
+- `prisma validate` — schema valid.
+- `prisma migrate diff --from-migrations` — no drift between schema and migrations.
+- Production build succeeds; `/api/v1/health` compiled as a dynamic route.
+
+`npm run db:verify` against the live local database, **passed**:
 
 ```
 PostgreSQL 16.15
-  pgcrypto 1.3 · citext 1.6 · pg_trgm 1.6 · postgis 3.4.3 · vector 0.8.6
-  all 7 tables present
-  6 roles · 38 permissions · 82 grants
-  PostGIS check: Pune to Mumbai = 120 km (expected ~120)
+  extensions   pgcrypto 1.3 · citext 1.6 · pg_trgm 1.6 · postgis 3.4.3 · vector 0.8.6
+  tables       all 7 present
+  foreign keys all 6, with ON DELETE verified
+               (audit_logs.actor_id is SET NULL, not CASCADE — by design)
+  unique       users(email) · sessions(token_hash) · roles(key) · permissions(key)
+  indexes      all 8 present, including the two composites on audit_logs
+  primary keys all 7 tables
+  seeded       6 roles · 38 permissions · 82 grants
+  behaviour    PostGIS 120 km · pgvector L2 1.4142 · citext · pg_trgm · pgcrypto
 ```
 
-`prisma migrate diff --from-migrations` reports **no difference** — the schema
-and the migrations directory agree.
-
-Seed idempotency confirmed by a second run producing zero changes.
-
-The worker connected to the live queue and pg-boss provisioned its 12-table
+The worker connects to the live database and pg-boss provisions its 12-table
 `pgboss` schema.
 
 ---
 
 ## Next task
 
-**0.12 — first commit and CI green.** CI now runs the same `docker compose`
-definition developers use, so it independently proves migrations, extensions,
-the seed and seed idempotency against a clean database on every push.
+**Authentication and identity.** The schema, RBAC vocabulary and authorization
+logic exist; what does not is the flow that turns a request into a `Principal` —
+registration, email OTP, password and TOTP verification, session issuance and
+cookie handling, and the middleware that resolves a session on each request.
 
-Not before then: marketplace feature development.
+That is the last foundational layer before marketplace features, and everything
+after it (host onboarding, listings, bookings) depends on knowing who is calling.
+
+Also worth scheduling soon, independent of feature work:
+
+- Engage a chartered accountant on GST/TCS (A-005) — longest lead time in the project.
+- Operational bootstrap procedure for the first super admin; the seed deliberately
+  creates no users.

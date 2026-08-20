@@ -13,11 +13,50 @@ builds one from the official PostGIS image (ADR-0004, ADR-0008).
 npm run db:up          # build and start PostgreSQL 16 (waits for healthy)
 npm run db:migrate     # apply migrations
 npm run db:seed        # seed roles and permissions (idempotent)
-npm run db:verify      # assert extensions, tables and PostGIS functionality
+npm run db:verify      # assert extensions, tables, FKs, indexes, constraints
 ```
 
 `npm run db:down` stops it; `docker compose down -v` destroys the data volume.
-`npm run db:reset` drops, re-migrates and re-seeds from scratch.
+
+### Resetting
+
+`npm run db:reset` drops every table, re-applies migrations and re-seeds. It runs
+behind `scripts/db-reset.ts`, which refuses unless **all three** hold:
+
+1. `NODE_ENV` is not `production`
+2. the host is loopback
+3. the database name ends in `_dev`, `_local`, `_test`, `_shadow`, or is exactly
+   `lavivenzia`
+
+Override with `ALLOW_REMOTE_DB_RESET=i-understand-this-destroys-data` — deliberately
+awkward to type by accident.
+
+Two things worth knowing:
+
+- **Prisma 7 does not run the seed as part of `migrate reset`**, even with
+  `migrations.seed` set in `prisma.config.ts`. The wrapper invokes the seed
+  explicitly; without that, a reset leaves an empty RBAC vocabulary and every
+  authorization check silently denies.
+- Prisma blocks `migrate reset` when it detects an AI agent, and requires
+  `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION` carrying the user's exact words
+  of consent. Humans running it interactively are unaffected.
+
+### Testing
+
+```bash
+npm run db:test:setup      # create + migrate + seed lavivenzia_test
+npm run test:integration   # database integration tests
+npm run test               # unit tests — needs no database at all
+npm run verify:full        # everything: unit gate + db:verify + integration
+```
+
+Integration tests use a **separate** database (`TEST_DATABASE_URL`) because they
+truncate tables. `tests/integration/setup.ts` refuses to run unless the database
+name contains `test`, so a misconfigured URL cannot wipe local development data.
+
+The unit suite deliberately excludes them and runs with no environment variables
+set at all — that is the standing proof the domain layer is decoupled from
+infrastructure.
 
 Point `.env` at it:
 
@@ -108,6 +147,20 @@ never run against a database a human is also migrating by hand.
 CI applies every migration to an empty database and then asserts that
 `prisma/schema.prisma` and `prisma/migrations` agree. That check is what keeps
 the schema reproducible from the repository rather than from someone's laptop.
+
+## Known traps
+
+**`citext` + Prisma pattern matching.** `users.email` is `citext`, so equality is
+case-insensitive and `findUnique({ where: { email } })` matches any casing. But
+Prisma casts the operand to `text` for `contains` / `startsWith` / `endsWith`,
+which defeats citext and makes those **case-sensitive**. Pass
+`mode: "insensitive"` explicitly when pattern-matching an email. This was found
+by an integration test where an uppercase fixture survived cleanup.
+
+**`array_agg` over `name` columns.** Querying `pg_index`/`pg_attribute` returns
+`name[]`, which node-pg does not parse into a JS array — it arrives as the raw
+string `{col_a,col_b}`. Cast with `a.attname::text` when aggregating catalogue
+columns.
 
 ## Queue schema
 

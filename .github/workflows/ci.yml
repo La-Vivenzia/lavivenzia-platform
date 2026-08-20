@@ -70,6 +70,7 @@ jobs:
       DATABASE_URL: postgresql://lavivenzia:lavivenzia_local_dev@localhost:5432/lavivenzia
       DIRECT_DATABASE_URL: postgresql://lavivenzia:lavivenzia_local_dev@localhost:5432/lavivenzia
       SHADOW_DATABASE_URL: postgresql://lavivenzia:lavivenzia_local_dev@localhost:5432/lavivenzia_shadow
+      TEST_DATABASE_URL: postgresql://lavivenzia:lavivenzia_local_dev@localhost:5432/lavivenzia_test
       APP_URL: http://localhost:3000
       SESSION_SECRET: ci-only-session-secret-not-used-for-anything-real
 
@@ -111,6 +112,15 @@ jobs:
 
       - name: Verify schema matches migrations
         run: npx prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code
+
+      # Exercises real database behaviour the unit suite cannot reach: cascade
+      # rules, citext semantics, constraint enforcement, and the transactional
+      # enqueue that ADR-0001 depends on.
+      - name: Provision integration test database
+        run: npm run db:test:setup
+
+      - name: Database integration tests
+        run: npm run test:integration
 
       - name: Stop database
         if: always()
