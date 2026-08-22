@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/db";
-import { env, isProduction } from "@/lib/env";
-import { getLogger } from "@/lib/logger";
+import { env } from "@/lib/env";
 import { AuthService } from "@/modules/auth/service";
+import { OTP_TTL_MS } from "@/modules/auth/otp";
+import type { EmailPort } from "@/ports/email";
+import { createEmailAdapter } from "@/adapters/email";
 import {
   createAuditRepository,
   createOtpRepository,
@@ -18,31 +20,41 @@ import {
  * free of driver imports (ADR-0002).
  */
 
+let emailPort: EmailPort | undefined;
+
+/**
+ * The transactional email transport.
+ *
+ * Built once, on first use. `createEmailAdapter` refuses an impossible
+ * configuration — the console transport in production, or SES with no verified
+ * sender — so the first send fails at wiring with a clear message rather than
+ * on a real traveller's login attempt.
+ */
+function getEmailPort(): EmailPort {
+  emailPort ??= createEmailAdapter();
+  return emailPort;
+}
+
+/** Derived from the code's own lifetime, so the email can never contradict it. */
+const OTP_TTL_MINUTES = Math.round(OTP_TTL_MS / 60_000);
+
 /**
  * Deliver a login code.
  *
- * The SES adapter is a boundary with no implementation yet, so there is no way
- * to actually send mail. Rather than pretend, this logs the code in development
- * and refuses in production — a silent no-op would make every traveller login
- * fail with no explanation.
+ * Sent inline rather than queued (ADR-0011): the traveller is waiting on this
+ * exact message, and routing it through the worker would make login depend on a
+ * second process being healthy.
  *
- * Replace with the email port once the SES adapter is built. Tracked in
- * PROJECT_STATE.md.
+ * A provider failure propagates. The endpoint returns an error and the
+ * traveller can retry, which is the honest outcome — swallowing it would return
+ * 202 to someone who will never receive a code.
  */
 async function deliverOtp(email: string, code: string): Promise<void> {
-  if (isProduction) {
-    // Failing loudly is the safe behaviour: a production deploy that cannot send
-    // mail must not appear to succeed while every user is locked out.
-    throw new Error("No email transport is configured; cannot deliver login codes.");
-  }
-
-  // Development only, and gated on NODE_ENV rather than a flag someone could
-  // flip by accident. A login code in a production log is a full account
-  // takeover for anyone with log access.
-  getLogger().warn(
-    { email, code, transport: "console" },
-    "email transport not configured — login code logged for local development only",
-  );
+  await getEmailPort().send({
+    to: email,
+    template: "auth.login-code",
+    variables: { code, expiresInMinutes: OTP_TTL_MINUTES },
+  });
 }
 
 let authService: AuthService | undefined;

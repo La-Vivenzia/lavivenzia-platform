@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withoutEmptyValues } from "@/lib/env-utils";
+import { EMAIL_TRANSPORTS } from "@/adapters/email/transport";
 
 /**
  * Environment validation (ADR-0009).
@@ -77,7 +78,23 @@ const providerSchema = z.object({
   AWS_REGION: z.string().default("ap-south-1"),
   S3_MEDIA_BUCKET: z.string().optional(),
 
+  /**
+   * Transactional email (ADR-0011).
+   *
+   * `console` renders the message and writes it to the log instead of sending;
+   * `ses` delivers through Amazon SES. The default is deliberately the harmless
+   * one, and production refuses it below — a deployment that forgets to set
+   * this fails at startup rather than silently sending nothing.
+   */
+  EMAIL_TRANSPORT: z.enum(EMAIL_TRANSPORTS).default("console"),
+  /** Sender address. Must be an identity verified in SES before it will send. */
   EMAIL_FROM: z.email().optional(),
+  /**
+   * SES configuration set. Optional, but it is what publishes bounce and
+   * complaint events; without one those signals never reach us and the sending
+   * reputation degrades unobserved.
+   */
+  SES_CONFIGURATION_SET: z.string().optional(),
 
   SENTRY_DSN: z.string().optional(),
   POSTHOG_KEY: z.string().optional(),
@@ -134,6 +151,15 @@ export function assertDeploymentInvariants(): void {
   }
   if (env.SESSION_SECRET.startsWith("replace-me")) {
     problems.push("SESSION_SECRET is still the placeholder value from .env.example");
+  }
+  if (env.EMAIL_TRANSPORT !== "ses") {
+    // The console transport reports success while sending nothing, and writes
+    // login codes into a retained log. In production that is both an outage
+    // travellers cannot see and a credential disclosure.
+    problems.push("EMAIL_TRANSPORT must be 'ses' in production; 'console' sends no mail");
+  }
+  if (!env.EMAIL_FROM) {
+    problems.push("EMAIL_FROM is required in production (a sender identity verified in SES)");
   }
 
   if (problems.length > 0) {

@@ -85,7 +85,9 @@ lifetime.
 **Secrets.** Passwords are argon2id (64 MiB, 3 passes, 4 lanes — RFC 9106).
 Codes and session tokens are stored hashed. The TOTP provisioning URI carries
 the shared secret and is returned once, over an authenticated channel, never
-logged.
+logged. A login code appears in the subject and both bodies of its email, so the
+SES adapter logs neither — only the template, a masked recipient and the
+provider message ID (`docs/EMAIL.md`).
 
 **Authorization bypass.** Registration refuses any role outside
 `{traveller, host}`, so privileged roles cannot be self-assigned. Enforcement
@@ -111,11 +113,17 @@ role in a 30-day session.
 
 ## Known limitations
 
-- **No email transport.** The SES adapter is a boundary with no implementation,
-  so `deliverOtp` logs the code in development and **throws in production**.
-  Failing loudly is deliberate: a deploy that cannot send mail must not appear
-  to work while every traveller is locked out. This blocks traveller login in
-  any deployed environment.
+- **SES is integrated but not yet exercised against AWS.** Login codes go out
+  through the real SES adapter (ADR-0011, `docs/EMAIL.md`); what is missing is
+  the AWS account itself — a verified sending identity and production access
+  out of the SES sandbox. Until those exist, a deployed environment can be
+  configured correctly and still reach nobody. Local development uses the
+  console transport, which renders through the same template code and logs the
+  message; production refuses that transport at startup.
+- **An SES outage becomes an enumeration signal.** Login codes are sent inline,
+  so while SES is failing, `otp/request` errors for an address that has an
+  account and still returns 202 for one that does not. Accepted deliberately:
+  the alternative returns 202 to a traveller who will never receive a code.
 - **No Google OAuth.** ADR-0005 specifies it alongside email OTP for travellers.
   It needs a Google Cloud project and client credentials — a founder decision,
   not an engineering one.
@@ -123,7 +131,9 @@ role in a 30-day session.
   (plus one period of drift either side). Preventing reuse needs a stored
   last-accepted counter per user. It matters most for step-up actions and should
   land with the first money-moving endpoint.
-- **No password reset or email-change flow.** Both need the email transport.
+- **No password reset or email-change flow.** The transport they were waiting
+  on now exists; each still needs its own challenge flow and endpoints, which
+  belong to the milestone that adds them rather than to the email adapter.
 - **No admin bootstrap.** The seed creates no users by design, so no account can
   yet reach a privileged role. An operational procedure is required.
 - **`x-forwarded-for` is trusted** for rate-limit keys. Correct behind the ALB,

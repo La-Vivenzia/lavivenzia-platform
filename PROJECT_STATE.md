@@ -3,10 +3,11 @@
 Living record of what exists, what is pending, and what is blocked. Updated at
 the end of every task, per `DEVELOPMENT_WORKFLOW.md`.
 
-**Last updated:** 2026-08-21
+**Last updated:** 2026-08-22
 **Current phase:** 0 — Engineering Foundation
-**Status:** Authentication & identity vertical slice complete and verified
-end to end through real HTTP. No marketplace features.
+**Status:** Authentication & identity complete, and transactional email now
+delivers behind it. Verified end to end through real HTTP. No marketplace
+features.
 
 ---
 
@@ -62,9 +63,11 @@ variables set at all**.
 | Auth API    | 8 endpoints under `/api/v1/auth`, Zod-validated, correlation IDs, rate limited                               |
 | Sessions    | Server-side, hashed tokens, httpOnly + `__Host-` cookie, revocation effective immediately                    |
 | RBAC        | 6 roles, 38 permissions, full role-to-permission mapping (assumption A-001)                                  |
-| Adapters    | Ports defined for payments, LLM, embeddings, email, storage, maps, analytics                                 |
+| Email       | SES adapter implemented (ADR-0011); console transport for local development; login codes delivered           |
+| Templates   | One: `auth.login-code`. Framework-free renderer producing subject, text and HTML                             |
+| Adapters    | Payments, LLM, embeddings, storage, maps, analytics remain boundaries only                                   |
 | CI          | Two jobs: verify gate, and migrations + seed idempotency + integration tests on a clean database             |
-| Tests       | 108 unit tests (no database needed) + 70 database integration tests                                          |
+| Tests       | 166 unit tests (no database needed) + 77 database integration tests                                          |
 | Test DB     | Dedicated `lavivenzia_test`, provisioned by `npm run db:test:setup`                                          |
 | Reset       | `npm run db:reset` behind a three-gate safety guard; drops, re-migrates, re-seeds                            |
 
@@ -73,11 +76,42 @@ variables set at all**.
 Marketplace features, booking flows, payment business logic, AI features, and
 polished UI.
 
-Authentication is complete as a vertical slice but **cannot serve traveller
-login in a deployed environment**: there is no email transport, so `deliverOtp`
-throws in production rather than silently failing. Google OAuth, password reset
-and email change all depend on the same missing piece. Full list in
-`docs/AUTHENTICATION.md` under Known limitations.
+Authentication now has a working transport, but **no real email has been sent**:
+the AWS account is being arranged separately, so the SES adapter has never
+spoken to SES. Google OAuth, password reset and email change each still need
+their own flow. Full list in `docs/AUTHENTICATION.md` under Known limitations,
+and `docs/EMAIL.md` for what AWS must supply.
+
+---
+
+## Milestone record — transactional email (2026-08-22)
+
+**Already present, and reused rather than rebuilt.** The `EmailPort` interface,
+the adapter directory, `EMAIL_FROM` and `AWS_REGION` in the environment schema,
+the error model, the structured logger, and the `deliverOtp` seam in
+`AuthService` — the auth service was not touched.
+
+**Implemented.** A framework-free template renderer (subject, plain text, HTML),
+the SES adapter with error classification and a bounded network budget, a
+console transport for local development, transport selection that refuses
+configurations which would silently send nothing, and the wiring in the
+composition root.
+
+**Files.** 10 added — `src/modules/notifications/email-templates.ts`,
+`src/lib/mask.ts`, `src/adapters/email/{index,transport}.ts`,
+`src/adapters/email/console/index.ts`, `docs/EMAIL.md`,
+`docs/adr/0011-transactional-email-delivery.md`, and four test files. 6 modified
+— `src/ports/email.ts`, `src/adapters/email/ses/index.ts`, `src/lib/env.ts`,
+`src/lib/container.ts`, `.env.example`, `docs/AUTHENTICATION.md`.
+
+**Dependency added.** `@aws-sdk/client-sesv2` (23 transitive packages). No
+migration; the schema is unchanged.
+
+**Configuration.** `EMAIL_TRANSPORT` (new, defaults to `console`),
+`SES_CONFIGURATION_SET` (new, optional), plus the existing `EMAIL_FROM` and
+`AWS_REGION`. No AWS credentials are configured anywhere: the SDK resolves them
+through the provider chain, which in a deployed environment means the task's IAM
+role. There is no access key to store or rotate.
 
 ---
 
@@ -112,8 +146,15 @@ the most time-sensitive item in the project.
 
 ## Blockers
 
-**None.** The WSL2 kernel fault that blocked Phase 0.11 is resolved — `wsl --update`
-(to 2.7.12) restored the missing kernel image, and Docker Desktop now runs.
+**External, not engineering: the AWS SES account.** The application side is
+complete and tested; nothing in the codebase is waiting on anything. What is
+missing is an AWS account with a verified sending identity and production access
+out of the SES sandbox. Until then a deployed environment can be configured
+correctly and still reach nobody outside the verified list.
+
+Leaving the SES sandbox is a support request with lead time, so it is the item
+to start first. The full checklist — domain identity, DKIM, SPF alignment,
+DMARC, IAM policy, configuration set — is in `docs/EMAIL.md`.
 
 ---
 
@@ -190,8 +231,8 @@ ever committed, and the container binds to `127.0.0.1` only.
 
 Last full run: **all green, exit 0.**
 
-- **108/108 unit tests**, passing with **no environment variables set at all**.
-- **70/70 database integration tests**, including the complete authentication
+- **166/166 unit tests**, passing with **no environment variables set at all**.
+- **77/77 database integration tests**, including the complete authentication
   flows against real PostgreSQL.
 - `prisma validate` passes; no drift between schema and migrations.
 - Production build succeeds; all 8 auth routes compile as dynamic.
@@ -202,7 +243,38 @@ rejection, password login (correct and incorrect), `me` with and without a
 session, cross-origin POST rejection, logout, and rejection of a captured token
 after revocation.
 
-Three real defects were found and fixed during this milestone:
+Email delivery was verified over HTTP against a running server, not only through
+the service layer: a traveller registered (201), requested a code (202), and the
+**six-digit code lifted out of the rendered message body** completed the login
+(200) and returned a working session from `me`. That is the assertion that
+matters — the code in the email is the code the verify path accepts.
+
+Both production refusals were exercised directly. With `NODE_ENV=production` and
+the default transport, startup reports:
+
+```
+Invalid production configuration:
+  - EMAIL_TRANSPORT must be 'ses' in production; 'console' sends no mail
+  - EMAIL_FROM is required in production (a sender identity verified in SES)
+```
+
+and the adapter factory independently refuses to build. With a correct
+production configuration, the same code wires `SesEmailAdapter`.
+
+**No real email has been sent.** There are no AWS credentials, so the SES
+adapter has never spoken to SES. Everything short of that call is tested; the
+`SendEmail` call itself is not.
+
+One real defect was found and fixed during this milestone:
+
+- `ConsoleEmailAdapter.send` threw synchronously on a bad template instead of
+  returning a rejected promise, so a caller doing `send(...).catch(...)` would
+  have taken an uncaught exception rather than catching it. The SES adapter,
+  being `async`, did not share the bug — which is exactly how an interface with
+  two implementations drifts. Caught by a test.
+
+Three real defects were found and fixed during the preceding authentication
+milestone:
 
 - A template literal silently mangled `\d`, so the OTP schema compiled to
   `/^d{6}$/` and would have rejected every valid code. Caught by lint.
@@ -216,17 +288,18 @@ Three real defects were found and fixed during this milestone:
 
 ## Next task
 
-**Email delivery, then host onboarding and inventory.**
+**Host onboarding and experience inventory.**
 
-The email transport is now the binding constraint rather than a nicety: without
-it traveller login cannot work in any deployed environment, and password reset,
-email change and email verification are all blocked behind the same adapter.
-Building the SES adapter behind the existing `EmailPort` is small, well-bounded,
-and unblocks four flows at once.
+Authentication can identify a host and email can now reach one, so the next
+vertical is the thing everything else waits on: inventory. Search, availability,
+pricing and bookings are all meaningless until an experience exists to search
+for. It also has no dependency on the three deferred financial decisions —
+listings can be created, described, located and scheduled without settling the
+platform fee, the cancellation policy or GST treatment.
 
-After that, **host onboarding and experience inventory** is the natural next
-vertical: authentication can now identify a host, and inventory is the first
-thing that has to exist before search, availability or bookings mean anything.
+Email verification and password reset are now cheap — a template entry and a
+call site each — but both add authentication surface, so they belong to a
+milestone that owns that surface rather than being tacked on.
 
 Still worth scheduling in parallel, independent of feature work:
 
