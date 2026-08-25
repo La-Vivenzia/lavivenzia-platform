@@ -205,6 +205,50 @@ migration or console session wrote the row.
 `npm run db:verify` asserts every one of them, along with the generated spatial
 column and its GiST index.
 
+## Review history
+
+There is no review-history table, deliberately. Every decision already writes an
+`audit_logs` row carrying the actor, the before and after status, the reason and
+the correlation ID, and `audit_logs(subject_type, subject_id)` is indexed for
+exactly this read. A second store would be a second thing to keep true.
+
+The console reads it through `historyFor()` in
+`src/adapters/persistence/prisma/operations-repositories.ts`. Two details worth
+knowing: `audit_logs.id` is a `bigint`, which does not survive JSON
+serialisation to a browser, so it is converted to a string at that boundary; and
+the before/after snapshots are `Json`, so fields are read defensively rather
+than cast.
+
+## PostGIS, Prisma, and a trap that was CI-visible
+
+`experiences.geo` is a **generated** column with a **GiST** index, and Prisma
+can model neither by inference. Left undeclared, `prisma migrate diff` reported
+drift and `prisma migrate dev` generated two destructive statements against it:
+
+```sql
+DROP INDEX "experiences_geo_idx";
+ALTER TABLE "experiences" ALTER COLUMN "geo" DROP DEFAULT;   -- on a GENERATED column
+```
+
+The CI step **"Verify schema matches migrations" would have failed** on this
+(confirmed: `--exit-code` returned 2). Both are fixed by declaring what the
+migration actually created:
+
+```prisma
+geo Unsupported("geography(Point, 4326)")? @default(dbgenerated())
+
+@@index([geo], type: Gist)
+```
+
+`@default(dbgenerated())` with no argument tells Prisma a database-level default
+exists that it is not modelling — which is exactly true of a generation
+expression. With both in place the diff is clean and `migrate dev` stops
+proposing to drop them.
+
+**If you add another raw-SQL database object** — an index Prisma cannot express,
+a generated column, a partial index — declare it in the schema too, or the next
+migration will quietly propose dropping it.
+
 ## Known traps
 
 **`citext` + Prisma pattern matching.** `users.email` is `citext`, so equality is

@@ -6,9 +6,15 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/field";
 import { Alert } from "@/components/ui/feedback";
 import { ApiError, api } from "@/lib/api-client";
+import { destinationForRoles } from "@/lib/destinations";
+import type { RoleKey } from "@/modules/auth/permissions";
 
 interface LoginResponse {
   readonly mfaRequired: boolean;
+}
+
+interface MeResponse {
+  readonly roles: readonly RoleKey[];
 }
 
 export function SignInForm() {
@@ -26,21 +32,23 @@ export function SignInForm() {
     try {
       const result = await api.post<LoginResponse>("/api/v1/auth/login", { email, password });
 
-      if (result.mfaRequired) {
-        // Privileged accounts land on an MFA-unsatisfied session. There is no
-        // second-factor screen yet, so say so rather than dropping the user
-        // into a console where every action is refused.
-        setError(
-          "This account requires two-factor authentication, which is not available in the console yet.",
-        );
-        return;
-      }
-
       // `refresh` before navigating, so the server components on the next page
       // are rendered with the new session rather than from a cached tree that
       // still believes the user is anonymous.
       router.refresh();
-      router.push("/host");
+
+      if (result.mfaRequired) {
+        // Privileged accounts land on an MFA-unsatisfied session, where
+        // `authorize()` refuses every privileged permission. The second factor
+        // comes before the console, not after it.
+        router.push("/mfa");
+        return;
+      }
+
+      // Where someone belongs depends on what they hold, and a person may hold
+      // several roles. Asking the server rather than guessing from the form.
+      const me = await api.get<MeResponse>("/api/v1/auth/me");
+      router.push(destinationForRoles(me.roles));
     } catch (caught) {
       setError(
         caught instanceof ApiError

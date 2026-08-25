@@ -12,6 +12,15 @@ import { MFA_REQUIRED_ROLES, STEP_UP_PERMISSIONS, type RoleKey } from "@/modules
 
 export interface Principal {
   readonly userId: string;
+  /**
+   * The account's sign-in address.
+   *
+   * Carried on the principal because `resolvePrincipal` already loads the user
+   * record to read roles and status, so it costs nothing — and a privileged
+   * console has to be able to show which account an operator is acting as.
+   * Never used for an authorization decision; roles and permissions are.
+   */
+  readonly email: string;
   readonly sessionId: string;
   readonly roles: readonly RoleKey[];
   /** Flattened permission keys from every role the user holds. */

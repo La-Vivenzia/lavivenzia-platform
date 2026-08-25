@@ -4,6 +4,7 @@ import { AuthService } from "@/modules/auth/service";
 import { OTP_TTL_MS } from "@/modules/auth/otp";
 import { HostService } from "@/modules/hosts/service";
 import { ExperienceService } from "@/modules/experiences/service";
+import { OperationsService } from "@/modules/operations/service";
 import type { EmailPort } from "@/ports/email";
 import type { StoragePort } from "@/ports/storage";
 import { createEmailAdapter } from "@/adapters/email";
@@ -20,6 +21,7 @@ import {
   createCategoryRepository,
   createExperienceRepository,
 } from "@/adapters/persistence/prisma/experience-repositories";
+import { createOperationsRepository } from "@/adapters/persistence/prisma/operations-repositories";
 
 /**
  * Composition root.
@@ -125,6 +127,18 @@ export function getExperienceService(): ExperienceService {
   });
 
   return experienceService;
+}
+
+let operationsService: OperationsService | undefined;
+
+export function getOperationsService(): OperationsService {
+  operationsService ??= new OperationsService({
+    operations: createOperationsRepository(prisma, (key) => getStorage().publicUrl(key)),
+    audit: createAuditRepository(prisma),
+    now: () => new Date(),
+  });
+
+  return operationsService;
 }
 
 export { env };

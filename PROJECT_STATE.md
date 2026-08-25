@@ -4,11 +4,14 @@ Living record of what exists, what is pending, and what is blocked. Updated at
 the end of every task, per `DEVELOPMENT_WORKFLOW.md`.
 
 **Last updated:** 2026-08-25
-**Current phase:** 4 — Host + Inventory
-**Status:** The first marketplace workflow is live end to end. A host can join,
-build a profile, submit it for verification, create experiences, upload
-photographs, preview a listing as a traveller would see it, and submit it for
-review. Verified through real HTTP against the running application.
+**Current phase:** 4 — Host + Inventory (complete)
+**Status:** The marketplace loop closes. A host joins, builds a profile, creates
+an experience and submits it; an operator reviews it and approves or rejects it;
+the host sees the outcome, acts on the reason and resubmits. Verified end to end
+through real HTTP against the running application, including the rejection and
+resubmission path.
+
+**A listing can now reach PUBLISHED.** That was not true before this milestone.
 
 ---
 
@@ -82,11 +85,6 @@ variables set at all**.
 Booking, payments, refunds, GST/TCS, commission, traveller search and discovery,
 AI features, the operations console.
 
-**No listing can reach PUBLISHED yet.** FR-07 puts approval between draft and
-published and `experience:approve` is an Operations permission, so a host can
-submit but never publish. Nothing approves submissions until the operations
-console exists — that is the next milestone, not a gap in this one.
-
 **No financial arithmetic exists anywhere.** `experiences.base_price_minor`
 holds the host's own list price and nothing else. No fee, commission, tax or
 payout is stored, derived or displayed.
@@ -96,6 +94,52 @@ the AWS account is being arranged separately, so the SES adapter has never
 spoken to SES. Google OAuth, password reset and email change each still need
 their own flow. Full list in `docs/AUTHENTICATION.md` under Known limitations,
 and `docs/EMAIL.md` for what AWS must supply.
+
+---
+
+## Milestone record — operations console (2026-08-25)
+
+**Already present, and reused rather than rebuilt.** Every permission the review
+workflow needs already existed (`experience:read:all`, `experience:approve`,
+`experience:suspend`, `host:read`, `host:verify`) — **no new permission was
+added**. So did the columns: `reviewedBy`, `reviewedAt`, `reviewNote` and
+`publishedAt` on both `hosts` and `experiences`. Review history needs no new
+table: `audit_logs` already records every transition with actor, before and
+after, indexed on `(subject_type, subject_id)`. The MFA endpoints existed; only
+the screen was missing.
+
+**Implemented.**
+
+- `src/modules/operations` — the decision tables. Which decisions exist, which
+  permission each needs, which state each may be taken from, and whether a
+  written reason is mandatory. Declared as data, so a transition absent from the
+  table cannot happen.
+- `OperationsService` — reads and decisions, all authorized at the service layer.
+- Six `/api/v1/ops` endpoints and five screens.
+- **The admin bootstrap** (`npm run grant-role`), closing an item open since the
+  authentication milestone. The seed creates no users and registration refuses
+  privileged roles, so this is the only path to a first administrator.
+- **The MFA screen** (`/mfa`). Privileged roles hold an MFA-unsatisfied session
+  and `authorize()` refuses everything until a TOTP code is accepted — without
+  a screen the requirement was unreachable rather than enforced.
+
+**Files.** 30 added, 8 modified. One additive migration,
+`20260825113152_operations_review` — two foreign keys, no destructive statement.
+
+**Dependencies.** None added.
+
+**Two defects found in this milestone's own work.**
+
+A latent CI failure inherited from the previous milestone: Prisma did not know
+about the PostGIS GiST index or the generated `geo` expression, so
+`migrate diff` reported drift and the CI step "Verify schema matches migrations"
+would have failed (proven: exit 2). Declaring `@@index([geo], type: Gist)` and
+`@default(dbgenerated())` fixes it — and stopped `migrate dev` from generating a
+`DROP INDEX` and a `DROP DEFAULT` against a generated column. Now exit 0.
+
+Two copy defects in refusal messages an operator reads mid-decision:
+"cannot be suspendd" (the verb was being conjugated by appending `d`) and
+"a experience". Both fixed, both covered by a test.
 
 ---
 
@@ -183,6 +227,54 @@ role. There is no access key to store or rotate.
 
 ---
 
+## The review workflow
+
+The loop the product runs on, and where each step is enforced.
+
+```
+host: draft ──submit──▶ IN_REVIEW ──approve──▶ PUBLISHED ──suspend──▶ SUSPENDED
+                            │                                            │
+                            └──reject──▶ REJECTED ──host edits──┐        │
+                                              ▲                 │   reinstate
+                                              └────submit───────┘        │
+                                                                  PUBLISHED ◀┘
+```
+
+**Who may do what.** A host submits and withdraws; a host can never publish.
+Operations approves, rejects, suspends and reinstates; operations never
+archives, which is the host retiring their own listing. Both halves are
+declared as tables — `src/modules/experiences/lifecycle.ts` for the host,
+`src/modules/operations/review.ts` for operations — so a transition absent from
+a table cannot happen.
+
+**Reasons.** Required for reject and suspend, optional for approve and
+reinstate. The rule is that a decision costing the host something must be
+actionable: a rejection they cannot act on is a dead end. Minimum ten
+characters, enforced in the domain and re-derived server-side.
+
+**Hosts.** `DRAFT → PENDING` on submission, then `PENDING → VERIFIED` or
+`PENDING → REJECTED`. A rejected profile returns to the host editable, with the
+reason attached.
+
+**Reaching the console.** Operations roles require MFA (ADR-0005), so
+`authorize()` refuses every privileged permission until the session satisfies a
+TOTP challenge at `/mfa`. The first privileged account is created with
+`npm run grant-role <email> <role>` against an account that already registered
+normally — registration itself refuses privileged roles, so there is no path
+that creates and privileges an account in one step.
+
+**Audit.** Every decision writes one `audit_logs` row: actor from the session,
+before and after status, the reason, correlation ID. Review history in the
+console is read from that table — there is no second store.
+
+**Security.** No endpoint accepts an actor, reviewer or admin identifier; the
+request schemas are `.strict()`, so sending one is rejected outright rather than
+ignored. The permission each decision needs is looked up from the decision
+table rather than chosen by the route, so a handler cannot authorize a
+suspension with an approval permission.
+
+---
+
 ## Working assumptions
 
 Tejas confirmed on 2026-08-19 that pending business decisions must not block
@@ -217,7 +309,10 @@ the most time-sensitive item in the project.
 
 ## Blockers
 
-**External, not engineering: the AWS SES account.** The application side is
+**None for engineering.** The marketplace loop is closed and every part of it
+has been exercised against the running application.
+
+**External: the AWS SES account.** The application side is
 complete and tested; nothing in the codebase is waiting on anything. What is
 missing is an AWS account with a verified sending identity and production access
 out of the SES sandbox. Until then a deployed environment can be configured
@@ -231,6 +326,26 @@ DMARC, IAM policy, configuration set — is in `docs/EMAIL.md`.
 
 ## Known gaps and follow-ups
 
+### Operations console
+
+- **No MFA reset.** If an operator loses their authenticator they cannot get
+  back in: `beginMfaEnrolment` refuses a second enrolment, which is what stops a
+  hijacked session swapping the second factor. Resetting one needs an audited
+  admin action that does not exist yet. Today the recovery is a database
+  intervention.
+- **The enrolment screen shows a key, not a QR code.** Authenticator apps accept
+  manual entry, so it works; scanning would need a QR encoder dependency.
+- **No notification reaches the host on a decision.** They see the outcome and
+  the reason when they next open the console. Email would be the obvious
+  addition and is deliberately out of scope here.
+- **Verification cannot be reversed.** There is no un-verify decision for a host,
+  and `experience:suspend` covers listings only. Revoking a host entirely is
+  `user:suspend`, which has no screen yet.
+- **Paging is offset-based.** Correct and fine at this volume; a deep page on a
+  large table will get slower, and keyset paging is the answer when it does.
+- **No bulk actions.** Each decision is taken on one item, deliberately — these
+  publish or suppress somebody's livelihood.
+
 - **Prettier normalized whitespace in the specification documents** on its first
   run, before they were added to `.prettierignore`. Content unchanged — all 21
   FRs and every section verified intact. Cannot recur.
@@ -240,9 +355,6 @@ DMARC, IAM policy, configuration set — is in `docs/EMAIL.md`.
 - **`REQUIREMENTS.md` §5** still lacks `Session`, `Role`, `Permission`,
   `UserRole`, `ConsentRecord`, `Cart`, `CartItem` and `Dispute`. The first four
   now exist in the schema.
-- **No bootstrap path for the first super admin.** The seed deliberately creates
-  no users — a seeded admin with a known identity is a standing back door. An
-  operational bootstrap procedure is needed before the admin console is usable.
 - **The repository directory name contains a space** (`D:\LA VIVENZIA`). It
   causes friction with Docker build contexts; worth settling before the first
   container build.
@@ -302,8 +414,8 @@ ever committed, and the container binds to `127.0.0.1` only.
 
 Last full run: **all green, exit 0.**
 
-- **256/256 unit tests**, passing with **no environment variables set at all**.
-- **118/118 database integration tests**, including the complete authentication,
+- **291/291 unit tests**, passing with **no environment variables set at all**.
+- **152/152 database integration tests**, including the complete authentication,
   onboarding and inventory flows against real PostgreSQL.
 - `prisma validate` passes; no drift between schema and migrations.
 - Production build succeeds; all 8 auth routes compile as dynamic.
@@ -313,6 +425,28 @@ layer: registration, OTP issue/verify, code replay rejection, wrong-code
 rejection, password login (correct and incorrect), `me` with and without a
 session, cross-origin POST rejection, logout, and rejection of a captured token
 after revocation.
+
+The **complete review loop** was verified over HTTP against a running server.
+A host registered, built a profile, created an experience, uploaded a
+photograph and submitted it. An operator — bootstrapped with
+`npm run grant-role`, then enrolled and challenged through `/mfa` with a real
+TOTP code — saw it in the queue, opened it, and rejected it with a reason. The
+host read that reason both through the API and rendered on their editor page,
+made the requested changes, and resubmitted; the listing returned to the queue
+and was approved, reaching PUBLISHED with `publishedAt` stamped and the
+reviewer recorded. The audit trail carried all four transitions with the right
+actor on each.
+
+Refusals were exercised at every step and all held: editing while in review
+(409), submitting twice (409), suspending an in-review listing (409), rejecting
+with no reason (400), a host attempting an operations decision (403), a
+cross-origin POST (403), and a request carrying a forged `actorId` (400 — the
+schemas are `.strict()`, so an unknown key is rejected rather than ignored).
+Before the MFA challenge was satisfied, all three operations endpoints returned 401.
+
+One thing the loop proved was _not_ a defect: resubmission was refused until
+every newly added photograph had alternative text. That is the readiness gate
+working as designed.
 
 Host onboarding and inventory were verified over HTTP against a running server,
 not only through the service layer. A host registered, signed in, was refused
@@ -374,23 +508,20 @@ milestone:
 
 ## Next task
 
-**The operations console: host verification and experience approval.**
+**Traveller discovery.**
 
-It is now the binding constraint rather than a nicety. Hosts can submit profiles
-and listings, and nothing can approve either — submissions accumulate in a queue
-with no reader. Every permission the console needs already exists (`host:verify`,
-`experience:approve`, `experience:suspend`, `experience:read:all`), the states
-and the audit trail are in place, and the design system it would be built on now
-exists. It is the smallest piece of work that turns the host workflow from a
-demonstration into something that completes.
+Supply now exists and can reach PUBLISHED, so the next constraint is that
+nobody can see it. The experience detail page comes first — the slug and the
+spatial column are already in place for it — then destination and category
+pages, then search.
 
-It also unblocks the decision recorded as A-009 — what should happen when a host
-edits a published listing — which cannot be answered until something can publish
-one.
-
-After that, **traveller discovery**: the experience detail page, destination and
-category pages, then search. The spatial column and the slug are already in
-place for it.
+**A-009 is now answerable.** Listings can reach PUBLISHED, so the question of
+what happens when a host edits a live one is a real decision rather than a
+hypothetical. The conservative default is in place (a published listing is not
+editable); the alternative is to allow the edit and return the listing to
+review. Worth settling before discovery ships, because a traveller-visible
+listing that a host can silently change is a different product from one that
+cannot.
 
 Still worth scheduling in parallel, independent of feature work:
 

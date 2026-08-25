@@ -50,6 +50,10 @@ model User {
   /// Present only once the user completes host onboarding.
   host      Host?
 
+  /// Review decisions this user made as an operations reviewer.
+  hostsReviewed       Host[]       @relation("HostReviewer")
+  experiencesReviewed Experience[] @relation("ExperienceReviewer")
+
   @@index([status])
   @@map("users")
 }
@@ -313,6 +317,9 @@ model Host {
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   experiences Experience[]
+  /// SetNull, not Cascade: a decision outlives the person who made it, and a
+  /// host record must not disappear because a reviewer left the company.
+  reviewer    User?        @relation("HostReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
 
   @@index([verificationStatus])
   @@map("hosts")
@@ -379,7 +386,7 @@ model Experience {
   /// GENERATED from latitude/longitude, so it cannot drift out of step with
   /// them, and it is added now because retrofitting a spatial column onto a
   /// populated core table is the expensive path ADR-0008 exists to avoid.
-  geo Unsupported("geography(Point, 4326)")?
+  geo Unsupported("geography(Point, 4326)")? @default(dbgenerated())
 
   durationMinutes Int?     @map("duration_minutes")
   minGuests       Int      @default(1) @map("min_guests")
@@ -421,9 +428,12 @@ model Experience {
   host     Host              @relation(fields: [hostId], references: [id], onDelete: Cascade)
   category Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   media    ExperienceMedia[]
+  /// See the note on Host.reviewer.
+  reviewer User?             @relation("ExperienceReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
 
   /// The host dashboard lists a host's own experiences newest-first, and
   /// operations lists everything awaiting review. Both are covered here.
+  @@index([geo], type: Gist)
   @@index([hostId, status, updatedAt])
   @@index([status, submittedAt])
   @@index([categoryId])

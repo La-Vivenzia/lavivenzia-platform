@@ -195,8 +195,11 @@ The conservative reading is in place: a host may edit only in `DRAFT` and
 `REJECTED`. A published listing must be archived, or suspended by operations,
 before it can be changed.
 
-Nothing is blocked by this today — no listing can reach `PUBLISHED` until the
-operations console exists — so the decision can wait for that milestone.
+**This is now live rather than hypothetical.** The operations console exists and
+listings do reach `PUBLISHED`, so a host with a live listing genuinely cannot
+correct a typo without archiving it. Worth settling before traveller discovery
+ships: a traveller-visible listing a host can silently change is a different
+product from one that cannot.
 
 **Reversal cost: trivial.** One entry in the transition table and, for option 1,
 one line in `performAction`. No schema change either way.
@@ -242,6 +245,28 @@ expensive to unwind.
 **Reversal cost: low now, high if guessed wrong.** Adding a documents table
 later is additive. Collecting documents under the wrong retention policy is a
 data-protection problem, not a migration.
+
+---
+
+## A-012 — Multi-factor reset for a locked-out operator
+
+- **Status:** DEFERRED — nothing built
+- **Owner:** Founder / operations
+- **Where:** nothing; `beginMfaEnrolment` refuses a second enrolment
+
+An operations account requires TOTP, and `beginMfaEnrolment` refuses to issue a
+second secret. That is deliberate — re-enrolment on a live session is exactly
+how an attacker who has stolen one would swap the second factor — but it means
+an operator who loses their authenticator cannot get back in.
+
+Resetting one is an audited admin action, and who may perform it is a policy
+question rather than an engineering one: another super admin, two of them, or
+an out-of-band identity check. Until that is answered the recovery is a
+database intervention by someone with credentials.
+
+**Reversal cost: low.** Adding a reset is additive — one service method, one
+permission, one audit action. Choosing the wrong policy is the expensive part,
+which is why it is not being guessed.
 
 ---
 

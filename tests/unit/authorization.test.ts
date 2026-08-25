@@ -14,6 +14,7 @@ const NOW = new Date("2026-08-19T12:00:00.000Z");
 function principal(overrides: Partial<Principal> = {}): Principal {
   return {
     userId: "user-1",
+    email: "user-1@example.com",
     sessionId: "session-1",
     roles: ["traveller"],
     permissions: new Set(["booking:read"]),

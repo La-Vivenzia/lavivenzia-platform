@@ -133,6 +133,7 @@ async function signUp(role: "host" | "traveller"): Promise<Principal> {
 
   return {
     userId: user.id,
+    email,
     sessionId: "traveller-test-session",
     roles: ["traveller"],
     permissions: new Set([

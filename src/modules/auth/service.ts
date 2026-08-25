@@ -386,6 +386,7 @@ export class AuthService {
 
     return {
       userId: user.id,
+      email: user.email,
       sessionId: stored.id,
       roles: user.roles,
       permissions,
