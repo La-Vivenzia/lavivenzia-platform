@@ -111,21 +111,36 @@ DML on the application schema.
 the vector dimension (ADR-0007). Do not add a vector column until that decision
 is made — changing a dimension after data exists means a rebuild.
 
+**PostGIS now has one.** `experiences.geo` is `geography(Point, 4326)`, added
+with the inventory schema rather than waiting for search — retrofitting a
+spatial column onto a populated core table is the expensive path ADR-0008 exists
+to avoid. It is a **generated** column derived from `latitude`/`longitude`, so
+no code path can update one without the other, and it carries a GiST index
+because a B-tree on a geography column is inert for distance and viewport
+queries. Prisma has no PostGIS type, so it is declared `Unsupported(...)` and
+will be read through raw SQL when search lands.
+
 ## Current schema
 
 Identity, authorization and audit only. Marketplace entities arrive with the
 phases that own them, several of them blocked on the decisions in
 `PROJECT_STATE.md`.
 
-| Table              | Purpose                                                        |
-| ------------------ | -------------------------------------------------------------- |
-| `users`            | One row per person, regardless of how many roles they hold     |
-| `sessions`         | Server-side sessions; stores a token **hash**, never the token |
-| `roles`            | Role definitions; six actors per `REQUIREMENTS.md` §2          |
-| `permissions`      | Individual capability keys                                     |
-| `role_permissions` | Role-to-permission join                                        |
-| `user_roles`       | User-to-role grants, with grantor and timestamp                |
-| `audit_logs`       | Append-only record of privileged actions (FR-15)               |
+| Table                 | Purpose                                                        |
+| --------------------- | -------------------------------------------------------------- |
+| `users`               | One row per person, regardless of how many roles they hold     |
+| `sessions`            | Server-side sessions; stores a token **hash**, never the token |
+| `roles`               | Role definitions; six actors per `REQUIREMENTS.md` §2          |
+| `permissions`         | Individual capability keys                                     |
+| `role_permissions`    | Role-to-permission join                                        |
+| `user_roles`          | User-to-role grants, with grantor and timestamp                |
+| `audit_logs`          | Append-only record of privileged actions (FR-15)               |
+| `otp_challenges`      | One-time login codes; stores a hash, never the code            |
+| `rate_limit_counters` | Fixed-window counters backing the rate limits                  |
+| `hosts`               | Host business profile and verification state (FR-05)           |
+| `experiences`         | Listing content, lifecycle and spatial point (FR-06, FR-07)    |
+| `experience_media`    | Gallery images, ordered; position 0 is the cover               |
+| `categories`          | Experience taxonomy; seeded and reconciled like roles          |
 
 Conventions:
 
@@ -156,6 +171,39 @@ never run against a database a human is also migrating by hand.
 CI applies every migration to an empty database and then asserts that
 `prisma/schema.prisma` and `prisma/migrations` agree. That check is what keeps
 the schema reproducible from the repository rather than from someone's laptop.
+
+## Money
+
+`experiences.base_price_minor` is an **integer count of minor units** — paise for
+INR — never a float. `0.1 + 0.2` is not `0.3` in binary floating point, and this
+column becomes money.
+
+It holds the host's own list price and nothing else. No platform fee, no
+commission, no GST and no TCS is stored or derived anywhere in the schema: those
+are unresolved business decisions (`docs/ASSUMPTIONS.md` A-003, A-005) and each
+would add its own columns when settled. `currency` is stored alongside because a
+minor-unit integer is meaningless without it — JPY has no minor unit and KWD has
+three decimal places.
+
+## Data integrity
+
+Check constraints, not only application validation. The service validates the
+same rules so a host gets a sentence rather than a constraint violation; the
+constraints are what make the invariants true regardless of which code path,
+migration or console session wrote the row.
+
+| Constraint                         | Guarantee                                                    |
+| ---------------------------------- | ------------------------------------------------------------ |
+| `experiences_min_guests_check`     | at least one guest                                           |
+| `experiences_guest_range_check`    | maximum is never below the minimum                           |
+| `experiences_duration_check`       | a duration, when set, is positive                            |
+| `experiences_base_price_check`     | a price, when set, is non-negative (zero is a valid listing) |
+| `experiences_coordinates_check`    | both coordinates or neither, each in range                   |
+| `experience_media_byte_size_check` | a media row always refers to real bytes                      |
+| `experience_media_position_check`  | gallery positions are non-negative                           |
+
+`npm run db:verify` asserts every one of them, along with the generated spatial
+column and its GiST index.
 
 ## Known traps
 

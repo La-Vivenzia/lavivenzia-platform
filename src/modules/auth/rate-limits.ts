@@ -1,5 +1,5 @@
 /**
- * Rate limit policy for authentication endpoints.
+ * Rate limit policy.
  *
  * Backed by PostgreSQL counters rather than Redis (ADR-0001). These endpoints
  * are low-volume and high-value, so precision matters more than throughput;
@@ -38,6 +38,24 @@ export const RATE_LIMITS = {
 
   /** TOTP verification. Tight: 6 digits with no per-challenge counter. */
   mfaVerifyPerUser: { limit: 10, windowMs: 15 * MINUTE },
+
+  /**
+   * Draft creation per host.
+   *
+   * The service also caps how many unarchived listings a host may hold, but
+   * that cap alone is not a bound on rows: archiving frees a slot, so a script
+   * could create and archive indefinitely. This is what makes it finite.
+   */
+  experienceCreatePerHost: { limit: 40, windowMs: HOUR },
+
+  /**
+   * Media upload per host.
+   *
+   * Each accepted upload is up to 8 MB of stored bytes, so this is a storage
+   * bound as much as a request bound. Generous enough that a host filling three
+   * galleries in one sitting never meets it.
+   */
+  mediaUploadPerHost: { limit: 120, windowMs: HOUR },
 } as const satisfies Record<string, RateLimitRule>;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

@@ -3,11 +3,12 @@
 Living record of what exists, what is pending, and what is blocked. Updated at
 the end of every task, per `DEVELOPMENT_WORKFLOW.md`.
 
-**Last updated:** 2026-08-22
-**Current phase:** 0 — Engineering Foundation
-**Status:** Authentication & identity complete, and transactional email now
-delivers behind it. Verified end to end through real HTTP. No marketplace
-features.
+**Last updated:** 2026-08-25
+**Current phase:** 4 — Host + Inventory
+**Status:** The first marketplace workflow is live end to end. A host can join,
+build a profile, submit it for verification, create experiences, upload
+photographs, preview a listing as a traveller would see it, and submit it for
+review. Verified through real HTTP against the running application.
 
 ---
 
@@ -64,23 +65,81 @@ variables set at all**.
 | Sessions    | Server-side, hashed tokens, httpOnly + `__Host-` cookie, revocation effective immediately                    |
 | RBAC        | 6 roles, 38 permissions, full role-to-permission mapping (assumption A-001)                                  |
 | Email       | SES adapter implemented (ADR-0011); console transport for local development; login codes delivered           |
+| Design      | Token layer, typography and component set (ADR-0012). Resolves A-007                                         |
+| Hosts       | Profile, completeness assessment, verification lifecycle (FR-05)                                             |
+| Inventory   | Experiences with lifecycle, media, location, pricing fields (FR-06, FR-07)                                   |
+| Media       | Magic-byte validated uploads behind `StoragePort`; local transport (ADR-0013)                                |
+| Host UI     | Nine screens: landing, sign-in, join, overview, profile, inventory, editor, preview                          |
 | Templates   | One: `auth.login-code`. Framework-free renderer producing subject, text and HTML                             |
-| Adapters    | Payments, LLM, embeddings, storage, maps, analytics remain boundaries only                                   |
+| Adapters    | Payments, LLM, embeddings, maps, analytics remain boundaries only; S3 storage still a stub                   |
 | CI          | Two jobs: verify gate, and migrations + seed idempotency + integration tests on a clean database             |
-| Tests       | 166 unit tests (no database needed) + 77 database integration tests                                          |
+| Tests       | 256 unit tests (no database needed) + 118 database integration tests                                         |
 | Test DB     | Dedicated `lavivenzia_test`, provisioned by `npm run db:test:setup`                                          |
 | Reset       | `npm run db:reset` behind a three-gate safety guard; drops, re-migrates, re-seeds                            |
 
 ### Deliberately not built
 
-Marketplace features, booking flows, payment business logic, AI features, and
-polished UI.
+Booking, payments, refunds, GST/TCS, commission, traveller search and discovery,
+AI features, the operations console.
+
+**No listing can reach PUBLISHED yet.** FR-07 puts approval between draft and
+published and `experience:approve` is an Operations permission, so a host can
+submit but never publish. Nothing approves submissions until the operations
+console exists — that is the next milestone, not a gap in this one.
+
+**No financial arithmetic exists anywhere.** `experiences.base_price_minor`
+holds the host's own list price and nothing else. No fee, commission, tax or
+payout is stored, derived or displayed.
 
 Authentication now has a working transport, but **no real email has been sent**:
 the AWS account is being arranged separately, so the SES adapter has never
 spoken to SES. Google OAuth, password reset and email change each still need
 their own flow. Full list in `docs/AUTHENTICATION.md` under Known limitations,
 and `docs/EMAIL.md` for what AWS must supply.
+
+---
+
+## Milestone record — host onboarding and experience inventory (2026-08-25)
+
+**Already present, and reused rather than rebuilt.** The whole authentication
+and authorization stack — `Principal`, `authorize()`, `requirePermission`,
+sessions. The HTTP layer (`withRoute`, `parseJsonBody`, `parseQuery`,
+`jsonResponse`), the error model, the structured logger, the Prisma client and
+the audit repository. The `host` role already carried `experience:create`,
+`experience:update:own`, `experience:submit` and `availability:manage:own`. The
+`StoragePort` boundary. Nothing in `src/modules/auth` was modified.
+
+**Implemented.**
+
+- Four tables (`hosts`, `experiences`, `experience_media`, `categories`), a
+  generated PostGIS point with a GiST index, and seven check constraints.
+- Two permissions: `host:manage:own` and `experience:read:own`, granted to the
+  host role only — which is what makes "a traveller cannot reach host
+  functionality" a permission check rather than a UI condition.
+- `src/modules/hosts` and `src/modules/experiences`: profile completeness, the
+  listing lifecycle table, submission readiness, slug allocation — all pure.
+- `src/modules/media`: magic-byte image validation and server-generated
+  storage keys.
+- Ten `/api/v1` endpoints plus a public category list.
+- The **design token layer**, resolving A-007, and a component set: buttons,
+  form fields, status badges, progress, alerts, empty and loading states.
+- Nine screens: landing, sign-in, apply-to-host, host overview, profile
+  onboarding and editor, inventory list, experience editor, traveller preview.
+
+**Files.** 41 added, 12 modified. One migration,
+`20260825102020_host_and_experience_inventory` — additive only, no destructive
+statement.
+
+**Dependencies.** None added.
+
+**Configuration.** `MEDIA_STORAGE` (new, defaults to `local`) and
+`S3_MEDIA_BUCKET`. No AWS credential is configured anywhere; the SDK resolves
+them from the provider chain when S3 lands.
+
+**One defect found in this milestone's own work and fixed before it shipped.**
+The unarchived-listing cap does not bound row creation, because archiving frees
+a slot — create-and-archive in a loop was unbounded. Draft creation and media
+upload now carry per-host rate limits alongside the caps, both covered by tests.
 
 ---
 
@@ -123,16 +182,19 @@ development. Every assumption made in their place is recorded in
 
 Summary:
 
-| ID    | Subject               | Status                                  | Reversal cost    |
-| ----- | --------------------- | --------------------------------------- | ---------------- |
-| A-001 | RBAC mapping          | ASSUMED — working default in place      | Trivial (reseed) |
-| A-002 | Session lifetimes     | ASSUMED — one constant                  | Trivial          |
-| A-003 | Platform fee          | DEFERRED — nothing built                | High if guessed  |
-| A-004 | Cancellation / refund | DEFERRED — nothing built                | High if guessed  |
-| A-005 | GST / TCS             | DEFERRED — needs a chartered accountant | Very high        |
-| A-006 | Embeddings provider   | DEFERRED — boundary built, no provider  | High if guessed  |
-| A-007 | Design tokens         | DEFERRED — nothing built                | Medium           |
-| A-008 | Local DB image        | ASSUMED — PG16 + PostGIS + pgvector     | Trivial locally  |
+| ID    | Subject                     | Status                                  | Reversal cost    |
+| ----- | --------------------------- | --------------------------------------- | ---------------- |
+| A-001 | RBAC mapping                | ASSUMED — working default in place      | Trivial (reseed) |
+| A-002 | Session lifetimes           | ASSUMED — one constant                  | Trivial          |
+| A-003 | Platform fee                | DEFERRED — nothing built                | High if guessed  |
+| A-004 | Cancellation / refund       | DEFERRED — nothing built                | High if guessed  |
+| A-005 | GST / TCS                   | DEFERRED — needs a chartered accountant | Very high        |
+| A-006 | Embeddings provider         | DEFERRED — boundary built, no provider  | High if guessed  |
+| A-007 | Design tokens               | CONFIRMED — resolved by ADR-0012        | —                |
+| A-008 | Local DB image              | ASSUMED — PG16 + PostGIS + pgvector     | Trivial locally  |
+| A-009 | Editing a published listing | ASSUMED — conservative default          | Trivial          |
+| A-010 | Category taxonomy           | ASSUMED — eight working categories      | Trivial (reseed) |
+| A-011 | Host KYC documents          | DEFERRED — status only, no documents    | Low now          |
 
 The three financially-consequential decisions (A-003, A-004, A-005) remain
 unbuilt rather than assumed. Each one determines column structure for records
@@ -231,9 +293,9 @@ ever committed, and the container binds to `127.0.0.1` only.
 
 Last full run: **all green, exit 0.**
 
-- **166/166 unit tests**, passing with **no environment variables set at all**.
-- **77/77 database integration tests**, including the complete authentication
-  flows against real PostgreSQL.
+- **256/256 unit tests**, passing with **no environment variables set at all**.
+- **118/118 database integration tests**, including the complete authentication,
+  onboarding and inventory flows against real PostgreSQL.
 - `prisma validate` passes; no drift between schema and migrations.
 - Production build succeeds; all 8 auth routes compile as dynamic.
 
@@ -242,6 +304,21 @@ layer: registration, OTP issue/verify, code replay rejection, wrong-code
 rejection, password login (correct and incorrect), `me` with and without a
 session, cross-origin POST rejection, logout, and rejection of a captured token
 after revocation.
+
+Host onboarding and inventory were verified over HTTP against a running server,
+not only through the service layer. A host registered, signed in, was refused
+inventory access before creating a profile (403), created one, was refused
+submission while it was incomplete (400), completed and submitted it (PENDING),
+and was then locked out of editing it (409). They created a draft, were refused
+submission while it was unready (400), filled it in, uploaded a photograph
+(201, served back at 200), had a script disguised as a PNG rejected (400), were
+told alt text was still missing, added it, and submitted the listing (IN_REVIEW).
+
+The security boundaries were exercised the same way. A second host reading,
+editing or acting on the first host's listing received **404, not 403** — a 403
+would confirm the id exists. Their inventory listing returned zero rows. A
+signed-in traveller was refused the host profile surface and the inventory
+surface with 403. An anonymous visitor to `/host` was redirected to `/sign-in`.
 
 Email delivery was verified over HTTP against a running server, not only through
 the service layer: a traveller registered (201), requested a code (202), and the
@@ -288,18 +365,31 @@ milestone:
 
 ## Next task
 
-**Host onboarding and experience inventory.**
+**The operations console: host verification and experience approval.**
 
-Authentication can identify a host and email can now reach one, so the next
-vertical is the thing everything else waits on: inventory. Search, availability,
-pricing and bookings are all meaningless until an experience exists to search
-for. It also has no dependency on the three deferred financial decisions —
-listings can be created, described, located and scheduled without settling the
-platform fee, the cancellation policy or GST treatment.
+It is now the binding constraint rather than a nicety. Hosts can submit profiles
+and listings, and nothing can approve either — submissions accumulate in a queue
+with no reader. Every permission the console needs already exists (`host:verify`,
+`experience:approve`, `experience:suspend`, `experience:read:all`), the states
+and the audit trail are in place, and the design system it would be built on now
+exists. It is the smallest piece of work that turns the host workflow from a
+demonstration into something that completes.
 
-Email verification and password reset are now cheap — a template entry and a
-call site each — but both add authentication surface, so they belong to a
-milestone that owns that surface rather than being tacked on.
+It also unblocks the decision recorded as A-009 — what should happen when a host
+edits a published listing — which cannot be answered until something can publish
+one.
+
+After that, **traveller discovery**: the experience detail page, destination and
+category pages, then search. The spatial column and the slug are already in
+place for it.
+
+Still worth scheduling in parallel, independent of feature work:
+
+- Engage a chartered accountant on GST/TCS (A-005) — longest lead time in the
+  project, and still not started.
+- Operational bootstrap procedure for the first super admin. The operations
+  console is unusable without one, so this is now on the critical path.
+- TOTP replay prevention, before the first money-moving endpoint ships.
 
 Still worth scheduling in parallel, independent of feature work:
 

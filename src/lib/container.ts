@@ -2,8 +2,12 @@ import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { AuthService } from "@/modules/auth/service";
 import { OTP_TTL_MS } from "@/modules/auth/otp";
+import { HostService } from "@/modules/hosts/service";
+import { ExperienceService } from "@/modules/experiences/service";
 import type { EmailPort } from "@/ports/email";
+import type { StoragePort } from "@/ports/storage";
 import { createEmailAdapter } from "@/adapters/email";
+import { createStorageAdapter } from "@/adapters/storage";
 import {
   createAuditRepository,
   createOtpRepository,
@@ -11,6 +15,11 @@ import {
   createSessionRepository,
   createUserRepository,
 } from "@/adapters/persistence/prisma/auth-repositories";
+import { createHostRepository } from "@/adapters/persistence/prisma/host-repositories";
+import {
+  createCategoryRepository,
+  createExperienceRepository,
+} from "@/adapters/persistence/prisma/experience-repositories";
 
 /**
  * Composition root.
@@ -71,6 +80,51 @@ export function getAuthService(): AuthService {
   });
 
   return authService;
+}
+
+// ── Hosts and inventory ────────────────────────────────────────────────────
+
+let storage: StoragePort | undefined;
+
+/**
+ * Object storage for experience media.
+ *
+ * Built once. `createStorageAdapter` refuses local storage in production, where
+ * an ephemeral container filesystem would lose every upload on the next deploy.
+ */
+function getStorage(): StoragePort {
+  storage ??= createStorageAdapter();
+  return storage;
+}
+
+let hostService: HostService | undefined;
+
+export function getHostService(): HostService {
+  hostService ??= new HostService({
+    hosts: createHostRepository(prisma),
+    audit: createAuditRepository(prisma),
+    now: () => new Date(),
+  });
+
+  return hostService;
+}
+
+let experienceService: ExperienceService | undefined;
+
+export function getExperienceService(): ExperienceService {
+  experienceService ??= new ExperienceService({
+    // The URL for a stored object is derived by the storage adapter rather than
+    // persisted, so moving bucket or CDN is a configuration change instead of a
+    // data migration.
+    experiences: createExperienceRepository(prisma, (key) => getStorage().publicUrl(key)),
+    categories: createCategoryRepository(prisma),
+    storage: getStorage(),
+    audit: createAuditRepository(prisma),
+    rateLimiter: createRateLimiter(prisma),
+    now: () => new Date(),
+  });
+
+  return experienceService;
 }
 
 export { env };

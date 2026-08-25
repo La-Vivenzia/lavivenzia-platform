@@ -1,23 +1,189 @@
 @import "tailwindcss";
 
 /*
- * Design tokens are intentionally NOT defined yet.
+ * La Vivenzia design tokens.
  *
- * DESIGN.md sets the visual direction but does not yet carry numeric values:
- * the radius scale (including the `--lv-radius-sm` referenced in §35), the
- * spacing scale, container widths and the type scale are all still described in
- * prose. Inventing values here would create exactly the drift §35 and §36 exist
- * to prevent.
+ * Implements DESIGN.md, with one deliberate deviation recorded in ADR-0012:
+ * working surfaces are a warm ivory rather than deep black. DESIGN.md §3 sets a
+ * dark editorial direction and §33 lists white dashboards as an anti-pattern.
+ * Both concerns are answered here rather than ignored — the canvas is a warm
+ * parchment, never a clinical white, and near-black is kept as an *anchor* for
+ * the rail, the mastheads and the imagery. Gold stays scarce, which is what
+ * makes it read as valuable.
  *
- * The token layer lands with the design-system foundation task, once those
- * values are agreed. See PROJECT_STATE.md → Pending decisions.
+ * Every recurring value lives here (DESIGN.md §35). Components reference tokens;
+ * they do not carry their own hex codes.
  */
 
+@theme {
+  /* ── Surfaces ─────────────────────────────────────────────────────────── */
+
+  /* Warm parchment. The working canvas for host and admin screens. */
+  --color-canvas: #faf7f2;
+  /* Raised panels: cards, form wells, sheets. */
+  --color-surface: #fffdfa;
+  /* A half-step down, for inset areas and table headers. */
+  --color-surface-sunken: #f3eee5;
+
+  /* Anchors. Used for the rail, mastheads, image scrims and primary CTAs. */
+  --color-ink: #17140f;
+  --color-ink-soft: #241f19;
+  --color-charcoal: #322b23;
+
+  /* ── Type ─────────────────────────────────────────────────────────────── */
+
+  --color-text: #17140f;
+  --color-text-muted: #6b6157;
+  --color-text-subtle: #928779;
+  /* On dark anchors. */
+  --color-text-inverse: #f6efe2;
+  --color-text-inverse-muted: #b0a596;
+
+  /* ── Gold ─────────────────────────────────────────────────────────────── */
+
+  /*
+   * Two golds, because one cannot serve both grounds. The moodboard gold
+   * (#c9a84c) reads beautifully on black and fails contrast on ivory, so the
+   * darker antique tone is used for text and the lighter one for dark surfaces
+   * and fine rules.
+   */
+  --color-gold: #9a7524;
+  --color-gold-deep: #7d5d17;
+  --color-gold-light: #c9a84c;
+  --color-gold-wash: #f6efdd;
+
+  /* ── Editorial accents (DESIGN.md §5) ─────────────────────────────────── */
+
+  --color-burgundy: #5c1e26;
+  --color-brown: #5a2e17;
+
+  /* ── State ────────────────────────────────────────────────────────────── */
+
+  --color-success: #2f6042;
+  --color-success-wash: #eaf1eb;
+  --color-warning: #8a5a12;
+  --color-warning-wash: #fbf1e0;
+  --color-danger: #8c2b23;
+  --color-danger-wash: #fbecea;
+  --color-info-wash: #eceff3;
+
+  /* ── Lines ────────────────────────────────────────────────────────────── */
+
+  /* Thin and low-contrast (DESIGN.md §9). Structure, never decoration. */
+  --color-line: rgba(23, 20, 15, 0.1);
+  --color-line-strong: rgba(23, 20, 15, 0.18);
+  --color-line-gold: rgba(154, 117, 36, 0.32);
+  --color-line-inverse: rgba(246, 239, 226, 0.16);
+
+  /* ── Typography ───────────────────────────────────────────────────────── */
+
+  --font-display: var(--font-cinzel), "Cinzel", Georgia, "Times New Roman", serif;
+  --font-sans:
+    var(--font-montserrat), "Montserrat", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+
+  /* ── Radius (DESIGN.md §10 — restrained) ──────────────────────────────── */
+
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+
+  /* ── Elevation ────────────────────────────────────────────────────────── */
+
+  /*
+   * Barely-there shadows. DESIGN.md §33 forbids heavy ones, and on a warm
+   * canvas a soft warm shadow reads as paper rather than as a floating panel.
+   */
+  --shadow-raise: 0 1px 2px rgba(23, 20, 15, 0.04), 0 1px 1px rgba(23, 20, 15, 0.03);
+  --shadow-panel: 0 1px 3px rgba(23, 20, 15, 0.05), 0 8px 24px -12px rgba(23, 20, 15, 0.12);
+  --shadow-lift: 0 2px 6px rgba(23, 20, 15, 0.06), 0 18px 40px -20px rgba(23, 20, 15, 0.22);
+
+  /* ── Layout ───────────────────────────────────────────────────────────── */
+
+  --container-max: 1440px;
+
+  /* ── Motion (DESIGN.md §29 — restrained) ──────────────────────────────── */
+
+  --ease-out-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/*
+ * The console is committed to light. There is no dark variant, so
+ * `color-scheme: light` is stated rather than inherited — otherwise a viewer in
+ * dark mode gets browser-repainted form controls that fight the palette.
+ */
 html {
-  color-scheme: dark;
+  color-scheme: light;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background-color: #0d0d0d;
-  color: #f5ecd9;
+  background-color: var(--color-canvas);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/*
+ * Display type.
+ *
+ * Cinzel is a capitals face, so it is given generous tracking and used only at
+ * heading sizes. DESIGN.md §6 forbids it for dense utility text.
+ */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+  font-weight: 500;
+}
+
+/* Small uppercase labels — the editorial device used for eyebrows and section marks. */
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--color-text-subtle);
+}
+
+/*
+ * Focus.
+ *
+ * One visible ring everywhere, on a gold that clears contrast on both the ivory
+ * canvas and the dark rail. Keyboard navigation of the whole console depends on
+ * this single rule (REQUIREMENTS.md — Accessibility).
+ */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* Respect a stated preference for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Selection in the brand gold wash rather than the browser blue. */
+::selection {
+  background: var(--color-gold-wash);
+  color: var(--color-ink);
+}
+
+/* A quiet, warm scrollbar so the rail does not end in a grey stripe. */
+@supports (scrollbar-color: auto) {
+  * {
+    scrollbar-color: var(--color-line-strong) transparent;
+    scrollbar-width: thin;
+  }
 }

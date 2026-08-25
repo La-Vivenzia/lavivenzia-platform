@@ -28,7 +28,17 @@ function resolveCorrelationId(request: Request): string {
   return randomUUID();
 }
 
-export type RouteHandler = (request: Request) => Promise<Response>;
+/**
+ * A route handler.
+ *
+ * Generic over the second argument so that dynamic segments reach the handler
+ * with their real type. Next.js passes `{ params }` there; a handler that does
+ * not need it simply declares one parameter.
+ */
+export type RouteHandler<TContext = unknown> = (
+  request: Request,
+  context: TContext,
+) => Promise<Response>;
 
 /**
  * Wrap a route handler with logging context and centralized error handling.
@@ -37,8 +47,10 @@ export type RouteHandler = (request: Request) => Promise<Response>;
  * Anything else is a defect: logged at `error` with the stack, and returned to
  * the client as an opaque 500 keyed by correlation ID.
  */
-export function withRoute(handler: RouteHandler): RouteHandler {
-  return async (request: Request): Promise<Response> => {
+export function withRoute<TContext = unknown>(
+  handler: RouteHandler<TContext>,
+): RouteHandler<TContext> {
+  return async (request: Request, context: TContext): Promise<Response> => {
     const correlationId = resolveCorrelationId(request);
 
     return withLogContext({ correlationId }, async () => {
@@ -46,7 +58,7 @@ export function withRoute(handler: RouteHandler): RouteHandler {
       const startedAt = Date.now();
 
       try {
-        const response = await handler(request);
+        const response = await handler(request, context);
         response.headers.set(CORRELATION_HEADER, correlationId);
 
         log.info(

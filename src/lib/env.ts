@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { withoutEmptyValues } from "@/lib/env-utils";
 import { EMAIL_TRANSPORTS } from "@/adapters/email/transport";
+import { MEDIA_STORAGE_TRANSPORTS } from "@/adapters/storage/transport";
 
 /**
  * Environment validation (ADR-0009).
@@ -76,6 +77,16 @@ const providerSchema = z.object({
   GOOGLE_MAPS_API_KEY: z.string().optional(),
 
   AWS_REGION: z.string().default("ap-south-1"),
+
+  /**
+   * Where experience media is stored.
+   *
+   * `local` writes under `public/uploads`, which Next.js serves statically, so
+   * the media flow works on a laptop with no AWS account. Production refuses it
+   * below: a container filesystem is ephemeral, so uploads would appear to save
+   * and then vanish on the next deploy.
+   */
+  MEDIA_STORAGE: z.enum(MEDIA_STORAGE_TRANSPORTS).default("local"),
   S3_MEDIA_BUCKET: z.string().optional(),
 
   /**
@@ -160,6 +171,14 @@ export function assertDeploymentInvariants(): void {
   }
   if (!env.EMAIL_FROM) {
     problems.push("EMAIL_FROM is required in production (a sender identity verified in SES)");
+  }
+  if (env.MEDIA_STORAGE !== "s3") {
+    problems.push(
+      "MEDIA_STORAGE must be 's3' in production; local uploads are lost when the container is replaced",
+    );
+  }
+  if (env.MEDIA_STORAGE === "s3" && !env.S3_MEDIA_BUCKET) {
+    problems.push("S3_MEDIA_BUCKET is required when MEDIA_STORAGE is 's3'");
   }
 
   if (problems.length > 0) {

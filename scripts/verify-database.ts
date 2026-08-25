@@ -25,6 +25,12 @@ const REQUIRED_TABLES = [
   "role_permissions",
   "user_roles",
   "audit_logs",
+  "otp_challenges",
+  "rate_limit_counters",
+  "hosts",
+  "experiences",
+  "experience_media",
+  "categories",
 ] as const;
 
 /**
@@ -51,6 +57,20 @@ const REQUIRED_FOREIGN_KEYS: readonly {
   // Audit rows outlive their actor deliberately: SET NULL, never CASCADE.
   // An audit log that disappears with the user it indicts is not an audit log.
   { table: "audit_logs", column: "actor_id", references: "users", onDelete: "SET NULL" },
+
+  // Deleting an account removes the business profile and everything hanging off
+  // it. Audit rows are the deliberate exception above.
+  { table: "hosts", column: "user_id", references: "users", onDelete: "CASCADE" },
+  { table: "experiences", column: "host_id", references: "hosts", onDelete: "CASCADE" },
+  {
+    table: "experience_media",
+    column: "experience_id",
+    references: "experiences",
+    onDelete: "CASCADE",
+  },
+  // A retired category must not take listings with it: the listing survives
+  // with no category rather than vanishing from a host inventory.
+  { table: "experiences", column: "category_id", references: "categories", onDelete: "SET NULL" },
 ];
 
 /** Unique constraints the application relies on for correctness, not just tidiness. */
@@ -59,6 +79,12 @@ const REQUIRED_UNIQUE: readonly { table: string; columns: string[] }[] = [
   { table: "sessions", columns: ["token_hash"] },
   { table: "roles", columns: ["key"] },
   { table: "permissions", columns: ["key"] },
+  // One host profile per account.
+  { table: "hosts", columns: ["user_id"] },
+  // The public URL of a listing. Two listings cannot share one.
+  { table: "experiences", columns: ["slug"] },
+  { table: "experience_media", columns: ["storage_key"] },
+  { table: "categories", columns: ["key"] },
 ];
 
 /** Indexes that exist for query performance rather than constraint enforcement. */
@@ -71,6 +97,29 @@ const REQUIRED_INDEXES: readonly { table: string; columns: string[] }[] = [
   { table: "audit_logs", columns: ["occurred_at"] },
   { table: "audit_logs", columns: ["actor_id", "occurred_at"] },
   { table: "audit_logs", columns: ["subject_type", "subject_id"] },
+
+  // The host dashboard listing, and the operations review queue.
+  { table: "experiences", columns: ["host_id", "status", "updated_at"] },
+  { table: "experiences", columns: ["status", "submitted_at"] },
+  { table: "experiences", columns: ["category_id"] },
+  { table: "experience_media", columns: ["experience_id", "position"] },
+  { table: "hosts", columns: ["verification_status"] },
+  { table: "categories", columns: ["is_active", "position"] },
+];
+
+/**
+ * Check constraints that make an invariant true regardless of which code path
+ * wrote the row. The service validates the same rules for the sake of a decent
+ * error message; these are what make them guarantees.
+ */
+const REQUIRED_CHECKS: readonly string[] = [
+  "experiences_min_guests_check",
+  "experiences_guest_range_check",
+  "experiences_duration_check",
+  "experiences_base_price_check",
+  "experiences_coordinates_check",
+  "experience_media_byte_size_check",
+  "experience_media_position_check",
 ];
 
 let failed = false;
@@ -231,14 +280,62 @@ async function main(): Promise<void> {
       );
     }
 
+    // ── Check constraints ──
+    const checks = await pool.query<{ conname: string }>(`
+      SELECT c.conname
+      FROM pg_constraint c
+      JOIN pg_namespace n ON n.oid = c.connamespace
+      WHERE n.nspname = 'public' AND c.contype = 'c'
+    `);
+    const checkNames = new Set(checks.rows.map((row) => row.conname));
+
+    section("Check constraints:");
+    for (const name of REQUIRED_CHECKS) {
+      report(checkNames.has(name), name);
+    }
+
+    // ── Generated spatial column ──
+    // ADR-0008. GENERATED rather than written by the application, so it cannot
+    // drift from the latitude and longitude a host actually entered.
+    const geo = await pool.query<{ is_generated: string; index_type: string | null }>(`
+      SELECT
+        a.attgenerated::text AS is_generated,
+        (
+          SELECT am.amname
+          FROM pg_index ix
+          JOIN pg_class i ON i.oid = ix.indexrelid
+          JOIN pg_am am ON am.oid = i.relam
+          WHERE ix.indrelid = a.attrelid AND a.attnum = ANY (ix.indkey)
+          LIMIT 1
+        ) AS index_type
+      FROM pg_attribute a
+      JOIN pg_class t ON t.oid = a.attrelid
+      JOIN pg_namespace n ON n.oid = t.relnamespace
+      WHERE n.nspname = 'public' AND t.relname = 'experiences' AND a.attname = 'geo'
+    `);
+
+    section("Spatial column:");
+    const geoRow = geo.rows[0];
+    report(geoRow !== undefined, "experiences.geo exists");
+    report(geoRow?.is_generated === "s", "experiences.geo is GENERATED ... STORED");
+    // A B-tree on a geography column is inert; only GiST answers a distance or
+    // viewport query.
+    report(geoRow?.index_type === "gist", "experiences.geo has a GiST index");
+
     // ── Seeded vocabulary ──
     // Reported, not asserted: a freshly migrated database legitimately has none
     // until `npm run db:seed` runs.
-    const counts = await pool.query<{ roles: string; permissions: string; grants: string }>(`
+    const counts = await pool.query<{
+      roles: string;
+      permissions: string;
+      grants: string;
+      categories: string;
+    }>(`
       SELECT
-        (SELECT count(*) FROM roles)::text            AS roles,
-        (SELECT count(*) FROM permissions)::text      AS permissions,
-        (SELECT count(*) FROM role_permissions)::text AS grants
+        (SELECT count(*) FROM roles)::text                        AS roles,
+        (SELECT count(*) FROM permissions)::text                  AS permissions,
+        (SELECT count(*) FROM role_permissions)::text             AS grants,
+        (SELECT count(*) FROM categories WHERE is_active)::text   AS categories
     `);
     const row = counts.rows[0];
 
@@ -246,6 +343,7 @@ async function main(): Promise<void> {
     console.log(`  roles            ${row?.roles ?? "0"}`);
     console.log(`  permissions      ${row?.permissions ?? "0"}`);
     console.log(`  role grants      ${row?.grants ?? "0"}`);
+    console.log(`  categories       ${row?.categories ?? "0"}`);
 
     // ── Extension functionality ──
     // Confirms the extensions are not merely registered but working. Cheap

@@ -36,3 +36,7 @@ Thumbs.db
 # misc
 *.pem
 .vercel
+# Locally uploaded experience media (ADR-0013). The directory is tracked so the
+# path exists in a clean clone; its contents never are.
+public/uploads/*
+!public/uploads/README.md

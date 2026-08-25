@@ -47,6 +47,8 @@ model User {
   sessions  Session[]
   roles     UserRole[]
   auditLogs AuditLog[]
+  /// Present only once the user completes host onboarding.
+  host      Host?
 
   @@index([status])
   @@map("users")
@@ -253,4 +255,254 @@ model RateLimitCounter {
 
   @@index([windowStart])
   @@map("rate_limit_counters")
+}
+
+// ---------------------------------------------------------------------------
+// Hosts (FR-05)
+// ---------------------------------------------------------------------------
+
+/// A host's business profile. One row per user who operates experiences.
+///
+/// Separate from `User` rather than columns on it: a person is one identity but
+/// may or may not be a business, and every field here is business identity that
+/// a traveller-only account has no use for. It also keeps the host's public
+/// brand distinct from the private account that owns it.
+model Host {
+  id     String @id @default(uuid()) @db.Uuid
+  /// One host profile per user. The role grant is separate — holding the `host`
+  /// role is what authorizes creating this row, not the other way round.
+  userId String @unique @map("user_id") @db.Uuid
+
+  /// Public brand name, shown to travellers.
+  displayName String   @map("display_name")
+  /// Registered legal entity, where it differs from the brand. Needed before
+  /// verification; never shown publicly.
+  legalName   String?  @map("legal_name")
+  hostType    HostType @default(INDIVIDUAL) @map("host_type")
+
+  /// Operational contact. Not the login address: a business mailbox is often a
+  /// different address from the one a person signs in with.
+  contactEmail String? @map("contact_email") @db.Citext
+  contactPhone String? @map("contact_phone")
+  websiteUrl   String? @map("website_url")
+
+  /// Editorial copy. `headline` is a single positioning line; `about` is
+  /// long-form and appears on the public host page.
+  headline String?
+  about    String?
+
+  /// Where the host is based. Distinct from where any one experience happens.
+  city    String?
+  region  String?
+  country String  @default("IN")
+
+  /// Verification lifecycle (FR-05, FR-15). Documents are deliberately NOT
+  /// collected yet — KYC document storage needs an encryption-at-rest and
+  /// retention decision that has not been made. Status is modelled; the
+  /// document workflow arrives with the operations console.
+  verificationStatus HostVerificationStatus @default(DRAFT) @map("verification_status")
+  submittedAt        DateTime?              @map("submitted_at") @db.Timestamptz(3)
+  reviewedAt         DateTime?              @map("reviewed_at") @db.Timestamptz(3)
+  /// Operations user who decided. Null while unreviewed.
+  reviewedBy         String?                @map("reviewed_by") @db.Uuid
+  /// Shown to the host so a rejection is actionable rather than opaque.
+  reviewNote         String?                @map("review_note")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experiences Experience[]
+
+  @@index([verificationStatus])
+  @@map("hosts")
+}
+
+enum HostType {
+  INDIVIDUAL
+  COMPANY
+
+  @@map("host_type")
+}
+
+enum HostVerificationStatus {
+  /// Profile exists, not yet submitted. The host can still edit everything.
+  DRAFT
+  /// Submitted and awaiting an operations decision. Locked to the host.
+  PENDING
+  VERIFIED
+  REJECTED
+
+  @@map("host_verification_status")
+}
+
+// ---------------------------------------------------------------------------
+// Experience inventory (FR-06, FR-07)
+// ---------------------------------------------------------------------------
+
+/// A curated experience offered by a host.
+///
+/// Availability, pricing rules, bookings and reviews all hang off this row in
+/// later phases, so the identifiers and the lifecycle are the parts that must be
+/// right now — they are what everything downstream will reference.
+model Experience {
+  id     String @id @default(uuid()) @db.Uuid
+  hostId String @map("host_id") @db.Uuid
+
+  /// Stable public identifier, generated from the title at creation and never
+  /// silently regenerated: a slug that changes breaks every shared link and
+  /// every search-engine record pointing at it.
+  slug  String @unique
+  title String
+
+  /// One-line editorial hook, used on cards and in search results.
+  summary     String?
+  description String?
+
+  categoryId String? @map("category_id") @db.Uuid
+
+  status ExperienceStatus @default(DRAFT)
+
+  /// Where the experience happens.
+  addressLine String?  @map("address_line")
+  city        String?
+  region      String?
+  country     String   @default("IN")
+  postalCode  String?  @map("postal_code")
+  latitude    Decimal? @db.Decimal(9, 6)
+  longitude   Decimal? @db.Decimal(9, 6)
+
+  /// Spatial column for nearby and map-viewport discovery (FR-03, ADR-0008).
+  ///
+  /// Prisma has no PostGIS type, so it is declared `Unsupported` — the column
+  /// exists and is indexed, but is read through raw SQL when search lands. It is
+  /// GENERATED from latitude/longitude, so it cannot drift out of step with
+  /// them, and it is added now because retrofitting a spatial column onto a
+  /// populated core table is the expensive path ADR-0008 exists to avoid.
+  geo Unsupported("geography(Point, 4326)")?
+
+  durationMinutes Int?     @map("duration_minutes")
+  minGuests       Int      @default(1) @map("min_guests")
+  maxGuests       Int?     @map("max_guests")
+  /// Languages the experience is delivered in, as ISO 639-1 codes.
+  languages       String[] @default([])
+
+  /// The host's own list price, in the smallest currency unit — paise for INR.
+  ///
+  /// Integer minor units, never a float: 0.1 + 0.2 is not 0.3 in binary
+  /// floating point, and this number becomes money.
+  ///
+  /// This is the price the host sets and nothing else. No platform fee, no
+  /// commission, no GST and no TCS is stored, derived or implied here — those
+  /// are unresolved business decisions (docs/ASSUMPTIONS.md A-003, A-005) and
+  /// each would add its own columns when settled.
+  basePriceMinor Int?        @map("base_price_minor")
+  currency       String      @default("INR") @db.Char(3)
+  pricingUnit    PricingUnit @default(PER_PERSON) @map("pricing_unit")
+
+  /// What the price does and does not cover. Plain text lists rather than a
+  /// relation: they are editorial copy shown verbatim, never queried or joined.
+  inclusions String[] @default([])
+  exclusions String[] @default([])
+  /// Practical guest instructions — what to bring, what to expect.
+  guestNotes String?  @map("guest_notes")
+
+  /// Lifecycle timestamps (FR-07). Kept as columns rather than derived from the
+  /// audit log because they are read on every listing screen.
+  submittedAt DateTime? @map("submitted_at") @db.Timestamptz(3)
+  reviewedAt  DateTime? @map("reviewed_at") @db.Timestamptz(3)
+  reviewedBy  String?   @map("reviewed_by") @db.Uuid
+  reviewNote  String?   @map("review_note")
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  host     Host              @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  category Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  media    ExperienceMedia[]
+
+  /// The host dashboard lists a host's own experiences newest-first, and
+  /// operations lists everything awaiting review. Both are covered here.
+  @@index([hostId, status, updatedAt])
+  @@index([status, submittedAt])
+  @@index([categoryId])
+  @@map("experiences")
+}
+
+enum ExperienceStatus {
+  /// Being written. Editable, invisible to travellers.
+  DRAFT
+  /// Submitted for approval. Locked to the host until a decision.
+  IN_REVIEW
+  /// Approved and visible. Publication is an operations action, never the
+  /// host's own — FR-07 requires approval between draft and published.
+  PUBLISHED
+  /// Rejected with a note. Returns to the host's control for editing.
+  REJECTED
+  /// Withdrawn by operations after publication.
+  SUSPENDED
+  /// Retired by the host. Retained rather than deleted: past bookings and
+  /// payouts must keep referring to something.
+  ARCHIVED
+
+  @@map("experience_status")
+}
+
+enum PricingUnit {
+  PER_PERSON
+  PER_GROUP
+
+  @@map("pricing_unit")
+}
+
+/// An image belonging to an experience.
+///
+/// Rows are created only after the bytes are stored, so a row always refers to
+/// something that exists. `storageKey` is generated server-side and is unique —
+/// the client never chooses where its file lands.
+model ExperienceMedia {
+  id           String @id @default(uuid()) @db.Uuid
+  experienceId String @map("experience_id") @db.Uuid
+
+  storageKey  String  @unique @map("storage_key")
+  contentType String  @map("content_type")
+  byteSize    Int     @map("byte_size")
+  width       Int?
+  height      Int?
+  /// Alternative text. Nullable because it is authored after upload, but the
+  /// completeness check asks for it before submission — an experience gallery
+  /// with no alt text is inaccessible to exactly the travellers who need it.
+  altText     String? @map("alt_text")
+
+  /// Display order within the gallery. Zero is the cover image.
+  position Int @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  experience Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+
+  @@index([experienceId, position])
+  @@map("experience_media")
+}
+
+/// Experience categories (FR-06). Reference data, seeded and reconciled like
+/// roles — operations can reorder or retire one without a deploy.
+model Category {
+  id          String  @id @default(uuid()) @db.Uuid
+  /// Stable machine key, e.g. "culinary". Referenced by code and by URLs.
+  key         String  @unique
+  name        String
+  description String?
+  /// Editorial ordering in menus and filters.
+  position    Int     @default(0)
+  isActive    Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  experiences Experience[]
+
+  @@index([isActive, position])
+  @@map("categories")
 }

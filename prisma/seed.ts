@@ -7,6 +7,7 @@ import {
   PERMISSION_DESCRIPTIONS,
   ROLE_DEFINITIONS,
 } from "../src/modules/auth/permissions";
+import { CATEGORY_DEFINITIONS } from "../src/modules/experiences/categories";
 
 /**
  * Seed the RBAC vocabulary.
@@ -120,6 +121,48 @@ async function seedRoles(permissionIds: Map<string, string>): Promise<void> {
   }
 }
 
+/**
+ * Seed experience categories.
+ *
+ * Upserted by key and reordered on every run, the same reconciliation the roles
+ * get. A category is never deleted here: listings reference it, and the schema
+ * deactivates rather than removes. Retiring one is a matter of dropping it from
+ * CATEGORY_DEFINITIONS, which flips isActive to false below and leaves existing
+ * listings pointing at a category that simply stops being offered.
+ */
+async function seedCategories(): Promise<void> {
+  const keys = CATEGORY_DEFINITIONS.map((category) => category.key);
+
+  for (const [index, category] of CATEGORY_DEFINITIONS.entries()) {
+    await prisma.category.upsert({
+      where: { key: category.key },
+      create: {
+        key: category.key,
+        name: category.name,
+        description: category.description,
+        position: index,
+        isActive: true,
+      },
+      update: {
+        name: category.name,
+        description: category.description,
+        position: index,
+        isActive: true,
+      },
+    });
+  }
+
+  const retired = await prisma.category.updateMany({
+    where: { key: { notIn: keys }, isActive: true },
+    data: { isActive: false },
+  });
+
+  console.log(
+    `  ${CATEGORY_DEFINITIONS.length} categories upserted` +
+      (retired.count > 0 ? `, ${retired.count} retired` : ""),
+  );
+}
+
 async function main(): Promise<void> {
   console.log("Seeding RBAC vocabulary...");
 
@@ -127,6 +170,9 @@ async function main(): Promise<void> {
   console.log(`  ${permissionIds.size} permissions upserted`);
 
   await seedRoles(permissionIds);
+
+  console.log("Seeding experience categories...");
+  await seedCategories();
 
   console.log("Seed complete. No users were created — bootstrap the first admin operationally.");
 }

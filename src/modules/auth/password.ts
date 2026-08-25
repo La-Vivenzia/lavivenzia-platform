@@ -1,5 +1,17 @@
 import { hash, verify } from "@node-rs/argon2";
-import { ValidationError } from "@/lib/errors";
+import { assertPasswordPolicy } from "@/modules/auth/password-policy";
+
+/*
+ * The length policy lives in `password-policy.ts` and is re-exported here so
+ * existing server-side imports are unchanged. It is a separate module because
+ * this one loads a native addon that cannot be bundled for a browser, and the
+ * sign-up form needs the minimum length.
+ */
+export {
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  assertPasswordPolicy,
+} from "@/modules/auth/password-policy";
 
 /**
  * Password hashing (ADR-0005: argon2id).
@@ -26,31 +38,6 @@ const ARGON2_OPTIONS = {
   timeCost: 3,
   parallelism: 4,
 } as const;
-
-/**
- * Minimum length only.
- *
- * NIST SP 800-63B advises against composition rules (must contain a symbol, a
- * digit, …): they push users toward predictable substitutions without adding
- * real entropy. Length is the property that matters. Breached-password
- * screening would be the next genuine improvement, not a character-class rule.
- */
-export const MIN_PASSWORD_LENGTH = 12;
-
-/**
- * Upper bound guarding against a denial-of-service through the hash itself:
- * argon2 cost grows with input, so an unbounded password is an attack.
- */
-export const MAX_PASSWORD_LENGTH = 256;
-
-export function assertPasswordPolicy(password: string): void {
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    throw new ValidationError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
-  }
-  if (password.length > MAX_PASSWORD_LENGTH) {
-    throw new ValidationError(`Password must be at most ${MAX_PASSWORD_LENGTH} characters.`);
-  }
-}
 
 export async function hashPassword(password: string): Promise<string> {
   assertPasswordPolicy(password);

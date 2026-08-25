@@ -46,7 +46,9 @@ export const PERMISSIONS = {
   REVIEW_CREATE_OWN: "review:create:own",
   PROFILE_MANAGE_OWN: "profile:manage:own",
 
-  // Host — own inventory and bookings
+  // Host — own business profile, inventory and bookings
+  HOST_PROFILE_MANAGE_OWN: "host:manage:own",
+  EXPERIENCE_READ_OWN: "experience:read:own",
   EXPERIENCE_CREATE: "experience:create",
   EXPERIENCE_UPDATE_OWN: "experience:update:own",
   EXPERIENCE_SUBMIT: "experience:submit",
@@ -105,6 +107,8 @@ export const PERMISSION_DESCRIPTIONS: Readonly<Record<PermissionKey, string>> = 
   "review:create:own": "Leave a review for a completed booking",
   "profile:manage:own": "Manage own profile and preferences",
 
+  "host:manage:own": "Create and edit own host business profile",
+  "experience:read:own": "View own experience listings",
   "experience:create": "Create a new experience listing",
   "experience:update:own": "Edit own experience listings",
   "experience:submit": "Submit an experience for approval",
@@ -182,6 +186,8 @@ export const ROLE_DEFINITIONS: readonly RoleDefinition[] = [
     description: "Lists and operates experiences. Also holds traveller permissions.",
     permissions: [
       ...TRAVELLER_PERMISSIONS,
+      PERMISSIONS.HOST_PROFILE_MANAGE_OWN,
+      PERMISSIONS.EXPERIENCE_READ_OWN,
       PERMISSIONS.EXPERIENCE_CREATE,
       PERMISSIONS.EXPERIENCE_UPDATE_OWN,
       PERMISSIONS.EXPERIENCE_SUBMIT,

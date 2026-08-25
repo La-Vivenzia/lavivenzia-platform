@@ -143,23 +143,18 @@ exists means re-embedding the entire catalogue and rewriting the column.
 
 ## A-007 — Design tokens
 
-- **Status:** DEFERRED — nothing built
+- **Status:** CONFIRMED — resolved by ADR-0012
 - **Owner:** Founder / design
 - **Where:** `src/app/globals.css`
 
-`DESIGN.md` sets direction but carries no numeric values: the radius scale
-(including `--lv-radius-sm`, referenced in §35 but never defined), spacing,
-container widths and the type scale are all prose.
+The numeric token layer now exists: palette, radius scale, elevation, container
+width and the type pairing. `DESIGN.md` described these in prose only, which is
+why no UI could be built without inventing values inside components.
 
-The palette **is** defined and verified accessible — gold `#C9A84C` on
-`#0D0D0D` measures 9.2:1, well past WCAG AA. Only the numeric scales are
-missing.
-
-**Reversal cost if assumed wrongly: medium and compounding.** Every screen built
-against invented tokens has to be revisited. This is exactly the drift
-`DESIGN.md` §35 and §36 exist to prevent, which is why no UI is being built.
-
----
+ADR-0012 records the one substantive deviation — light working surfaces with
+dark anchors, in place of the all-dark direction in `DESIGN.md` §3 — and the
+reasoning for it. Colours live only in `globals.css`, so revisiting the decision
+is a token change rather than a rebuild.
 
 ## A-008 — Local development database image
 
@@ -178,6 +173,75 @@ each environment.
 **Reversal cost: trivial locally** (`docker compose down -v` and rebuild).
 **Non-trivial on RDS** — collation cannot be changed in place after data exists,
 so it must be set correctly at provisioning time.
+
+---
+
+## A-009 — Editing a published listing
+
+- **Status:** ASSUMED (conservative default)
+- **Owner:** Founder / operations
+- **Where:** `src/modules/experiences/lifecycle.ts` → `canEditContent`
+
+`FR-07` names the listing states but does not say what happens when a host wants
+to change a listing that is already live. Two answers are defensible and they
+are a product decision rather than an engineering one:
+
+1. **Allow the edit, and return the listing to review.** Moderation stays
+   intact, but a typo correction takes a live listing offline.
+2. **Allow the edit freely.** Convenient, and it means the listing a traveller
+   books is not the one anybody approved.
+
+The conservative reading is in place: a host may edit only in `DRAFT` and
+`REJECTED`. A published listing must be archived, or suspended by operations,
+before it can be changed.
+
+Nothing is blocked by this today — no listing can reach `PUBLISHED` until the
+operations console exists — so the decision can wait for that milestone.
+
+**Reversal cost: trivial.** One entry in the transition table and, for option 1,
+one line in `performAction`. No schema change either way.
+
+---
+
+## A-010 — Experience category taxonomy
+
+- **Status:** ASSUMED
+- **Owner:** Founder / content
+- **Where:** `src/modules/experiences/categories.ts`, seeded by `prisma/seed.ts`
+
+No document defines the categories. Eight are in place, derived from the launch
+scope in `PROJECT.md` §4 and the editorial positioning in `DESIGN.md` §2:
+culinary, heritage, wellness, adventure, wildlife, arts, voyages, celebrations.
+
+They are needed because a listing cannot be submitted without one, and inventing
+a single placeholder category would have been worse than proposing a real set.
+
+**Reversal cost: trivial.** Categories are rows, the seed reconciles them, and a
+retired category deactivates rather than deleting — `ON DELETE SET NULL` means a
+listing loses its category rather than disappearing. Renaming, reordering or
+replacing the whole taxonomy is an edit and a reseed.
+
+---
+
+## A-011 — Host KYC document collection
+
+- **Status:** DEFERRED — nothing built
+- **Owner:** Founder / legal
+- **Where:** nothing; `hosts.verification_status` models the workflow only
+
+`FR-05` requires a verification and KYC workflow. The **status** lifecycle is
+built (draft → pending → verified/rejected). **No identity documents are
+collected or stored.**
+
+That is deliberate. Storing identity documents raises questions this project has
+not answered: what is collected, encryption at rest, who may view it, how long
+it is retained, and what the deletion obligation is. Building a document upload
+before those are settled would create a personal-data liability that is
+expensive to unwind.
+
+**Reversal cost: low now, high if guessed wrong.** Adding a documents table
+later is additive. Collecting documents under the wrong retention policy is a
+data-protection problem, not a migration.
 
 ---
 
