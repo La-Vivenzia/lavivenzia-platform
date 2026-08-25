@@ -4,16 +4,33 @@ import Link from "next/link";
 /**
  * Buttons (DESIGN.md §11).
  *
- * Three intents and nothing more. A fourth variant is almost always a sign that
- * a screen wants a different hierarchy rather than a different button.
- *
  * Every variant supports the six states §11 requires: default, hover, focus,
  * active, disabled and loading. Loading is a real state rather than a swapped
  * label — the button keeps its width, so the layout does not jump while a
  * request is in flight.
+ *
+ * **A variant carries every colour it needs. Never pass colours through
+ * `className` to override one.** Tailwind utilities all have the same
+ * specificity, so which one wins is decided by the order they appear in the
+ * generated stylesheet — not by the order they appear in the class attribute.
+ * `bg-transparent` is emitted after `bg-gold-light`, so appending the latter to
+ * a `secondary` button silently does nothing. That is how the hero call to
+ * action came to render near-black text on a near-black ground: present,
+ * clickable, invisible.
+ *
+ * The two `-on-dark` variants exist because of that: a button on the ink ground
+ * needs a whole palette, not a patch over the light one.
  */
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+export type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "ghost"
+  | "danger"
+  /** Primary call to action on a dark ground. */
+  | "gold"
+  /** Secondary on a dark ground: hairline border, light text. */
+  | "inverse";
 export type ButtonSize = "sm" | "md" | "lg";
 
 const BASE =
@@ -39,6 +56,17 @@ const VARIANTS: Record<ButtonVariant, string> = {
     "bg-transparent text-text-muted border border-transparent hover:text-text hover:bg-surface-sunken",
   danger:
     "bg-transparent text-danger border border-danger/35 hover:bg-danger-wash hover:border-danger/60",
+
+  /*
+   * On the ink ground the scarcity argument inverts: gold is the only warm
+   * thing on the surface, so a gold fill reads as the single most important
+   * action rather than as decoration. Ink text on gold clears contrast
+   * comfortably; cream on gold would not.
+   */
+  gold: "bg-gold-light text-ink border border-gold-light hover:bg-gold hover:border-gold shadow-raise",
+  inverse:
+    "bg-transparent text-text-inverse border border-line-inverse hover:border-gold-light " +
+    "hover:text-gold-light active:bg-white/5",
 };
 
 const SIZES: Record<ButtonSize, string> = {

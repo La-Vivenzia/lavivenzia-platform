@@ -72,19 +72,11 @@ export default async function Home() {
           </p>
 
           <div className="mt-2 flex flex-wrap items-center gap-4">
-            <ButtonLink
-              href={isHost ? "/host" : "/become-a-host"}
-              size="lg"
-              className="border-gold-light bg-gold-light text-ink hover:bg-gold-light/90"
-            >
+            <ButtonLink href={isHost ? "/host" : "/become-a-host"} variant="gold" size="lg">
               {isHost ? "Open host console" : "Apply to host"}
             </ButtonLink>
             {!principal ? (
-              <ButtonLink
-                href="/sign-in"
-                size="lg"
-                className="border-line-inverse text-text-inverse hover:border-gold-light hover:bg-transparent hover:text-gold-light"
-              >
+              <ButtonLink href="/sign-in" variant="inverse" size="lg">
                 Sign in
               </ButtonLink>
             ) : null}

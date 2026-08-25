@@ -233,8 +233,8 @@ export function ExperienceEditor({
             <div className="flex flex-wrap items-center gap-3">
               <ButtonLink
                 href={`/host/experiences/${experience.id}/preview`}
+                variant="inverse"
                 size="sm"
-                className="border-line-inverse text-text-inverse hover:border-gold-light hover:text-gold-light hover:bg-transparent"
               >
                 Preview
               </ButtonLink>
@@ -243,15 +243,12 @@ export function ExperienceEditor({
                 <Button
                   key={action}
                   size="sm"
-                  variant={action === "submit" ? "primary" : "secondary"}
+                  // The masthead is the ink ground, so these are the dark-surface
+                  // variants rather than the light ones with a patch on top.
+                  variant={action === "submit" ? "gold" : "inverse"}
                   loading={acting === action}
                   disabled={acting !== null || (action === "submit" && !view.readiness.isReady)}
                   onClick={() => void performAction(action)}
-                  className={
-                    action === "submit"
-                      ? "border-gold-light bg-gold-light text-ink hover:bg-gold-light/90 hover:border-gold-light"
-                      : "border-line-inverse text-text-inverse hover:border-gold-light hover:text-gold-light hover:bg-transparent"
-                  }
                 >
                   {ACTION_LABELS[action]}
                 </Button>

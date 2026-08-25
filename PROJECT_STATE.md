@@ -136,7 +136,16 @@ statement.
 `S3_MEDIA_BUCKET`. No AWS credential is configured anywhere; the SDK resolves
 them from the provider chain when S3 lands.
 
-**One defect found in this milestone's own work and fixed before it shipped.**
+**Two defects found in this milestone's own work.**
+
+The hero call to action was invisible. It was written as a `secondary` button
+with colour utilities appended through `className` to recolour it — which does
+nothing: Tailwind utilities share specificity, so the generated stylesheet's
+order decides, and `bg-transparent` is emitted after `bg-gold-light`. The button
+rendered near-black text on the near-black hero, present and clickable. Fixed by
+adding `gold` and `inverse` variants for dark grounds; a source-scanning test now
+fails if any button is recoloured through `className`.
+
 The unarchived-listing cap does not bound row creation, because archiving frees
 a slot — create-and-archive in a loop was unbounded. Draft creation and media
 upload now carry per-host rate limits alongside the caps, both covered by tests.
