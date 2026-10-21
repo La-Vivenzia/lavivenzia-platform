@@ -4,11 +4,15 @@ import { AuthService } from "@/modules/auth/service";
 import { OTP_TTL_MS } from "@/modules/auth/otp";
 import { HostService } from "@/modules/hosts/service";
 import { ExperienceService } from "@/modules/experiences/service";
+import { AvailabilityService } from "@/modules/availability/service";
 import { OperationsService } from "@/modules/operations/service";
+import { DiscoveryService } from "@/modules/discovery/service";
 import type { EmailPort } from "@/ports/email";
 import type { StoragePort } from "@/ports/storage";
+import type { MapsPort } from "@/ports/maps";
 import { createEmailAdapter } from "@/adapters/email";
 import { createStorageAdapter } from "@/adapters/storage";
+import { createMapsAdapter } from "@/adapters/maps";
 import {
   createAuditRepository,
   createOtpRepository,
@@ -21,7 +25,9 @@ import {
   createCategoryRepository,
   createExperienceRepository,
 } from "@/adapters/persistence/prisma/experience-repositories";
+import { PrismaSlotRepository } from "@/adapters/persistence/prisma/availability-repositories";
 import { createOperationsRepository } from "@/adapters/persistence/prisma/operations-repositories";
+import { createDiscoveryRepository } from "@/adapters/persistence/prisma/discovery-repositories";
 
 /**
  * Composition root.
@@ -111,6 +117,25 @@ export function getHostService(): HostService {
   return hostService;
 }
 
+let availabilityService: AvailabilityService | undefined;
+
+/**
+ * Availability (FR-08).
+ *
+ * Shares the experience repository so ownership is resolved exactly once, by
+ * the same query the rest of the host surface uses. A second notion of "does
+ * this host own this experience" is how the two drift apart.
+ */
+export function getAvailabilityService(): AvailabilityService {
+  availabilityService ??= new AvailabilityService({
+    slots: new PrismaSlotRepository(prisma),
+    experiences: createExperienceRepository(prisma, (key) => getStorage().publicUrl(key)),
+    now: () => new Date(),
+  });
+
+  return availabilityService;
+}
+
 let experienceService: ExperienceService | undefined;
 
 export function getExperienceService(): ExperienceService {
@@ -139,6 +164,38 @@ export function getOperationsService(): OperationsService {
   });
 
   return operationsService;
+}
+
+let discoveryService: DiscoveryService | undefined;
+
+/**
+ * Traveller discovery.
+ *
+ * Takes no principal: everything it can reach is already published. The
+ * repository hard-codes the status filter, so there is no configuration here
+ * that could widen what the public site can see.
+ */
+export function getDiscoveryService(): DiscoveryService {
+  discoveryService ??= new DiscoveryService({
+    discovery: createDiscoveryRepository(prisma, (key) => getStorage().publicUrl(key)),
+  });
+
+  return discoveryService;
+}
+
+let mapsPort: MapsPort | undefined;
+
+/**
+ * Location search and geocoding (FR-03).
+ *
+ * Built once. `createMapsAdapter` selects Google when a key is configured and
+ * the catalogue provider otherwise, so an absent key degrades reach rather than
+ * breaking the endpoint — unlike email, location search has a real fallback and
+ * is not permitted to fail at wiring.
+ */
+export function getMapsPort(): MapsPort {
+  mapsPort ??= createMapsAdapter();
+  return mapsPort;
 }
 
 export { env };

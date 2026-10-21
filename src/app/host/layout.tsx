@@ -9,7 +9,7 @@ import { loadHostSession } from "@/lib/host-page";
  * known principal and none of them repeat the check. An anonymous visitor is
  * redirected before any child renders.
  *
- * Route handlers are not wrapped by layouts, which is why `/host/sign-out`
+ * Route handlers are not wrapped by layouts, which is why `/sign-out`
  * performs its own authentication rather than relying on this.
  */
 export default async function HostLayout({ children }: { readonly children: ReactNode }) {

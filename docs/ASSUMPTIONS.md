@@ -143,7 +143,7 @@ exists means re-embedding the entire catalogue and rewriting the column.
 
 ## A-007 — Design tokens
 
-- **Status:** CONFIRMED — resolved by ADR-0012
+- **Status:** CLOSED — the founders approved the identity on 2026-09-08
 - **Owner:** Founder / design
 - **Where:** `src/app/globals.css`
 
@@ -152,9 +152,14 @@ width and the type pairing. `DESIGN.md` described these in prose only, which is
 why no UI could be built without inventing values inside components.
 
 ADR-0012 records the one substantive deviation — light working surfaces with
-dark anchors, in place of the all-dark direction in `DESIGN.md` §3 — and the
-reasoning for it. Colours live only in `globals.css`, so revisiting the decision
-is a token change rather than a rebuild.
+dark anchors, in place of the all-dark direction in `DESIGN.md` §3 — and it
+still holds; the anchor simply changed hue.
+
+**The identity is now approved and implemented** (`DESIGN.md` §A,
+`docs/UI-REFERENCE-INVENTORY.md`). The bet this row recorded paid off exactly as
+intended: because colour lived only in `globals.css`, adopting the approved
+palette across nine traveller screens and two consoles was a token change, not a
+rebuild. This row can be deleted at the next review.
 
 ## A-008 — Local development database image
 
@@ -267,6 +272,107 @@ database intervention by someone with credentials.
 **Reversal cost: low.** Adding a reset is additive — one service method, one
 permission, one audit action. Choosing the wrong policy is the expensive part,
 which is why it is not being guessed.
+
+---
+
+## A-013 — Destinations are derived, not stored
+
+- **Status:** ASSUMED — working default in place
+- **Owner:** Founder / content
+- **Where:** `src/adapters/persistence/prisma/discovery-repositories.ts`
+
+`REQUIREMENTS.md` §5 lists `Destination` among the core entities and there is a
+`destination:manage` permission for content admins, but no destination table
+exists. Rather than invent one, destinations are **derived** from the distinct
+`experiences.city` values that currently have something published, with the slug
+computed by `slugify(city)`.
+
+That is deliberate. A destination entity is mostly editorial — a description, a
+hero image, a curated order, perhaps a guide — and every one of those is content
+somebody has to write. Creating the table now would mean either seeding invented
+copy or shipping a table of empty rows.
+
+Two consequences worth knowing:
+
+- A destination exists only while it has published listings, so there is no
+  empty destination page to land on.
+- City names are not globally unique. Two cities sharing a name would collapse
+  into one destination. Harmless India-first; it needs the real entity before
+  the platform is multi-country.
+
+**Reversal cost: low.** Adding a `Destination` table later is additive, and the
+slug shape can be preserved so existing links keep working. Nothing depends on
+destinations being derived except the two queries that derive them.
+
+---
+
+## A-014 — Price filtering assumes a single currency
+
+- **Status:** ASSUMED — working default in place
+- **Owner:** Founder
+- **Where:** `src/modules/discovery/service.ts` → `optionalPrice`
+
+The discovery price filter reads the query string as major units and converts to
+minor units using INR. Listings carry their own `currency`, so a catalogue with
+more than one would be filtered against a number that means different things per
+row.
+
+Correct while the platform is India-only. What the right behaviour is for a
+multi-currency catalogue — convert at a rate, filter per currency, or ask the
+traveller which currency they are thinking in — is a product decision.
+
+**Reversal cost: low.** One function, and the filter is not persisted anywhere.
+
+---
+
+## A-015 — Coordinate precision and location privacy
+
+- **Status:** ASSUMED — working default in place
+- **Owner:** Founder / legal
+- **Where:** `src/modules/discovery/geo.ts`
+
+A traveller who uses "Use my location" hands the browser a device position, and
+that position then travels in the query string of a URL they can share or
+bookmark. Coordinates are rounded to six decimal places — roughly 11 cm, and
+what `Decimal(9,6)` stores anyway — before they are used or echoed back.
+
+The rounding is deliberate on two counts. Beyond six places the extra digits are
+noise, and an un-rounded GPS fix is a high-entropy identifier: pasting one into
+a shared link discloses a person more precisely than the search needed.
+
+What is **not** decided: whether device coordinates should appear in a shareable
+URL at all, how long they may sit in access logs, and whether a coarser grid
+(three decimal places, ~110 m) should be used for the shareable form while the
+precise value is used only for the query. Those are privacy-policy questions
+with a legal dimension, not engineering ones.
+
+**Reversal cost: low.** One constant and one function, and no coordinate from a
+device is persisted anywhere.
+
+---
+
+## A-016 — Search relevance weights
+
+- **Status:** ASSUMED — working default in place
+- **Owner:** Founder / content
+- **Where:** `src/adapters/persistence/prisma/discovery-repositories.ts`
+
+Keyword results are ranked by trigram similarity, weighted by where the match
+occurred: title 1.0, summary 0.6, city 0.5, host name 0.4, plus 0.5 when the
+term appears verbatim in the title. The fuzzy-match threshold is 0.4.
+
+These are a ranking heuristic, not a business rule, and they are recorded here
+only so that nobody mistakes them for one. Changing them changes result order
+and nothing else — no pricing, no visibility, no policy. They were chosen so
+that a title match outranks a host-name match, and validated against the
+integration suite rather than against traveller behaviour, which does not exist
+yet.
+
+**Reversal cost: none.** Five constants in one object.
+
+What would replace them: search analytics (FR-19), once there is click-through
+data to tune against. Until then, tuning them further would be guessing with
+extra steps.
 
 ---
 

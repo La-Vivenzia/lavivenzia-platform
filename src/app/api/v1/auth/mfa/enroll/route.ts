@@ -2,6 +2,7 @@ import { env } from "@/lib/env";
 import { jsonResponse, withRoute } from "@/lib/http";
 import { assertSameOrigin, requirePrincipal } from "@/lib/auth-context";
 import { getAuthService } from "@/lib/container";
+import { extractTotpSecret, formatSecretForEntry, renderTotpQrCode } from "@/modules/auth/totp-qr";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,16 @@ export const POST = withRoute(async () => {
   const principal = await requirePrincipal();
   const { provisioningUri } = await getAuthService().beginMfaEnrolment(principal.userId);
 
-  // Carries the shared secret. Returned once, over the authenticated channel,
-  // and never logged.
-  return jsonResponse({ provisioningUri });
+  const secret = extractTotpSecret(provisioningUri);
+
+  // Every field here carries the shared secret in some form. Returned once,
+  // over the authenticated channel, and never logged — the QR is rendered in
+  // this process, so the secret reaches no third party.
+  return jsonResponse({
+    provisioningUri,
+    qrCode: renderTotpQrCode(provisioningUri),
+    // The manual fallback. A QR is unusable on a desktop authenticator, on a
+    // phone with the camera locked down, and to a screen-reader user.
+    manualKey: secret ? formatSecretForEntry(secret) : null,
+  });
 });

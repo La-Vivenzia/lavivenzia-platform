@@ -10,7 +10,10 @@ import {
 import { getAuthService } from "@/lib/container";
 
 /**
- * POST /host/sign-out — end the session and return to the front door.
+ * POST /sign-out — end the session and return to the front door.
+ *
+ * Not under `/host`: the traveller site, the host console and the operations
+ * console all sign out through this one endpoint.
  *
  * A form post rather than a fetch, so signing out works with JavaScript
  * unavailable. It is a POST because signing out changes state: as a GET it

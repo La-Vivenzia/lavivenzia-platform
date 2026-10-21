@@ -90,6 +90,19 @@ const providerSchema = z.object({
   S3_MEDIA_BUCKET: z.string().optional(),
 
   /**
+   * S3-compatible object storage (Cloudflare R2).
+   *
+   * `S3_ENDPOINT` is where objects are written; `S3_PUBLIC_BASE_URL` is where
+   * browsers read them. On R2 these are different hosts and must not be
+   * conflated. The credentials are secret: supplied by the environment, never
+   * committed, never logged.
+   */
+  S3_ENDPOINT: z.url().optional(),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+  S3_PUBLIC_BASE_URL: z.url().optional(),
+
+  /**
    * Transactional email (ADR-0011).
    *
    * `console` renders the message and writes it to the log instead of sending;
@@ -106,6 +119,12 @@ const providerSchema = z.object({
    * reputation degrades unobserved.
    */
   SES_CONFIGURATION_SET: z.string().optional(),
+
+  /**
+   * Resend API key. Secret: supplied by the environment, never committed, and
+   * never logged — the adapter records the provider error name and status only.
+   */
+  RESEND_API_KEY: z.string().optional(),
 
   SENTRY_DSN: z.string().optional(),
   POSTHOG_KEY: z.string().optional(),
@@ -163,14 +182,21 @@ export function assertDeploymentInvariants(): void {
   if (env.SESSION_SECRET.startsWith("replace-me")) {
     problems.push("SESSION_SECRET is still the placeholder value from .env.example");
   }
-  if (env.EMAIL_TRANSPORT !== "ses") {
+  if (env.EMAIL_TRANSPORT === "console") {
     // The console transport reports success while sending nothing, and writes
     // login codes into a retained log. In production that is both an outage
     // travellers cannot see and a credential disclosure.
-    problems.push("EMAIL_TRANSPORT must be 'ses' in production; 'console' sends no mail");
+    problems.push(
+      "EMAIL_TRANSPORT must be 'resend' or 'ses' in production; 'console' sends no mail",
+    );
+  }
+  if (env.EMAIL_TRANSPORT === "resend" && !env.RESEND_API_KEY) {
+    problems.push("RESEND_API_KEY is required in production when EMAIL_TRANSPORT=resend");
   }
   if (!env.EMAIL_FROM) {
-    problems.push("EMAIL_FROM is required in production (a sender identity verified in SES)");
+    problems.push(
+      "EMAIL_FROM is required in production (an address on a domain verified with the configured provider)",
+    );
   }
   if (env.MEDIA_STORAGE !== "s3") {
     problems.push(

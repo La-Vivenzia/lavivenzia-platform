@@ -2,8 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { TextField } from "@/components/ui/field";
+import { AuthField, AuthSubmit, LockGlyph, MailGlyph } from "@/components/auth/AuthScreen";
 import { Alert } from "@/components/ui/feedback";
 import { ApiError, api } from "@/lib/api-client";
 import { MIN_PASSWORD_LENGTH } from "@/modules/auth/password-policy";
@@ -47,44 +46,31 @@ export function JoinForm() {
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-7">
       {error ? <Alert tone="danger">{error}</Alert> : null}
 
-      <TextField
-        label="Email"
+      <AuthField
+        icon={<MailGlyph />}
         type="email"
-        name="email"
         autoComplete="email"
         required
         value={email}
         onChange={(event) => setEmail(event.target.value)}
-        placeholder="you@example.com"
-        help="We will use this to reach you about your listings."
+        placeholder="Email address"
+        aria-label="Email address"
       />
 
-      <TextField
-        label="Password"
+      <AuthField
+        icon={<LockGlyph />}
         type="password"
-        name="password"
         autoComplete="new-password"
         required
-        minLength={MIN_PASSWORD_LENGTH}
         value={password}
         onChange={(event) => setPassword(event.target.value)}
-        placeholder="••••••••••••"
-        // Guidance, not a composition rule. Length is what adds entropy; forced
-        // symbol classes push people toward predictable substitutions.
-        help={`At least ${MIN_PASSWORD_LENGTH} characters. A phrase you will remember beats a short, complicated word.`}
-        error={passwordTooShort ? `Use at least ${MIN_PASSWORD_LENGTH} characters.` : undefined}
+        placeholder={`Password — at least ${MIN_PASSWORD_LENGTH} characters`}
+        aria-label="Password"
       />
 
-      <Button
-        type="submit"
-        variant="primary"
-        size="lg"
-        loading={submitting}
-        disabled={passwordTooShort}
-        className="w-full"
-      >
-        Create account
-      </Button>
+      <AuthSubmit pending={submitting} disabled={passwordTooShort || email.length === 0}>
+        Start Hosting
+      </AuthSubmit>
     </form>
   );
 }

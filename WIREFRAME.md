@@ -1,4 +1,12 @@
-# La Vivenzia — Luxury Wireframe & UX Sitemap
+# La Vivenzia — Wireframes
+
+> **Status note (2026-09-08).** The approved visual identity is now implemented
+> and supersedes any layout sketch below where the two disagree. The public
+> chrome — header, footer, mobile tab bar — is `SiteShell`, and the interior
+> page rhythm is `PageHeader` + `PageBody`. Screens described here as wireframes
+> should be read for *information architecture*, not for appearance.
+> See `DESIGN.md` §A and `docs/UI-REFERENCE-INVENTORY.md`.
+
 
 ## Design Reference
 

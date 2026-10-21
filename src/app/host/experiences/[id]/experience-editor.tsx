@@ -232,6 +232,14 @@ export function ExperienceEditor({
 
             <div className="flex flex-wrap items-center gap-3">
               <ButtonLink
+                href={`/host/experiences/${experience.id}/availability`}
+                variant="inverse"
+                size="sm"
+              >
+                Availability
+              </ButtonLink>
+
+              <ButtonLink
                 href={`/host/experiences/${experience.id}/preview`}
                 variant="inverse"
                 size="sm"

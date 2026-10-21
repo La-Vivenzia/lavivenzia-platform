@@ -280,7 +280,7 @@ export default async function PreviewPage({
 
       <footer className="border-line-inverse mt-8 border-t">
         <div className="mx-auto w-full max-w-[1120px] px-6 py-10 sm:px-10">
-          <Wordmark size="sm" tone="gold" />
+          <Wordmark size="sm" tone="gold" mark />
         </div>
       </footer>
     </div>

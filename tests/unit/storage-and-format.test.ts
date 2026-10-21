@@ -50,10 +50,30 @@ describe("resolveStorageTransport", () => {
     ).toThrow(/S3_MEDIA_BUCKET/);
   });
 
-  it("accepts a configured S3 transport", () => {
+  it("accepts a fully configured S3 transport and trims each value", () => {
+    // The plan now carries the whole provider configuration rather than just
+    // the bucket, because the adapter needs an endpoint, a credential and a
+    // separate public domain to be constructible at all.
     expect(
-      resolveStorageTransport({ nodeEnv: "production", transport: "s3", bucket: " media " }),
-    ).toEqual({ kind: "s3", bucket: "media" });
+      resolveStorageTransport({
+        nodeEnv: "production",
+        transport: "s3",
+        bucket: " media ",
+        endpoint: " https://account.r2.cloudflarestorage.com ",
+        accessKeyId: " key-id ",
+        secretAccessKey: " secret ",
+        publicBaseUrl: " https://media.lavivenzia.com ",
+      }),
+    ).toEqual({
+      kind: "s3",
+      config: {
+        bucket: "media",
+        endpoint: "https://account.r2.cloudflarestorage.com",
+        accessKeyId: "key-id",
+        secretAccessKey: "secret",
+        publicBaseUrl: "https://media.lavivenzia.com",
+      },
+    });
   });
 });
 

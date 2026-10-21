@@ -1,4 +1,5 @@
 import { InternalError } from "@/lib/errors";
+import type { S3StorageConfig } from "@/adapters/storage/s3";
 
 /**
  * Object storage transport selection.
@@ -15,10 +16,14 @@ export interface StorageTransportInput {
   readonly nodeEnv: "development" | "test" | "production";
   readonly transport: MediaStorageTransport;
   readonly bucket?: string | undefined;
+  readonly endpoint?: string | undefined;
+  readonly accessKeyId?: string | undefined;
+  readonly secretAccessKey?: string | undefined;
+  readonly publicBaseUrl?: string | undefined;
 }
 
 export type StorageTransportPlan =
-  { readonly kind: "local" } | { readonly kind: "s3"; readonly bucket: string };
+  { readonly kind: "local" } | { readonly kind: "s3"; readonly config: S3StorageConfig };
 
 /**
  * Decide which storage backing to use.
@@ -43,10 +48,28 @@ export function resolveStorageTransport(input: StorageTransportInput): StorageTr
     return { kind: "local" };
   }
 
+  // Each piece is checked by name so a half-configured deployment says which
+  // one is missing, rather than failing on the first upload a host attempts.
   const bucket = input.bucket?.trim();
-  if (!bucket) {
-    throw new InternalError("MEDIA_STORAGE=s3 requires S3_MEDIA_BUCKET.");
+  const endpoint = input.endpoint?.trim();
+  const accessKeyId = input.accessKeyId?.trim();
+  const secretAccessKey = input.secretAccessKey?.trim();
+  const publicBaseUrl = input.publicBaseUrl?.trim();
+
+  if (!bucket) throw new InternalError("MEDIA_STORAGE=s3 requires S3_MEDIA_BUCKET.");
+  if (!endpoint) throw new InternalError("MEDIA_STORAGE=s3 requires S3_ENDPOINT.");
+  if (!accessKeyId) throw new InternalError("MEDIA_STORAGE=s3 requires S3_ACCESS_KEY_ID.");
+  if (!secretAccessKey) {
+    throw new InternalError("MEDIA_STORAGE=s3 requires S3_SECRET_ACCESS_KEY.");
+  }
+  if (!publicBaseUrl) {
+    throw new InternalError(
+      "MEDIA_STORAGE=s3 requires S3_PUBLIC_BASE_URL — the domain objects are served from, which is not the S3 endpoint.",
+    );
   }
 
-  return { kind: "s3", bucket };
+  return {
+    kind: "s3",
+    config: { bucket, endpoint, accessKeyId, secretAccessKey, publicBaseUrl },
+  };
 }

@@ -152,6 +152,33 @@ Rules:
 - Ranking combines relevance, availability, quality and business rules.
 - LLM output must not invent availability, pricing or booking state.
 
+### What is built (ADR-0014)
+
+The diagram above is the target. As of Phase 5.1 the **left and bottom paths are
+real and the vector path is not**:
+
+| Stage                | State                                                           |
+| -------------------- | --------------------------------------------------------------- |
+| Structured retrieval | Built — category, destination, price, duration, proximity        |
+| Keyword retrieval    | Built — `ILIKE` plus `word_similarity` for misspellings          |
+| Relevance ranking    | Built — weighted trigram similarity, `pg_trgm`                   |
+| Proximity + distance | Built — `ST_DWithin` and `ST_Distance` on the PostGIS column     |
+| Location + geocoding | Built — Google Places, with the catalogue as a live fallback     |
+| Intent extraction    | Not built — Phase 8                                              |
+| Embedding            | Not built — provider unresolved (ADR-0007, A-006)                |
+| Vector retrieval     | Not built — no vector column exists, and none may be added yet   |
+| LLM explanation      | Not built — Phase 8                                              |
+
+Retrieval runs entirely in PostgreSQL. No search cluster, no vector database and
+no cache tier were added; `PROJECT.md` §9 puts all three out of scope without
+explicit approval, and nothing measured so far requires them.
+
+**Search does not depend on any AI provider.** Every path above is deterministic
+SQL. When the embedding and LLM stages land they add candidates and explanations
+on top; if they are unavailable, search degrades to exactly what it does today
+rather than failing. The same rule governs location: a maps outage falls back to
+the cities in our own catalogue.
+
 ## 7. Booking Architecture
 
 ```mermaid

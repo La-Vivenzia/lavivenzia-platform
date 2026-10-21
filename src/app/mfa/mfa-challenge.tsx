@@ -2,8 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { TextField } from "@/components/ui/field";
+import { AuthSubmit } from "@/components/auth/AuthScreen";
+import { CodeInput } from "@/components/auth/CodeInput";
 import { Alert } from "@/components/ui/feedback";
 import { ApiError, api } from "@/lib/api-client";
 
@@ -18,18 +18,11 @@ import { ApiError, api } from "@/lib/api-client";
  * stops a hijacked session swapping the second factor.
  */
 
-/** Pull the shared secret out of the provisioning URI for manual entry. */
-function secretFrom(uri: string): string | null {
-  try {
-    return new URL(uri.replace("otpauth://", "https://")).searchParams.get("secret");
-  } catch {
-    return null;
-  }
-}
-
-/** Grouped into fours — a 32-character string is otherwise unreadable to type. */
-function grouped(secret: string): string {
-  return (secret.match(/.{1,4}/g) ?? [secret]).join(" ");
+interface EnrolmentResponse {
+  readonly provisioningUri: string;
+  /** Inline SVG as a data URI. Rendered by this process, never by a QR service. */
+  readonly qrCode: string;
+  readonly manualKey: string | null;
 }
 
 export function MfaChallenge({ destination }: { readonly destination: string }) {
@@ -40,7 +33,7 @@ export function MfaChallenge({ destination }: { readonly destination: string }) 
 
   const [setupOpen, setSetupOpen] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
-  const [provisioningUri, setProvisioningUri] = useState<string | null>(null);
+  const [enrolment, setEnrolment] = useState<EnrolmentResponse | null>(null);
   const [enrolled, setEnrolled] = useState(false);
 
   async function beginEnrolment(): Promise<void> {
@@ -49,8 +42,7 @@ export function MfaChallenge({ destination }: { readonly destination: string }) 
     setSetupOpen(true);
 
     try {
-      const result = await api.post<{ provisioningUri: string }>("/api/v1/auth/mfa/enroll");
-      setProvisioningUri(result.provisioningUri);
+      setEnrolment(await api.post<EnrolmentResponse>("/api/v1/auth/mfa/enroll"));
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 409) {
         // Already enrolled. Not an error to recover from — just tell them to
@@ -84,8 +76,6 @@ export function MfaChallenge({ destination }: { readonly destination: string }) 
     }
   }
 
-  const secret = provisioningUri ? secretFrom(provisioningUri) : null;
-
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
@@ -98,28 +88,11 @@ export function MfaChallenge({ destination }: { readonly destination: string }) 
       {error ? <Alert tone="danger">{error}</Alert> : null}
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-7">
-        <TextField
-          label="Authentication code"
-          required
-          autoFocus
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          maxLength={6}
-          value={code}
-          onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
-          placeholder="000000"
-        />
+        <CodeInput value={code} onChange={setCode} autoFocus />
 
-        <Button
-          type="submit"
-          variant="primary"
-          size="lg"
-          loading={submitting}
-          disabled={code.length !== 6}
-          className="w-full"
-        >
-          Verify
-        </Button>
+        <AuthSubmit pending={submitting} disabled={code.length !== 6}>
+          Verify Code
+        </AuthSubmit>
       </form>
 
       <div className="border-line border-t pt-6">
@@ -144,24 +117,61 @@ export function MfaChallenge({ destination }: { readonly destination: string }) 
               </Alert>
             ) : null}
 
-            {secret ? (
-              <div className="flex flex-col gap-3">
+            {enrolment ? (
+              <div className="flex flex-col gap-5">
                 <p className="text-text-muted text-[13px] leading-relaxed">
-                  Add a new account in your authenticator app and enter this key by hand, then type
-                  the code it produces above.
+                  Scan this with your authenticator app, then type the six-digit code it produces
+                  above.
                 </p>
 
-                <code className="border-line bg-surface-sunken block border px-4 py-3 font-mono text-[15px] tracking-[0.16em] break-all">
-                  {grouped(secret)}
-                </code>
+                <div className="flex justify-center">
+                  {/*
+                   * A data URI produced on the server. No request leaves the
+                   * browser for it — a public QR service would be handed the
+                   * shared secret of a privileged account.
+                   *
+                   * Plain <img>, not next/image: the optimiser has nothing to do
+                   * with an inline SVG, and routing a secret through it would be
+                   * an odd place to put one.
+                   */}
+                  {/* eslint-disable-next-line @next/next/no-img-element --
+                      next/image optimises remote and local files; there is
+                      nothing to optimise in an inline SVG data URI, and it
+                      would route the shared secret through the image
+                      optimiser for no benefit. */}
+                  <img
+                    src={enrolment.qrCode}
+                    alt="QR code for setting up your authenticator app"
+                    width={200}
+                    height={200}
+                    className="border-line bg-surface rounded-sm border p-3"
+                  />
+                </div>
+
+                {enrolment.manualKey ? (
+                  <details className="border-line border-t pt-4">
+                    <summary className="text-text-muted hover:text-text cursor-pointer text-[13px]">
+                      Cannot scan? Enter the key by hand
+                    </summary>
+                    <div className="mt-3 flex flex-col gap-2">
+                      <p className="text-text-subtle text-[12px] leading-relaxed">
+                        In your authenticator app choose &ldquo;enter a setup key&rdquo;, paste
+                        this, and set the type to time-based.
+                      </p>
+                      <code className="border-line bg-surface-sunken block border px-4 py-3 font-mono text-[15px] tracking-[0.16em] break-all">
+                        {enrolment.manualKey}
+                      </code>
+                    </div>
+                  </details>
+                ) : null}
 
                 {/*
-                 * Shown once and never logged: this string is the second factor.
+                 * Shown once and never logged: this is the second factor.
                  * Anyone who reads it can generate codes for this account.
                  */}
                 <p className="text-text-subtle text-[12px] leading-relaxed">
-                  Shown once. It is not stored anywhere you can read it again — if you lose it, an
-                  administrator has to reset your second factor.
+                  Shown once. It is not stored anywhere you can read it again — if you lose access
+                  to your authenticator, an administrator has to reset your second factor.
                 </p>
               </div>
             ) : null}

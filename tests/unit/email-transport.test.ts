@@ -147,6 +147,68 @@ describe("resolveEmailTransport — configuration set", () => {
   });
 });
 
+describe("resolveEmailTransport — resend", () => {
+  const base = { nodeEnv: "production", transport: "resend" } as const;
+
+  it("plans a resend transport when the sender and key are present", () => {
+    const plan = resolveEmailTransport({
+      ...base,
+      from: "no-reply@lavivenzia.com",
+      resendApiKey: "re_test_not_a_real_key",
+    });
+
+    expect(plan.kind).toBe("resend");
+    expect(plan.kind === "resend" && plan.config.from).toBe("no-reply@lavivenzia.com");
+  });
+
+  it("refuses at wiring time when EMAIL_FROM is missing", () => {
+    // The point of failing here is that the process refuses to start, rather
+    // than serving a login page that cannot deliver a code.
+    expect(() =>
+      resolveEmailTransport({ ...base, resendApiKey: "re_test_not_a_real_key" }),
+    ).toThrow(/EMAIL_FROM/);
+  });
+
+  it("refuses at wiring time when RESEND_API_KEY is missing", () => {
+    expect(() => resolveEmailTransport({ ...base, from: "no-reply@lavivenzia.com" })).toThrow(
+      /RESEND_API_KEY/,
+    );
+  });
+
+  it("treats a whitespace-only key as missing", () => {
+    expect(() =>
+      resolveEmailTransport({ ...base, from: "no-reply@lavivenzia.com", resendApiKey: "   " }),
+    ).toThrow(/RESEND_API_KEY/);
+  });
+
+  it("does not require AWS_REGION — that is an SES concern", () => {
+    expect(() =>
+      resolveEmailTransport({
+        ...base,
+        from: "no-reply@lavivenzia.com",
+        resendApiKey: "re_test_not_a_real_key",
+      }),
+    ).not.toThrow();
+  });
+
+  it("still refuses the console transport in production", () => {
+    expect(() => resolveEmailTransport({ nodeEnv: "production", transport: "console" })).toThrow(
+      /console/,
+    );
+  });
+
+  it("leaves SES reachable, so rollback is one environment variable", () => {
+    const plan = resolveEmailTransport({
+      nodeEnv: "production",
+      transport: "ses",
+      from: "no-reply@lavivenzia.com",
+      region: "ap-south-1",
+    });
+
+    expect(plan.kind).toBe("ses");
+  });
+});
+
 describe("maskEmail", () => {
   it("keeps the address recognisable without reproducing it", () => {
     expect(maskEmail("traveller@example.com")).toBe("t*******r@example.com");

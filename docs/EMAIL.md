@@ -1,7 +1,11 @@
 # Transactional Email
 
-Implements ADR-0011. Amazon SES behind `EmailPort`, with a console transport for
-local development.
+Implements ADR-0011. **Resend** behind `EmailPort`, with Amazon SES retained as
+a verified rollback path and a console transport for local development.
+
+> **Provider migrated to Resend on 2026-10-21.** SES was not removed: it is
+> fully implemented and tested, and rolling back is a single environment
+> variable. See "Rollback" below.
 
 ## Layering
 
@@ -9,7 +13,8 @@ local development.
 src/modules/notifications/email-templates.ts   subject + text + HTML  (framework-free)
 src/ports/email.ts                             the interface callers depend on
 src/adapters/email/transport.ts                which transport, and whether it is allowed
-src/adapters/email/ses/                        Amazon SES — the only file that knows SES exists
+src/adapters/email/resend/                     Resend — the only file that knows Resend exists
+src/adapters/email/ses/                        Amazon SES — retained for rollback
 src/adapters/email/console/                    development transport: renders and logs
 src/adapters/email/index.ts                    reads configuration, builds the adapter
 src/lib/container.ts                           wires it into the auth service
@@ -143,3 +148,83 @@ address that has an account and 202 for one that does not, which is an
 enumeration signal that does not exist when SES is healthy. Accepted: the
 alternative is returning 202 to a traveller who will never receive a code. It is
 bounded by the outage, and the endpoint is rate limited on both address and IP.
+
+---
+
+## Resend setup
+
+What has to exist before a real email can be delivered.
+
+### 1. Verify a sending domain
+
+Resend dashboard → **Domains** → **Add Domain** (e.g. `lavivenzia.com`), then
+publish the DNS records it issues:
+
+| Record                                 | Purpose                                                                           |
+| -------------------------------------- | --------------------------------------------------------------------------------- |
+| **DKIM** (`resend._domainkey`, TXT)    | Signs outgoing mail. Without it, delivery to Gmail and Outlook is unreliable      |
+| **SPF** (TXT on the sending subdomain) | Authorises Resend to send for the domain                                          |
+| **DMARC** (`_dmarc`, TXT)              | Tells receivers what to do when the first two fail. Start at `p=none` and tighten |
+
+`lavivenzia.com` is on Cloudflare, so these are added in the Cloudflare DNS
+dashboard. Verification is usually minutes but can take up to 72 hours.
+
+**A sandbox-style restriction applies until the domain is verified:** Resend
+will only deliver to the address that owns the account. That is enough to test
+the login flow, and not enough for real travellers.
+
+### 2. Create an API key
+
+Dashboard → **API Keys** → **Create**. **Sending access** is sufficient; do not
+issue a full-access key for an application that only sends.
+
+### 3. Configure the environment
+
+| Variable          | Value                                                             |
+| ----------------- | ----------------------------------------------------------------- |
+| `EMAIL_TRANSPORT` | `resend`                                                          |
+| `EMAIL_FROM`      | An address on the verified domain, e.g. `no-reply@lavivenzia.com` |
+| `RESEND_API_KEY`  | The key from step 2                                               |
+
+Local values go in `.env.local`, which is gitignored. **No key is ever
+committed**, and the adapter never logs it — failures record the provider error
+name and HTTP status only.
+
+Production refuses to start if `EMAIL_TRANSPORT=console`, or if `resend` is
+selected without `RESEND_API_KEY` or `EMAIL_FROM` (`src/lib/env.ts`).
+
+---
+
+## Rollback
+
+SES is untouched and still tested. To revert:
+
+```
+EMAIL_TRANSPORT=ses
+EMAIL_FROM=<identity verified in SES>
+AWS_REGION=<region>
+```
+
+No code change, no deployment of different code — the factory picks the adapter
+from configuration. `resolveEmailTransport` has a test asserting SES remains
+reachable precisely so this path cannot rot.
+
+---
+
+## Behaviour parity
+
+The two providers are deliberately near-twins, so an incident reads the same
+whichever is active:
+
+| Concern            | Resend                                     | SES                                           |
+| ------------------ | ------------------------------------------ | --------------------------------------------- |
+| Request timeout    | 4s via `AbortSignal.timeout`               | 4s request / 3s connect, 2 attempts           |
+| Terminal failures  | `validation_error`, `invalid_api_key`, 4xx | `MessageRejected`, `BadRequestException`, 4xx |
+| Retryable          | 429, rate limit, 5xx, unknown              | throttling, 5xx, unknown                      |
+| Missing message ID | Treated as a failed send                   | Treated as a failed send                      |
+| Logging            | Masked recipient, never the code           | Masked recipient, never the code              |
+
+**One shape difference:** Resend reports failures in the response body
+(`{ data, error }`) rather than by throwing, so the adapter checks `result.error`
+explicitly. A returned error alongside data is the case most likely to be
+mis-read as success; a test pins that it is not.

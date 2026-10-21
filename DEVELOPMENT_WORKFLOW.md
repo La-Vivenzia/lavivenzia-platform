@@ -57,6 +57,11 @@ A task is complete only when applicable:
 - Production build passes.
 - UI follows the existing La Vivenzia design system.
 - Responsive, loading, empty, error, and success states are handled.
+- **UI work additionally meets the visual acceptance criteria in `DESIGN.md`
+  §B.12** — the page was opened and looked at, in both modes and both palettes,
+  at real breakpoints (390 / 768 / 1024 / 1440), with every state exercised and
+  no literal colour, radius or font value left in a component. This is manual:
+  the repository has no visual regression infrastructure.
 - Inputs are validated and authorization is enforced.
 - No secrets or sensitive data are committed or exposed.
 - Critical operations are observable and auditable.

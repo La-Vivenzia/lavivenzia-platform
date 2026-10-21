@@ -2,6 +2,7 @@ import type { EmailPort } from "@/ports/email";
 import { env } from "@/lib/env";
 import { getLogger } from "@/lib/logger";
 import { ConsoleEmailAdapter } from "@/adapters/email/console";
+import { ResendEmailAdapter } from "@/adapters/email/resend";
 import { SesEmailAdapter } from "@/adapters/email/ses";
 import { resolveEmailTransport } from "@/adapters/email/transport";
 
@@ -20,6 +21,7 @@ export function createEmailAdapter(): EmailPort {
     from: env.EMAIL_FROM,
     region: env.AWS_REGION,
     configurationSet: env.SES_CONFIGURATION_SET,
+    resendApiKey: env.RESEND_API_KEY,
   });
 
   // `getLogger` is passed rather than called: the adapters resolve it at send
@@ -27,6 +29,10 @@ export function createEmailAdapter(): EmailPort {
   // caused it, even though the adapter itself is built once.
   if (plan.kind === "console") {
     return new ConsoleEmailAdapter({ logger: getLogger });
+  }
+
+  if (plan.kind === "resend") {
+    return new ResendEmailAdapter(plan.config, { logger: getLogger });
   }
 
   return new SesEmailAdapter(plan.config, { logger: getLogger });

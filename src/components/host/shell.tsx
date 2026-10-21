@@ -78,7 +78,7 @@ export function HostShell({ hostName, children }: HostShellProps) {
       <aside className="bg-ink text-text-inverse hidden shrink-0 flex-col justify-between px-9 py-10 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:w-[248px]">
         <div className="flex flex-col gap-10">
           <Link href="/host" className="block">
-            <Wordmark size="md" tone="gold" />
+            <Wordmark size="md" tone="gold" mark />
             <span className="mt-2 block text-[10px] tracking-[0.24em] text-text-inverse-muted uppercase">
               Host Console
             </span>
@@ -107,7 +107,7 @@ export function HostShell({ hostName, children }: HostShellProps) {
         <div className="border-line-inverse flex flex-col gap-3 border-t pt-6">
           <GoldRule />
           <p className="text-[13px] leading-snug text-text-inverse">{hostName}</p>
-          <form action="/host/sign-out" method="post">
+          <form action="/sign-out" method="post">
             <button
               type="submit"
               className="text-[11px] tracking-[0.14em] text-text-inverse-muted uppercase transition-colors hover:text-gold-light"
@@ -122,9 +122,9 @@ export function HostShell({ hostName, children }: HostShellProps) {
       <header className="bg-ink text-text-inverse sticky top-0 z-20 lg:hidden">
         <div className="flex items-center justify-between px-5 py-4">
           <Link href="/host">
-            <Wordmark size="sm" tone="gold" />
+            <Wordmark size="sm" tone="gold" mark />
           </Link>
-          <form action="/host/sign-out" method="post">
+          <form action="/sign-out" method="post">
             <button
               type="submit"
               className="text-[11px] tracking-[0.14em] text-text-inverse-muted uppercase"

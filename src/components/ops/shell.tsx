@@ -51,7 +51,7 @@ function NavLink({ item, active }: { readonly item: NavItem; readonly active: bo
           // Announced as work outstanding rather than as a bare number, which
           // reads as meaningless out of context.
           aria-label={`${item.count} awaiting review`}
-          className="bg-gold-light/15 text-gold-light rounded-xs px-1.5 py-0.5 text-[10px] tabular-nums"
+          className="bg-gold-light/15 text-gold-light rounded-pill px-1.5 py-0.5 text-[10px] tabular-nums"
         >
           {item.count}
         </span>
@@ -88,7 +88,7 @@ export function OpsShell({
       <aside className="bg-ink text-text-inverse hidden shrink-0 flex-col justify-between px-9 py-10 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:w-[248px]">
         <div className="flex flex-col gap-10">
           <Link href="/ops" className="block">
-            <Wordmark size="md" tone="gold" />
+            <Wordmark size="md" tone="gold" mark />
             <span className="text-text-inverse-muted mt-2 block text-[10px] tracking-[0.24em] uppercase">
               Operations
             </span>
@@ -107,7 +107,7 @@ export function OpsShell({
           <p className="text-text-inverse-muted text-[10px] tracking-[0.16em] uppercase">
             {roleLabel}
           </p>
-          <form action="/host/sign-out" method="post">
+          <form action="/sign-out" method="post">
             <button
               type="submit"
               className="text-text-inverse-muted hover:text-gold-light text-[11px] tracking-[0.14em] uppercase transition-colors"
@@ -121,9 +121,9 @@ export function OpsShell({
       <header className="bg-ink text-text-inverse sticky top-0 z-20 lg:hidden">
         <div className="flex items-center justify-between px-5 py-4">
           <Link href="/ops">
-            <Wordmark size="sm" tone="gold" />
+            <Wordmark size="sm" tone="gold" mark />
           </Link>
-          <form action="/host/sign-out" method="post">
+          <form action="/sign-out" method="post">
             <button
               type="submit"
               className="text-text-inverse-muted text-[11px] tracking-[0.14em] uppercase"
@@ -151,7 +151,7 @@ export function OpsShell({
               >
                 {item.label}
                 {item.count !== undefined && item.count > 0 ? (
-                  <span className="bg-gold-light/15 text-gold-light rounded-xs px-1.5 text-[10px] tabular-nums">
+                  <span className="bg-gold-light/15 text-gold-light rounded-pill px-1.5 text-[10px] tabular-nums">
                     {item.count}
                   </span>
                 ) : null}

@@ -11,8 +11,6 @@ import {
   type HostDecision,
 } from "@/modules/operations/review";
 import {
-  MAX_PAGE_SIZE,
-  PAGE_SIZE,
   type ExperienceDetail,
   type ExperienceFilters,
   type ExperienceQueueItem,
@@ -73,16 +71,9 @@ export interface OverviewView {
   readonly recentActivity: readonly ReviewEvent[];
 }
 
-/** Clamp caller-supplied paging so a request cannot ask for the whole table. */
-export function normalisePaging(input: { page?: number; pageSize?: number }): {
-  page: number;
-  pageSize: number;
-} {
-  const page = Number.isInteger(input.page) && input.page! > 0 ? input.page! : 1;
-  const requested = Number.isInteger(input.pageSize) ? input.pageSize! : PAGE_SIZE;
-
-  return { page, pageSize: Math.min(Math.max(requested, 1), MAX_PAGE_SIZE) };
-}
+// Re-exported from the shared module so the routes that import it here are
+// unchanged. The clamp itself is now defined once.
+export { normalisePaging } from "@/modules/shared/pagination";
 
 export class OperationsService {
   readonly #deps: OperationsDependencies;

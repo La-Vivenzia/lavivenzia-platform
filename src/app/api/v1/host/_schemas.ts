@@ -199,3 +199,38 @@ export const experienceQuerySchema = z
       .optional(),
   })
   .strict();
+
+/**
+ * Availability slots (FR-08).
+ *
+ * Times arrive as ISO-8601 strings and are coerced to `Date` at this boundary,
+ * so nothing below the HTTP layer parses a date. `.strict()` throughout: an
+ * unexpected key is a client bug worth surfacing, not something to ignore.
+ *
+ * Only shape is checked here. Whether a slot is in the future, long enough, or
+ * overlapping is a domain rule and lives in `modules/availability/rules` —
+ * duplicating it here would be two definitions to keep in step.
+ */
+const isoDateTime = z.iso.datetime({ offset: true });
+
+export const slotInputSchema = z
+  .object({
+    startsAt: isoDateTime,
+    endsAt: isoDateTime,
+    capacity: z.number().int(),
+    bookingCutoffMinutes: z.number().int().optional().default(0),
+  })
+  .strict();
+
+export const createSlotsSchema = z.object({ slots: z.array(slotInputSchema).min(1) }).strict();
+
+export const updateSlotSchema = z
+  .object({
+    capacity: z.number().int().optional(),
+    bookingCutoffMinutes: z.number().int().optional(),
+    status: z.enum(["OPEN", "CLOSED"]).optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "Provide at least one field to update.",
+  });

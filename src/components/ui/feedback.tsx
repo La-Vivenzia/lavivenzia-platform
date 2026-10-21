@@ -32,7 +32,7 @@ export function Alert({
       // screen reader was saying is right for an error and rude for a
       // confirmation.
       role={tone === "danger" ? "alert" : "status"}
-      className={`rounded-sm border px-4 py-3 text-[13px] leading-relaxed ${ALERT_TONES[tone]}`}
+      className={`rounded-card border px-4 py-3 text-[13px] leading-relaxed ${ALERT_TONES[tone]}`}
     >
       {title ? <p className="font-semibold">{title}</p> : null}
       {children ? <div className={title ? "mt-1 opacity-90" : ""}>{children}</div> : null}
@@ -79,7 +79,7 @@ export function Skeleton({ className = "" }: { readonly className?: string }) {
   return (
     <div
       aria-hidden="true"
-      className={`motion-safe:animate-pulse rounded-xs bg-surface-sunken ${className}`}
+      className={`motion-safe:animate-pulse rounded-pill bg-surface-sunken ${className}`}
     />
   );
 }

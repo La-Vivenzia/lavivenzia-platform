@@ -1,94 +1,89 @@
-import Link from "next/link";
-import { ButtonLink } from "@/components/ui/button";
-import { GoldRule, Wordmark } from "@/components/ui/wordmark";
+import type { Metadata } from "next";
+import { DesktopHome } from "@/components/DesktopHome";
+import { MobileHome } from "@/components/MobileHome";
+import { getDiscoveryService } from "@/lib/container";
 import { getPrincipal } from "@/lib/auth-context";
+import { destinationForRoles } from "@/lib/destinations";
+import {
+  destinationToCard,
+  initialsFor,
+  toDestinationCard,
+  toExperienceCard,
+  toHeroImage,
+  toQuickAccess,
+} from "@/lib/home-content";
+
+export const metadata: Metadata = {
+  title: "La Vivenzia — Journeys Designed Around You",
+  description:
+    "Curated experiences led by the people who know a place best. Every host verified, every listing reviewed.",
+};
 
 /**
- * The front door.
+ * The traveller home screen (FR-01).
  *
- * Deliberately spare. Traveller discovery — search, destinations, collections,
- * experience pages — is a later phase, and a landing page full of placeholder
- * sections would be a promise the product cannot keep. What exists today is the
- * host side, so this page says what La Vivenzia is and shows hosts the way in.
+ * The layout is the founder-approved design, ported from the demo that produced
+ * the reference images rather than reinterpreted from them. **The content is
+ * the live catalogue**, not the demo fixture: the rails render published
+ * listings, the cards link to their real pages, the search submits to
+ * `/experiences`, and the header reflects the actual session.
+ *
+ * A server component reading through the service directly, so the page arrives
+ * complete rather than assembling itself from client fetches — and so the
+ * session is resolved before anything renders, rather than flashing a signed-out
+ * header at someone who is signed in.
+ *
+ * Two layouts, not one responsive tree: `MobileHome` and `DesktopHome` are
+ * separate interpretations that swap at `lg`, which is how the approved design
+ * is built. The desktop view is not the mobile one stretched wide.
+ *
+ * It sits outside the `(site)` route group deliberately — that group supplies a
+ * shared header and footer, and this screen brings its own.
  */
-export default async function Home() {
-  const principal = await getPrincipal();
-  const isHost = principal?.roles.includes("host") ?? false;
+export default async function HomePage() {
+  const discovery = getDiscoveryService();
+
+  const [featured, destinations, categories, principal] = await Promise.all([
+    discovery.featured(12),
+    discovery.destinations(8),
+    discovery.categories(),
+    getPrincipal(),
+  ]);
+
+  /*
+   * `toDestinationCard` and friends return null for a listing with no
+   * photograph. The approved design is photography-led throughout, and a grey
+   * rectangle in a rail of images reads as a broken asset rather than as a
+   * listing awaiting a photo.
+   */
+  const curated = featured
+    .map(toDestinationCard)
+    .filter((card): card is NonNullable<typeof card> => card !== null);
+
+  const popular = destinations
+    .map(destinationToCard)
+    .filter((card): card is NonNullable<typeof card> => card !== null);
+
+  const stories = featured
+    .map(toExperienceCard)
+    .filter((card): card is NonNullable<typeof card> => card !== null)
+    .slice(0, 4);
+
+  const session = {
+    signedIn: principal !== null,
+    accountHref: principal ? destinationForRoles(principal.roles) : "/sign-in",
+    ...(principal?.email ? { initials: initialsFor(principal.email) } : {}),
+    curated,
+    popular,
+    stories,
+    quickAccess: toQuickAccess(categories),
+    heroImage: toHeroImage(featured),
+  };
 
   return (
-    <main className="bg-ink text-text-inverse relative isolate flex min-h-dvh flex-col overflow-hidden">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(70% 60% at 20% 10%, rgba(201,168,76,0.15), transparent 60%)," +
-            "radial-gradient(60% 50% at 85% 90%, rgba(92,30,38,0.4), transparent 65%)",
-        }}
-      />
-
-      <header className="mx-auto flex w-full max-w-[1120px] items-center justify-between px-6 py-8 sm:px-10">
-        <Wordmark size="md" tone="gold" />
-        <nav className="flex items-center gap-6">
-          {principal ? (
-            <Link
-              href={isHost ? "/host" : "/become-a-host"}
-              className="hover:text-gold-light text-[11px] tracking-[0.16em] uppercase transition-colors"
-            >
-              {isHost ? "Host console" : "Become a host"}
-            </Link>
-          ) : (
-            <>
-              <Link
-                href="/become-a-host"
-                className="text-text-inverse-muted hover:text-gold-light text-[11px] tracking-[0.16em] uppercase transition-colors"
-              >
-                Become a host
-              </Link>
-              <Link
-                href="/sign-in"
-                className="hover:text-gold-light text-[11px] tracking-[0.16em] uppercase transition-colors"
-              >
-                Sign in
-              </Link>
-            </>
-          )}
-        </nav>
-      </header>
-
-      <section className="mx-auto flex w-full max-w-[1120px] flex-1 flex-col justify-center px-6 py-20 sm:px-10">
-        <div className="flex max-w-3xl flex-col gap-8">
-          <span className="text-gold-light/80 text-[10px] tracking-[0.28em] uppercase">
-            The art of experience
-          </span>
-          <h1 className="font-display text-[34px] leading-[1.2] sm:text-[52px]">
-            Timeless memories.
-            <br />A world beyond the ordinary.
-          </h1>
-          <GoldRule />
-          <p className="text-text-inverse-muted max-w-xl text-[15px] leading-relaxed">
-            A curated marketplace of experiences led by the people who know a place best. Every host
-            is verified and every listing reviewed before it appears.
-          </p>
-
-          <div className="mt-2 flex flex-wrap items-center gap-4">
-            <ButtonLink href={isHost ? "/host" : "/become-a-host"} variant="gold" size="lg">
-              {isHost ? "Open host console" : "Apply to host"}
-            </ButtonLink>
-            {!principal ? (
-              <ButtonLink href="/sign-in" variant="inverse" size="lg">
-                Sign in
-              </ButtonLink>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
-      <footer className="border-line-inverse mx-auto w-full max-w-[1120px] border-t px-6 py-8 sm:px-10">
-        <p className="text-text-inverse-muted/70 text-[11px] tracking-[0.14em] uppercase">
-          Traveller discovery opens with the next release
-        </p>
-      </footer>
-    </main>
+    <>
+      <MobileHome {...session} />
+      <DesktopHome {...session} />
+    </>
   );
 }

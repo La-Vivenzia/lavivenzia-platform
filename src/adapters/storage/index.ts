@@ -20,7 +20,7 @@ function buildStorageAdapter(plan: StorageTransportPlan): StoragePort {
     return new LocalStorageAdapter({ publicDir: resolve(process.cwd(), "public") });
   }
 
-  return new S3StorageAdapter();
+  return new S3StorageAdapter(plan.config);
 }
 
 /** Build the storage adapter this environment calls for. */
@@ -30,6 +30,10 @@ export function createStorageAdapter(): StoragePort {
       nodeEnv: env.NODE_ENV,
       transport: env.MEDIA_STORAGE,
       bucket: env.S3_MEDIA_BUCKET,
+      endpoint: env.S3_ENDPOINT,
+      accessKeyId: env.S3_ACCESS_KEY_ID,
+      secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+      publicBaseUrl: env.S3_PUBLIC_BASE_URL,
     }),
   );
 }

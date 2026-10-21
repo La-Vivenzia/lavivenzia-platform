@@ -40,7 +40,7 @@ const VERIFICATION_STATUS: Record<HostVerificationStatus, { label: string; tone:
 function Badge({ label, tone }: { label: string; tone: Tone }) {
   return (
     <span
-      className={`inline-flex items-center rounded-xs border px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] uppercase ${TONES[tone]}`}
+      className={`inline-flex items-center rounded-pill border px-2 py-0.5 text-[10px] font-semibold tracking-[0.12em] uppercase ${TONES[tone]}`}
     >
       {label}
     </span>

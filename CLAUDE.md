@@ -35,12 +35,42 @@ Only modify what the current task requires.
 
 ### 3. Reuse the Design System
 
+**`DESIGN.md` is the canonical design document.** §A is the approved, implemented
+system and the source of truth for every colour, radius and typeface; §B governs
+brand expression, experience principles and visual acceptance. `globals.css` is
+where the values actually live — §A is for reading, not for copying into
+components.
+
 Before creating UI:
 
 - search for existing components
-- use existing tokens
+- use existing tokens — never a literal hex, px radius or font-family in a component
 - extend components instead of duplicating them
 - preserve responsive behavior
+
+Three rules that are not negotiable:
+
+- **Do not restyle on taste.** §A's values were ported from founder-approved
+  references (ADR-0015), not chosen aesthetically. "Correcting" the green
+  neutral axis toward grey breaks the identity.
+- **Do not introduce a second design system** for any product area. Traveller,
+  host and admin differ in density, not in language (§B.5).
+- **Look at it before calling it done.** A UI change that has only been
+  typechecked is not finished. §B.12 lists what to check — both modes, both
+  palettes, real breakpoints, all five states. There is no visual regression
+  infrastructure in this repository, so this step is manual and cannot be
+  skipped.
+
+**The identity is settled.** On 2026-10-20 the founders confirmed La Vivenzia as
+a **forest-green-and-ivory brand** — green stays primary and the neutral axis,
+ivory `#F3EFE7` and dark neutral `#16261E` stay, gold and the logo stay, and the
+tagline stays "Experience Every Journey Through Its Soul". A competing ink-led
+direction was rejected. §A needs no change; `DESIGN.md` §B.0 records what was
+declined and `docs/VISUAL_IDENTITY_DECISION.md` records why.
+
+One open correction: `--lv-accent-ink` and `--lv-fg-subtle` fail WCAG AA in both
+light palettes. A fix is proposed in `VISUAL_IDENTITY_DECISION.md` §7.1 and is
+**not yet applied** — do not change those values ad hoc.
 
 ### 4. Respect Architecture
 

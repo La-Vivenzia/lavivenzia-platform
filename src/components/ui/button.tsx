@@ -33,22 +33,39 @@ export type ButtonVariant =
   | "inverse";
 export type ButtonSize = "sm" | "md" | "lg";
 
+/*
+ * Pill, not a 3px rectangle.
+ *
+ * Every call to action in the approved references is fully rounded — the search
+ * submit, "Get Early Access", the filter apply. This is the single strongest
+ * shape signal in the design, so it belongs on the shared component rather than
+ * being reapplied per screen. The consoles inherit it too, which is correct:
+ * one product, one button.
+ */
 const BASE =
-  "relative inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm " +
+  "relative inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-pill " +
   "font-medium tracking-[0.06em] uppercase transition-[background-color,border-color,color,box-shadow] " +
   "duration-200 ease-[var(--ease-out-soft)] disabled:cursor-not-allowed disabled:opacity-45 " +
   "disabled:hover:shadow-none";
 
 const VARIANTS: Record<ButtonVariant, string> = {
   /*
-   * Ink rather than gold. Gold on gold-adjacent ivory is a weak call to action,
-   * and DESIGN.md §5 is explicit that gold earns its value from scarcity — a
-   * gold fill on every primary button spends it. The gold hairline on hover is
-   * where the brand shows up.
+   * Deep green, matching the approved references: the primary action on a light
+   * ground is `--color-primary`, seen on the search submit and on the active
+   * navigation item in both reference screens.
+   *
+   * This was `bg-ink` while the palette was a placeholder, for a reason that no
+   * longer applies. The argument then was that gold on gold-adjacent ivory is a
+   * weak call to action, and that DESIGN.md §5 wants gold kept scarce. Both are
+   * still true — and both were arguments against *gold*, not for ink. There was
+   * simply no third colour to reach for. Now there is.
+   *
+   * Gold stays the primary on dark grounds via the `gold` variant below, which
+   * is the inversion the two reference screens demonstrate.
    */
   primary:
-    "bg-ink text-text-inverse border border-ink hover:bg-charcoal hover:border-gold-light " +
-    "active:bg-ink-soft shadow-raise hover:shadow-panel",
+    "bg-primary text-text-inverse border border-primary hover:bg-primary-hover " +
+    "hover:border-primary-hover active:bg-primary-panel shadow-raise hover:shadow-panel",
   secondary:
     "bg-transparent text-text border border-line-strong hover:border-gold hover:text-gold-deep " +
     "hover:bg-gold-wash/40 active:bg-gold-wash",

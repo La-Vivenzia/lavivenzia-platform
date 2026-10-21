@@ -1,5 +1,6 @@
 import { InternalError } from "@/lib/errors";
 import type { SesEmailConfig } from "@/adapters/email/ses";
+import type { ResendEmailConfig } from "@/adapters/email/resend";
 
 /**
  * Which email transport a given configuration selects, and whether that
@@ -11,7 +12,7 @@ import type { SesEmailConfig } from "@/adapters/email/ses";
  * the suite requiring no infrastructure.
  */
 
-export const EMAIL_TRANSPORTS = ["ses", "console"] as const;
+export const EMAIL_TRANSPORTS = ["resend", "ses", "console"] as const;
 export type EmailTransportKind = (typeof EMAIL_TRANSPORTS)[number];
 
 export interface EmailTransportInput {
@@ -20,10 +21,13 @@ export interface EmailTransportInput {
   readonly from?: string | undefined;
   readonly region?: string | undefined;
   readonly configurationSet?: string | undefined;
+  readonly resendApiKey?: string | undefined;
 }
 
 export type EmailTransportPlan =
-  { readonly kind: "console" } | { readonly kind: "ses"; readonly config: SesEmailConfig };
+  | { readonly kind: "console" }
+  | { readonly kind: "ses"; readonly config: SesEmailConfig }
+  | { readonly kind: "resend"; readonly config: ResendEmailConfig };
 
 /**
  * Decide the transport, refusing configurations that would silently do the
@@ -33,8 +37,9 @@ export type EmailTransportPlan =
  *
  * - the console transport in production, because it reports success while
  *   sending nothing and writes login codes into a retained log;
- * - SES with no verified sender, because the adapter would be constructed and
- *   then fail on the first real traveller instead of at deploy time.
+ * - a real transport with no verified sender or no credential, because the
+ *   adapter would be constructed and then fail on the first real traveller
+ *   instead of at deploy time.
  *
  * Failing at wiring is the whole design: the process refuses to start rather
  * than serving a login page that cannot deliver a code.
@@ -53,6 +58,22 @@ export function resolveEmailTransport(input: EmailTransportInput): EmailTranspor
   }
 
   const from = input.from?.trim();
+
+  if (input.transport === "resend") {
+    const apiKey = input.resendApiKey?.trim();
+
+    if (!from) {
+      throw new InternalError(
+        "EMAIL_TRANSPORT=resend requires EMAIL_FROM (an address on a domain verified in Resend).",
+      );
+    }
+    if (!apiKey) {
+      throw new InternalError("EMAIL_TRANSPORT=resend requires RESEND_API_KEY.");
+    }
+
+    return { kind: "resend", config: { from, apiKey } };
+  }
+
   const region = input.region?.trim();
 
   if (!from) {

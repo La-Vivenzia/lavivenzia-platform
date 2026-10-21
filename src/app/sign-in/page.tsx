@@ -1,53 +1,50 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { EditorialSplit } from "@/components/layout/editorial-split";
+
+import { AuthScreen } from "@/components/auth/AuthScreen";
 import { getPrincipal } from "@/lib/auth-context";
-import { SignInForm } from "./sign-in-form";
+import { destinationForRoles } from "@/lib/destinations";
+import { SignInScreen } from "./sign-in-screen";
 
 export const metadata: Metadata = {
   title: "Sign in",
-  description: "Sign in to the La Vivenzia host console.",
+  description: "Sign in to La Vivenzia.",
 };
 
 /**
- * Host and administrator sign-in.
+ * One door for everybody (FR-04).
  *
- * Travellers sign in with an emailed code and have no password, so this page is
- * deliberately the password door. Sending a traveller here would only ever fail
- * — their account has no password to enter.
+ * The platform has two credential models — travellers hold no password and prove
+ * the mailbox each time; hosts and operators hold a password and, for privileged
+ * roles, a second factor. Both are served by the one form, because nobody
+ * arriving at a marketplace knows which kind of account they have; they know
+ * their email address.
+ *
+ * An already-signed-in visitor is sent where their roles allow, not to `/host`
+ * unconditionally — that older behaviour put travellers in front of a console
+ * they cannot enter.
  */
 export default async function SignInPage() {
-  // Already signed in: skip the form rather than presenting a login to someone
-  // who has one.
-  if (await getPrincipal()) redirect("/host");
+  const principal = await getPrincipal();
+  if (principal) redirect(destinationForRoles(principal.roles));
 
   return (
-    <EditorialSplit
-      eyebrow="Host Console"
-      statement="Every experience on La Vivenzia begins with someone who knows a place better than a guidebook ever could."
-      attribution="Manage your listings, availability and guests in one place."
+    <AuthScreen
+      eyebrow="Welcome back"
+      title={
+        <>
+          Continue
+          <br />
+          Your Journey
+        </>
+      }
+      description="Sign in to access your account and explore more extraordinary experiences."
+      image={{
+        src: "/images/amalfi-coast.jpg",
+        alt: "A cliffside town above a calm sea at golden hour.",
+      }}
     >
-      <div className="flex flex-col gap-8">
-        <div className="flex flex-col gap-2">
-          <h1 className="font-display text-[26px] leading-tight">Welcome back</h1>
-          <p className="text-[14px] leading-relaxed text-text-muted">
-            Sign in to your host account.
-          </p>
-        </div>
-
-        <SignInForm />
-
-        <p className="border-line border-t pt-6 text-[13px] text-text-muted">
-          Not hosting with us yet?{" "}
-          <Link
-            href="/become-a-host"
-            className="text-gold-deep font-medium underline underline-offset-4 hover:text-gold"
-          >
-            Apply to host
-          </Link>
-        </p>
-      </div>
-    </EditorialSplit>
+      <SignInScreen />
+    </AuthScreen>
   );
 }

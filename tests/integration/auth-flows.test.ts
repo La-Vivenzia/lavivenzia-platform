@@ -666,3 +666,112 @@ describe("rate limiting", () => {
     ).resolves.toBeDefined();
   });
 });
+
+// ── The /join flow when the address already has an account ─────────────────
+
+/**
+ * The dead end this covers.
+ *
+ * `/join` registers and then requests a code. Registration reports a duplicate
+ * address rather than hiding it — deliberate, see "Enumeration" above — and the
+ * screen was treating that correct answer as fatal, so anyone who already had
+ * an account and landed there got a conflict message and no way forward.
+ *
+ * The client-side decision is unit-tested in `tests/unit/traveller-join.test.ts`.
+ * What these assert is the half that lives in the domain: that the second call
+ * genuinely issues a code for an existing traveller, and that it genuinely does
+ * not for an account holding a password.
+ */
+describe("joining with an address that already has an account", () => {
+  it("still reports the duplicate — the endpoint behaviour is unchanged", async () => {
+    const email = testEmail("rejoin");
+    await auth.register({ email, role: "traveller", context: context(freshIp()) });
+
+    // The screen tolerates this; the service must keep raising it. Hiding it
+    // here would email the existing owner on any stranger's typo.
+    await expect(
+      auth.register({ email, role: "traveller", context: context(freshIp()) }),
+    ).rejects.toThrow();
+  });
+
+  it("issues a working code for the existing traveller anyway", async () => {
+    // The regression, end to end: registration conflicts, and the code request
+    // that the screen now continues to still produces a usable session.
+    const email = testEmail("rejoin-otp");
+    await auth.register({ email, role: "traveller", context: context(freshIp()) });
+
+    await auth
+      .register({ email, role: "traveller", context: context(freshIp()) })
+      .catch(() => undefined);
+
+    await auth.requestLoginOtp({ email, context: context(freshIp()) });
+    const session = await auth.verifyLoginOtp({
+      email,
+      code: lastCodeFor(email),
+      context: context(freshIp()),
+    });
+
+    expect(session.token).toBeTruthy();
+    const principal = await auth.resolvePrincipal(session.token);
+    expect(principal?.roles).toEqual(["traveller"]);
+  });
+
+  it("does not create a second account for the same address", async () => {
+    const email = testEmail("rejoin-single");
+    await auth.register({ email, role: "traveller", context: context(freshIp()) });
+    await auth
+      .register({ email, role: "traveller", context: context(freshIp()) })
+      .catch(() => undefined);
+
+    const count = await testDb.user.count({
+      where: { email: { equals: email, mode: "insensitive" } },
+    });
+
+    expect(count).toBe(1);
+  });
+
+  /**
+   * The security rule this fix must not weaken.
+   *
+   * A host or operator holds a password, and `requestLoginOtp` ignores any such
+   * account. Continuing past the registration conflict must not have opened a
+   * second door into a privileged account through mailbox possession alone.
+   */
+  it("sends no code when the existing account holds a password", async () => {
+    const email = testEmail("rejoin-host");
+    await auth.register({ email, password: PASSWORD, role: "host", context: context(freshIp()) });
+
+    // Exactly what the join screen now does: swallow the conflict, ask for a code.
+    await auth
+      .register({ email, role: "traveller", context: context(freshIp()) })
+      .catch(() => undefined);
+
+    await expect(
+      auth.requestLoginOtp({ email, context: context(freshIp()) }),
+    ).resolves.toBeUndefined();
+
+    // Accepted silently, and nothing sent — the response must not distinguish
+    // this from an address with no account at all.
+    expect(delivered.filter((entry) => entry.email.toLowerCase() === email.toLowerCase())).toEqual(
+      [],
+    );
+  });
+
+  it("leaves the password account signing in with its password", async () => {
+    // The fix must not have disturbed the path that account actually uses.
+    const email = testEmail("rejoin-host-login");
+    await auth.register({ email, password: PASSWORD, role: "host", context: context(freshIp()) });
+
+    await auth
+      .register({ email, role: "traveller", context: context(freshIp()) })
+      .catch(() => undefined);
+
+    const session = await auth.loginWithPassword({
+      email,
+      password: PASSWORD,
+      context: context(freshIp()),
+    });
+
+    expect(session.token).toBeTruthy();
+  });
+});

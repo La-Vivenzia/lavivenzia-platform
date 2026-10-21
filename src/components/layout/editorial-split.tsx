@@ -45,7 +45,7 @@ export function EditorialSplit({
         />
 
         <Link href="/" className="relative z-10 w-fit">
-          <Wordmark size="md" tone="gold" />
+          <Wordmark size="md" tone="gold" mark />
         </Link>
 
         <div className="relative z-10 flex max-w-lg flex-col gap-6 py-16 lg:py-0">

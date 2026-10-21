@@ -1,63 +1,464 @@
 @import "tailwindcss";
 
 /*
- * La Vivenzia design tokens.
+ * La Vivenzia design system.
  *
- * Implements DESIGN.md, with one deliberate deviation recorded in ADR-0012:
- * working surfaces are a warm ivory rather than deep black. DESIGN.md §3 sets a
- * dark editorial direction and §33 lists white dashboards as an anti-pattern.
- * Both concerns are answered here rather than ignored — the canvas is a warm
- * parchment, never a clinical white, and near-black is kept as an *anchor* for
- * the rail, the mastheads and the imagery. Gold stays scarce, which is what
- * makes it read as valuable.
+ * **This file is the approved system, ported from the demo that produced the
+ * reference images in `public/uirefrence/`.** It is not an interpretation of
+ * those screenshots — it is the source they were rendered from, so the
+ * traveller surface matches them exactly rather than approximately.
  *
- * Every recurring value lives here (DESIGN.md §35). Components reference tokens;
- * they do not carry their own hex codes.
+ * Two independent axes, four combinations:
+ *
+ *   mode    — light / dark, via a `.dark` class on <html>
+ *   palette — green / blue,  via `data-palette` on <html>
+ *
+ * The class is set before paint by an inline script in `layout.tsx`, so there is
+ * never a flash of the wrong palette.
+ *
+ * ── Two token vocabularies live here, deliberately ──────────────────────────
+ *
+ * `--lv-*` and the `--color-bg/fg/accent/cta/panel` names below serve the
+ * **traveller surface** and come from the approved system verbatim.
+ *
+ * The `--color-ink/gold/text/line/canvas` names in the second `@theme` block
+ * serve the **host and operations consoles**, which have no approved reference
+ * of their own and would otherwise have been restyled on no evidence. Keeping
+ * both means the consoles are untouched by this port while the public site is
+ * pixel-accurate. They are not duplicates: where the two overlap
+ * (`--color-surface`, `--color-heading`, `--color-primary`) the values already
+ * agree, because the console tokens were repointed at this palette first.
+ *
+ * Retiring the console vocabulary is a later, separate piece of work that needs
+ * its own approved reference. Do not merge them on aesthetic grounds.
  */
 
+/* Theme is driven by a `.dark` class on <html>, set before paint by an inline
+   script in layout.tsx so there is never a flash of the wrong palette. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+   BRAND TOKENS
+
+   Two independent axes, four combinations:
+
+     mode    — light / dark, via a `.dark` class on <html>
+     palette — green / blue,  via `data-palette` on <html>
+
+   Every component reads only the semantic names below, so neither axis needs
+   a single line of conditional JSX.
+
+   Selector order matters: `.dark` and `[data-palette]` carry equal specificity,
+   so the blocks run green-light, blue-light, green-dark, blue-dark, and the
+   two-part selector on the last block wins wherever both would apply.
+   --------------------------------------------------------------------------- */
+
+/* --- GREEN · LIGHT (default) --------------------------------------------- */
+:root {
+  /* Surfaces */
+  --lv-bg: #f3efe7; /* warm ivory page ground */
+  --lv-bg-soft: #ece5d8; /* alternating editorial band */
+  --lv-surface: #fcfaf6; /* cards, search field */
+  --lv-surface-2: #eae1d2; /* chips, badges, icon wells */
+  --lv-surface-3: #e2d8c6; /* pressed / hovered chip */
+  --lv-border: rgb(31 77 58 / 0.12);
+  --lv-border-strong: rgb(31 77 58 / 0.22);
+
+  /* Ink */
+  --lv-heading: #16261e; /* Cinzel display, near-black green */
+  --lv-fg: #1a1a1a; /* charcoal body */
+  --lv-fg-muted: #6b6660;
+  --lv-fg-subtle: #8c8579;
+
+  /* Brand */
+  --lv-primary: #1f4d3a; /* primary green */
+  --lv-primary-soft: #6b846f; /* secondary green */
+  --lv-accent: #d4af37; /* gold — constant across palettes, it is the logo */
+  --lv-accent-ink: #9a7a2e; /* gold that still passes contrast on a pale ground */
+  --lv-accent-fg: #10190f; /* ink that sits on a gold fill */
+
+  /* Actions */
+  --lv-cta: #1f4d3a;
+  --lv-cta-hover: #163a2b;
+  --lv-cta-fg: #f6f3ec;
+  --lv-ring: #1f4d3a;
+
+  /* Full-bleed feature panel */
+  --lv-panel: #1f4d3a;
+  --lv-panel-fg: #f3efe7;
+
+  /* Depth */
+  --lv-shadow-sm: 0 1px 2px rgb(26 26 26 / 0.04), 0 2px 8px rgb(26 26 26 / 0.04);
+  --lv-shadow-md: 0 2px 6px rgb(26 26 26 / 0.05), 0 10px 30px rgb(26 26 26 / 0.07);
+  --lv-shadow-lg: 0 8px 20px rgb(26 26 26 / 0.06), 0 24px 60px rgb(26 26 26 / 0.1);
+
+  /* Scrim over photography */
+  --lv-scrim: linear-gradient(
+    to top,
+    rgb(12 20 15 / 0.78) 0%,
+    rgb(12 20 15 / 0.3) 42%,
+    rgb(12 20 15 / 0) 72%
+  );
+  --lv-scrim-deep: linear-gradient(
+    to top,
+    rgb(10 17 13 / 0.9) 0%,
+    rgb(10 17 13 / 0.62) 34%,
+    rgb(10 17 13 / 0.24) 62%,
+    rgb(10 17 13 / 0.06) 100%
+  );
+
+  color-scheme: light;
+}
+
+/* --- BLUE · LIGHT --------------------------------------------------------- */
+/* The cream ground is a brand constant: it does NOT change with the palette.
+   Only the components sitting on it turn blue. */
+:root[data-palette="blue"] {
+  --lv-bg: #f3efe7; /* warm ivory — fixed, same as the emerald palette */
+  --lv-bg-soft: #ece5d8; /* fixed */
+  --lv-surface: #f7fafd; /* cool near-white card on the warm ground */
+  --lv-surface-2: #dce6f1; /* light blue chips and icon wells */
+  --lv-surface-3: #c9d8e9;
+  --lv-border: rgb(20 45 78 / 0.13);
+  --lv-border-strong: rgb(20 45 78 / 0.24);
+
+  --lv-heading: #0f2440; /* deep navy */
+  --lv-fg: #16202e;
+  --lv-fg-muted: #5b6a7d;
+  --lv-fg-subtle: #8290a2;
+
+  --lv-primary: #1b3b66; /* primary navy */
+  --lv-primary-soft: #6b84a6;
+  --lv-accent: #d4af37;
+  --lv-accent-ink: #93732a;
+  --lv-accent-fg: #0a1524;
+
+  --lv-cta: #1b3b66;
+  --lv-cta-hover: #142c4e;
+  --lv-cta-fg: #f2f6fa;
+  --lv-ring: #1b3b66;
+
+  --lv-panel: #1b3b66;
+  --lv-panel-fg: #eef3fa;
+
+  --lv-shadow-sm: 0 1px 2px rgb(15 36 64 / 0.05), 0 2px 8px rgb(15 36 64 / 0.05);
+  --lv-shadow-md: 0 2px 6px rgb(15 36 64 / 0.06), 0 10px 30px rgb(15 36 64 / 0.09);
+  --lv-shadow-lg: 0 8px 20px rgb(15 36 64 / 0.08), 0 24px 60px rgb(15 36 64 / 0.12);
+
+  --lv-scrim: linear-gradient(
+    to top,
+    rgb(9 19 33 / 0.78) 0%,
+    rgb(9 19 33 / 0.3) 42%,
+    rgb(9 19 33 / 0) 72%
+  );
+  --lv-scrim-deep: linear-gradient(
+    to top,
+    rgb(8 17 30 / 0.9) 0%,
+    rgb(8 17 30 / 0.62) 34%,
+    rgb(8 17 30 / 0.24) 62%,
+    rgb(8 17 30 / 0.06) 100%
+  );
+}
+
+/* --- GREEN · DARK --------------------------------------------------------- */
+:root.dark {
+  --lv-bg: #0d1611; /* deep pine */
+  --lv-bg-soft: #101c15;
+  --lv-surface: #15221a; /* dark green card surface */
+  --lv-surface-2: #1e2c22;
+  --lv-surface-3: #26362a;
+  --lv-border: rgb(243 239 231 / 0.1);
+  --lv-border-strong: rgb(212 175 55 / 0.28);
+
+  --lv-heading: #f5f1e8; /* warm ivory */
+  --lv-fg: #f3efe7;
+  --lv-fg-muted: #9faa9c;
+  --lv-fg-subtle: #7c8a7b;
+
+  --lv-primary: #2c6b4f;
+  --lv-primary-soft: #6b846f;
+  --lv-accent: #d4af37;
+  --lv-accent-ink: #d9bb5c;
+  --lv-accent-fg: #10190f;
+
+  --lv-cta: #cba94e;
+  --lv-cta-hover: #dcbc63;
+  --lv-cta-fg: #10190f;
+  --lv-ring: #cba94e;
+
+  --lv-panel: #132b1e;
+  --lv-panel-fg: #f3efe7;
+
+  --lv-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --lv-shadow-md: 0 2px 8px rgb(0 0 0 / 0.35), 0 12px 32px rgb(0 0 0 / 0.3);
+  --lv-shadow-lg: 0 10px 24px rgb(0 0 0 / 0.4), 0 30px 70px rgb(0 0 0 / 0.45);
+
+  --lv-scrim: linear-gradient(
+    to top,
+    rgb(6 12 9 / 0.86) 0%,
+    rgb(6 12 9 / 0.38) 45%,
+    rgb(6 12 9 / 0) 75%
+  );
+  --lv-scrim-deep: linear-gradient(
+    to top,
+    rgb(5 10 8 / 0.92) 0%,
+    rgb(5 10 8 / 0.68) 34%,
+    rgb(5 10 8 / 0.3) 62%,
+    rgb(5 10 8 / 0.1) 100%
+  );
+
+  color-scheme: dark;
+}
+
+/* --- BLUE · DARK ---------------------------------------------------------- */
+:root.dark[data-palette="blue"] {
+  --lv-bg: #0a1524; /* deep navy */
+  --lv-bg-soft: #0d1b2e;
+  --lv-surface: #12233a; /* navy card surface */
+  --lv-surface-2: #1a2f4b;
+  --lv-surface-3: #24405f;
+  --lv-border: rgb(232 240 250 / 0.11);
+  --lv-border-strong: rgb(212 175 55 / 0.3);
+
+  --lv-heading: #eef3fa; /* cool ivory */
+  --lv-fg: #e8f0fa;
+  --lv-fg-muted: #9aacc2;
+  --lv-fg-subtle: #7a8ca3;
+
+  --lv-primary: #2f5c8f;
+  --lv-primary-soft: #6b84a6;
+  --lv-accent: #d4af37;
+  --lv-accent-ink: #d9bb5c;
+  --lv-accent-fg: #0a1524;
+
+  --lv-cta: #cba94e;
+  --lv-cta-hover: #dcbc63;
+  --lv-cta-fg: #0a1524;
+  --lv-ring: #cba94e;
+
+  --lv-panel: #10243d;
+  --lv-panel-fg: #eef3fa;
+
+  --lv-scrim: linear-gradient(
+    to top,
+    rgb(4 10 19 / 0.86) 0%,
+    rgb(4 10 19 / 0.38) 45%,
+    rgb(4 10 19 / 0) 75%
+  );
+  --lv-scrim-deep: linear-gradient(
+    to top,
+    rgb(4 9 17 / 0.92) 0%,
+    rgb(4 9 17 / 0.68) 34%,
+    rgb(4 9 17 / 0.3) 62%,
+    rgb(4 9 17 / 0.1) 100%
+  );
+}
+
+/* Expose tokens to Tailwind as `bg-surface`, `text-fg-muted`, `font-display`, … */
+@theme inline {
+  --font-display: var(--font-cinzel), ui-serif, Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-sora), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-bg: var(--lv-bg);
+  --color-bg-soft: var(--lv-bg-soft);
+  --color-surface: var(--lv-surface);
+  --color-surface-2: var(--lv-surface-2);
+  --color-surface-3: var(--lv-surface-3);
+  --color-line: var(--lv-border);
+  --color-line-strong: var(--lv-border-strong);
+
+  --color-heading: var(--lv-heading);
+  --color-fg: var(--lv-fg);
+  --color-fg-muted: var(--lv-fg-muted);
+  --color-fg-subtle: var(--lv-fg-subtle);
+
+  --color-primary: var(--lv-primary);
+  --color-primary-soft: var(--lv-primary-soft);
+  --color-accent: var(--lv-accent);
+  --color-accent-ink: var(--lv-accent-ink);
+  --color-accent-fg: var(--lv-accent-fg);
+
+  --color-cta: var(--lv-cta);
+  --color-cta-hover: var(--lv-cta-hover);
+  --color-cta-fg: var(--lv-cta-fg);
+
+  --color-panel: var(--lv-panel);
+  --color-panel-fg: var(--lv-panel-fg);
+
+  --shadow-card: var(--lv-shadow-sm);
+  --shadow-raised: var(--lv-shadow-md);
+  --shadow-editorial: var(--lv-shadow-lg);
+
+  --radius-card: 1.125rem;
+  --radius-pill: 999px;
+}
+
+/* ---------------------------------------------------------------------------
+   BASE
+   --------------------------------------------------------------------------- */
+@layer base {
+  * {
+    border-color: var(--lv-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--lv-bg);
+    color: var(--lv-fg);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /* Mode and palette changes animate; everything else keeps its own timing. */
+  body.lv-theme-transition,
+  body.lv-theme-transition * {
+    transition:
+      background-color 420ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 420ms cubic-bezier(0.22, 1, 0.36, 1),
+      color 420ms cubic-bezier(0.22, 1, 0.36, 1),
+      fill 420ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 420ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--lv-ring);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: var(--lv-accent);
+    color: var(--lv-accent-fg);
+  }
+
+  /* Hash navigation must land below the sticky header, not behind it. */
+  section[id],
+  [id]:target {
+    scroll-margin-top: 6.5rem;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    color: var(--lv-heading);
+    text-wrap: balance;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   UTILITIES
+   --------------------------------------------------------------------------- */
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+/* Edge-to-edge horizontal rails that keep their page gutter while scrolling. */
+@utility rail {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+@utility rail-item {
+  scroll-snap-align: start;
+  flex: none;
+}
+
+.rail::-webkit-scrollbar {
+  display: none;
+}
+
+/* Entrance animation — opt-in, and fully disabled under reduced motion. */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.reveal[data-visible="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  body.lv-theme-transition,
+  body.lv-theme-transition * {
+    transition: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Extra breakpoints: `xs` covers the 390px class of phones, `3xl` the 1920px
+   displays the desktop grid needs to stop growing at. */
 @theme {
-  /* ── Surfaces ─────────────────────────────────────────────────────────── */
+  --breakpoint-xs: 24.375rem;
+  --breakpoint-3xl: 120rem;
+}
 
-  /* Warm parchment. The working canvas for host and admin screens. */
-  --color-canvas: #faf7f2;
-  /* Raised panels: cards, form wells, sheets. */
-  --color-surface: #fffdfa;
-  /* A half-step down, for inset areas and table headers. */
-  --color-surface-sunken: #f3eee5;
+/* ---------------------------------------------------------------------------
+   CONSOLE TOKENS
 
-  /* Anchors. Used for the rail, mastheads, image scrims and primary CTAs. */
-  --color-ink: #17140f;
-  --color-ink-soft: #241f19;
-  --color-charcoal: #322b23;
+   The host and operations consoles (ADR-0012: light working surfaces, dark
+   anchors). Values are the approved palette; only the names differ from the
+   traveller vocabulary above, and only because ~40 console components already
+   reference them.
+   --------------------------------------------------------------------------- */
+@theme {
+  --color-canvas: #f3efe7;
+  --color-surface-sunken: #eae1d2;
 
-  /* ── Type ─────────────────────────────────────────────────────────────── */
+  --color-ink: #0d1611;
+  --color-ink-soft: #15221a;
+  --color-charcoal: #1e2c22;
 
-  --color-text: #17140f;
-  --color-text-muted: #6b6157;
-  --color-text-subtle: #928779;
-  /* On dark anchors. */
-  --color-text-inverse: #f6efe2;
-  --color-text-inverse-muted: #b0a596;
+  --color-text: #1a1a1a;
+  --color-text-muted: #6b6660;
+  --color-text-subtle: #8c8579;
+  --color-text-inverse: #f3efe7;
+  --color-text-inverse-muted: #9faa9c;
 
-  /* ── Gold ─────────────────────────────────────────────────────────────── */
+  --color-primary-hover: #163a2b;
+  --color-primary-panel: #132b1e;
 
-  /*
-   * Two golds, because one cannot serve both grounds. The moodboard gold
-   * (#c9a84c) reads beautifully on black and fails contrast on ivory, so the
-   * darker antique tone is used for text and the lighter one for dark surfaces
-   * and fine rules.
-   */
-  --color-gold: #9a7524;
-  --color-gold-deep: #7d5d17;
-  --color-gold-light: #c9a84c;
+  --color-gold: #9a7a2e;
+  --color-gold-deep: #7d6224;
+  --color-gold-light: #d4af37;
   --color-gold-wash: #f6efdd;
-
-  /* ── Editorial accents (DESIGN.md §5) ─────────────────────────────────── */
 
   --color-burgundy: #5c1e26;
   --color-brown: #5a2e17;
-
-  /* ── State ────────────────────────────────────────────────────────────── */
 
   --color-success: #2f6042;
   --color-success-wash: #eaf1eb;
@@ -67,73 +468,26 @@
   --color-danger-wash: #fbecea;
   --color-info-wash: #eceff3;
 
-  /* ── Lines ────────────────────────────────────────────────────────────── */
+  --color-line-strong: rgba(31, 77, 58, 0.22);
+  --color-line-gold: rgba(212, 175, 55, 0.32);
+  --color-line-inverse: rgba(243, 239, 231, 0.1);
 
-  /* Thin and low-contrast (DESIGN.md §9). Structure, never decoration. */
-  --color-line: rgba(23, 20, 15, 0.1);
-  --color-line-strong: rgba(23, 20, 15, 0.18);
-  --color-line-gold: rgba(154, 117, 36, 0.32);
-  --color-line-inverse: rgba(246, 239, 226, 0.16);
-
-  /* ── Typography ───────────────────────────────────────────────────────── */
-
-  --font-display: var(--font-cinzel), "Cinzel", Georgia, "Times New Roman", serif;
-  --font-sans:
-    var(--font-montserrat), "Montserrat", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    sans-serif;
-
-  /* ── Radius (DESIGN.md §10 — restrained) ──────────────────────────────── */
-
+  /* Dense console surfaces keep the restrained radii; a data table with 18px
+     corners looks like a toy. The card and pill radii above serve the site. */
   --radius-xs: 2px;
   --radius-sm: 3px;
   --radius-md: 5px;
   --radius-lg: 8px;
 
-  /* ── Elevation ────────────────────────────────────────────────────────── */
-
-  /*
-   * Barely-there shadows. DESIGN.md §33 forbids heavy ones, and on a warm
-   * canvas a soft warm shadow reads as paper rather than as a floating panel.
-   */
-  --shadow-raise: 0 1px 2px rgba(23, 20, 15, 0.04), 0 1px 1px rgba(23, 20, 15, 0.03);
-  --shadow-panel: 0 1px 3px rgba(23, 20, 15, 0.05), 0 8px 24px -12px rgba(23, 20, 15, 0.12);
-  --shadow-lift: 0 2px 6px rgba(23, 20, 15, 0.06), 0 18px 40px -20px rgba(23, 20, 15, 0.22);
-
-  /* ── Layout ───────────────────────────────────────────────────────────── */
+  --shadow-raise: 0 1px 2px rgba(26, 26, 26, 0.04), 0 2px 8px rgba(26, 26, 26, 0.04);
+  --shadow-panel: 0 2px 6px rgba(26, 26, 26, 0.05), 0 10px 30px rgba(26, 26, 26, 0.07);
+  --shadow-lift: 0 8px 20px rgba(26, 26, 26, 0.06), 0 24px 60px rgba(26, 26, 26, 0.1);
 
   --container-max: 1440px;
-
-  /* ── Motion (DESIGN.md §29 — restrained) ──────────────────────────────── */
-
   --ease-out-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-/*
- * The console is committed to light. There is no dark variant, so
- * `color-scheme: light` is stated rather than inherited — otherwise a viewer in
- * dark mode gets browser-repainted form controls that fight the palette.
- */
-html {
-  color-scheme: light;
-  -webkit-text-size-adjust: 100%;
-}
-
-body {
-  background-color: var(--color-canvas);
-  color: var(--color-text);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-/*
- * Display type.
- *
- * Cinzel is a capitals face, so it is given generous tracking and used only at
- * heading sizes. DESIGN.md §6 forbids it for dense utility text.
- */
+/* Console helpers, unchanged. */
 .font-display {
   font-family: var(--font-display);
   letter-spacing: 0.02em;
@@ -146,20 +500,7 @@ body {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   font-weight: 600;
-  color: var(--color-text-subtle);
-}
-
-/*
- * Focus.
- *
- * One visible ring everywhere, on a gold that clears contrast on both the ivory
- * canvas and the dark rail. Keyboard navigation of the whole console depends on
- * this single rule (REQUIREMENTS.md — Accessibility).
- */
-:where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid var(--color-gold);
-  outline-offset: 2px;
-  border-radius: var(--radius-xs);
+  color: var(--lv-fg-subtle);
 }
 
 /* Respect a stated preference for less motion. */
@@ -171,19 +512,5 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
-  }
-}
-
-/* Selection in the brand gold wash rather than the browser blue. */
-::selection {
-  background: var(--color-gold-wash);
-  color: var(--color-ink);
-}
-
-/* A quiet, warm scrollbar so the rail does not end in a grey stripe. */
-@supports (scrollbar-color: auto) {
-  * {
-    scrollbar-color: var(--color-line-strong) transparent;
-    scrollbar-width: thin;
   }
 }

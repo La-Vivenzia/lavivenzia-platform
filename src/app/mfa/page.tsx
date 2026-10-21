@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { EditorialSplit } from "@/components/layout/editorial-split";
+import { AuthScreen, LockGlyph } from "@/components/auth/AuthScreen";
 import { getPrincipal } from "@/lib/auth-context";
 import { destinationForRoles } from "@/lib/destinations";
 import { requiresMfa } from "@/modules/auth/authorization";
@@ -27,12 +27,25 @@ export default async function MfaPage() {
   if (!requiresMfa(principal.roles) || principal.mfaSatisfied) redirect(destination);
 
   return (
-    <EditorialSplit
-      eyebrow="Operations"
-      statement="Privileged access is protected by a second factor. It is asked for once per session."
-      attribution="Your authenticator app generates a new code every thirty seconds."
+    <AuthScreen
+      eyebrow="Additional security"
+      title={<>Verify It&apos;s You</>}
+      description="Enter the six-digit code from your authenticator app. It changes every thirty seconds."
     >
-      <MfaChallenge destination={destination} />
-    </EditorialSplit>
+      <div className="flex flex-col gap-7">
+        {/*
+         * The lock medallion the reference opens this screen with. Decorative:
+         * the heading above already says what the screen is for.
+         */}
+        <div
+          aria-hidden="true"
+          className="bg-surface-2 text-primary dark:text-accent mx-auto grid h-[72px] w-[72px] place-items-center rounded-full"
+        >
+          <LockGlyph className="h-7 w-7" />
+        </div>
+
+        <MfaChallenge destination={destination} />
+      </div>
+    </AuthScreen>
   );
 }

@@ -13,16 +13,13 @@ import type { HostRecord } from "@/modules/hosts/ports";
  * from the host surface — the two have no method in common.
  */
 
-export const PAGE_SIZE = 20;
-export const MAX_PAGE_SIZE = 100;
+// Paging lives in the shared module: discovery needs the same clamp, and a
+// page-size limit that differs between the console and the public site is a
+// bug waiting to happen. Re-exported so existing imports are unchanged.
+export { MAX_PAGE_SIZE, PAGE_SIZE } from "@/modules/shared/pagination";
+export type { Page } from "@/modules/shared/pagination";
 
-export interface Page<T> {
-  readonly items: readonly T[];
-  readonly total: number;
-  readonly page: number;
-  readonly pageSize: number;
-  readonly totalPages: number;
-}
+import type { Page } from "@/modules/shared/pagination";
 
 // ── Queue rows ─────────────────────────────────────────────────────────────
 

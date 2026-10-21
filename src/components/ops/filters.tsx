@@ -32,7 +32,7 @@ export function FilterBar({
       <div className="border-line flex flex-wrap items-center gap-4 border-t pt-4">
         <button
           type="submit"
-          className="border-line-strong hover:border-gold hover:text-gold-deep hover:bg-gold-wash/40 inline-flex h-9 items-center rounded-sm border px-4 text-[11px] font-medium tracking-[0.1em] uppercase transition-colors"
+          className="border-line-strong hover:border-gold hover:text-gold-deep hover:bg-gold-wash/40 inline-flex h-9 items-center rounded-card border px-4 text-[11px] font-medium tracking-[0.1em] uppercase transition-colors"
         >
           Apply
         </button>
@@ -156,12 +156,12 @@ export function Pagination<T>({
           <Link
             href={href(page.page - 1)}
             rel="prev"
-            className="border-line-strong hover:border-gold hover:text-gold-deep inline-flex h-8 items-center rounded-sm border px-3 text-[11px] tracking-[0.1em] uppercase transition-colors"
+            className="border-line-strong hover:border-gold hover:text-gold-deep inline-flex h-8 items-center rounded-card border px-3 text-[11px] tracking-[0.1em] uppercase transition-colors"
           >
             Previous
           </Link>
         ) : (
-          <span className="border-line text-text-subtle inline-flex h-8 cursor-not-allowed items-center rounded-sm border px-3 text-[11px] tracking-[0.1em] uppercase">
+          <span className="border-line text-text-subtle inline-flex h-8 cursor-not-allowed items-center rounded-card border px-3 text-[11px] tracking-[0.1em] uppercase">
             Previous
           </span>
         )}
@@ -174,12 +174,12 @@ export function Pagination<T>({
           <Link
             href={href(page.page + 1)}
             rel="next"
-            className="border-line-strong hover:border-gold hover:text-gold-deep inline-flex h-8 items-center rounded-sm border px-3 text-[11px] tracking-[0.1em] uppercase transition-colors"
+            className="border-line-strong hover:border-gold hover:text-gold-deep inline-flex h-8 items-center rounded-card border px-3 text-[11px] tracking-[0.1em] uppercase transition-colors"
           >
             Next
           </Link>
         ) : (
-          <span className="border-line text-text-subtle inline-flex h-8 cursor-not-allowed items-center rounded-sm border px-3 text-[11px] tracking-[0.1em] uppercase">
+          <span className="border-line text-text-subtle inline-flex h-8 cursor-not-allowed items-center rounded-card border px-3 text-[11px] tracking-[0.1em] uppercase">
             Next
           </span>
         )}

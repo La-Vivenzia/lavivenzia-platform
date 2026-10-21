@@ -5,6 +5,62 @@ Status: Launch Design Source of Truth
 
 ---
 
+## Approval status — read first
+
+**The visual identity is now approved and implemented.** The references live in
+`public/uirefrence/` and the system was ported from the demo that produced them,
+rather than reinterpreted from the screenshots — so the product matches them
+exactly rather than approximately. See `docs/UI-REFERENCE-INVENTORY.md`.
+
+This section previously read "not approved… treat as a working placeholder".
+That is no longer true, and the sections below it describing the old palette are
+superseded by §A.
+
+Two things follow.
+
+**What is settled.** ADR-0012 records the one substantive deviation from §3 of
+this document — light working surfaces with dark anchors, rather than an all-dark
+product — and why. That decision came from watching an operator read a review
+queue for an hour on a near-black background. It is implemented and holds.
+
+**What is now settled.** The palette, the typeface pairing (Cinzel + Sora), the
+shape language, and the logo lockup — `public/logo-lavivenzia.png` and
+`logo-mark.png`, which carry transparency and need no per-theme variant.
+
+**Still open:** photography direction. The catalogue's own listing photographs
+are what the site renders, so this is a content question for hosts rather than a
+design one.
+
+**Settled 2026-10-20 — the identity question is closed.** A brand direction
+supplied on 2026-10-16 ("THE WORLD, CONSIDERED.", an Ivory / Obsidian / Stone
+palette, forest demoted to a supporting accent) was weighed against §A and
+**rejected by the founders**.
+
+**La Vivenzia remains a forest-green-and-ivory brand**, refined through
+luxury-editorial design rather than replaced by an ink-led identity. Green
+remains the primary colour and the neutral axis; ivory `#F3EFE7` and the
+green-based dark neutral `#16261E` are retained; gold and the logo artwork are
+preserved; the tagline stays "Experience Every Journey Through Its Soul"; and no
+terracotta or bronze value enters the system.
+
+**§A is the source of truth and requires no change.** The decision and the
+evidence behind it are in `docs/VISUAL_IDENTITY_DECISION.md`; §B.0 records what
+was rejected and why.
+
+**One defect survives the decision** and is a correction rather than a brand
+change: `--lv-accent-ink` and `--lv-fg-subtle` fail WCAG AA in both light
+palettes. A fix holding hue and saturation exactly is proposed in
+`VISUAL_IDENTITY_DECISION.md` §7.1 and **has not been applied**.
+
+**The architecture is ready for the replacement.** Colours exist only in
+`globals.css`; every listing renders through one `ExperienceCard`; every console
+screen sits in one shell; every button is one component with six variants. A
+visual pass is a token and component change rather than a rebuild — and it gets
+more expensive with every screen added before it happens. See PROJECT_STATE.md →
+"Replacing the design system".
+
+---
+
 ## 1. Purpose
 
 This document defines the visual and interaction language for La Vivenzia.
@@ -92,6 +148,11 @@ Warm
 ---
 
 # 4. Color System
+
+> **Superseded by §A.2 (2026-09-08).** The values in this section are the
+> pre-approval palette and are kept for historical context only. They are not
+> what the product uses. For live values read `src/app/globals.css`; for the
+> approved roles read §A.2. The two principles immediately below still hold.
 
 Use centralized design tokens.
 
@@ -199,6 +260,11 @@ They must never overpower the black + gold foundation.
 ---
 
 # 6. Typography
+
+> **Partly superseded by §A.3 (2026-09-08).** The pairing principle below is
+> correct and still governs. The specific faces are not: the approved pairing is
+> **Cinzel + Sora**, and Sora replaced Montserrat on 2026-09-08. Read §A.3 for
+> the faces and `src/app/layout.tsx` for how they load.
 
 The moodboard establishes an editorial serif + modern sans-serif pairing.
 
@@ -1214,3 +1280,360 @@ It should combine the visual richness of luxury hospitality, the editorial quali
 The interface must remain:
 
 **Dark. Gold. Elegant. Cinematic. Curated. Timeless. Human.**
+
+
+---
+
+# A. The approved system (2026-09-08)
+
+This section supersedes any colour, radius or typography value stated earlier in
+this document. The single source of truth is `src/app/globals.css`; the values
+here are for reading, not for copying into components.
+
+## A.1 Two axes, four combinations
+
+| Axis | Values | Mechanism |
+| --- | --- | --- |
+| Mode | light · dark | a `.dark` class on `<html>` |
+| Palette | green · blue | `data-palette` on `<html>` |
+
+Both are stamped before first paint by `themeInitScript` in
+`src/lib/theme-init.ts`, so there is never a flash of the wrong palette. Every
+component reads semantic names only, so neither axis needs a line of conditional
+JSX.
+
+**The blue palette exists and ships.** It is not shown in the reference images
+and is not the default; it is a second approved skin reached with
+`?palette=blue`.
+
+## A.2 Colour
+
+| Role | Green · light | Green · dark |
+| --- | --- | --- |
+| Page ground | `#f3efe7` | `#0d1611` |
+| Card surface | `#fcfaf6` | `#15221a` |
+| Chips, wells | `#eae1d2` | `#1e2c22` |
+| Heading | `#16261e` | `#f5f1e8` |
+| Body | `#1a1a1a` | `#f3efe7` |
+| Primary | `#1f4d3a` | `#2c6b4f` |
+| Gold (logo) | `#d4af37` | `#d4af37` |
+| Call to action | `#1f4d3a` green | `#cba94e` gold |
+
+Two properties are easy to undo by accident and must not be:
+
+**The neutral axis is green, not brown.** The pre-approval ink was `#17140f`, a
+warm brown-black. The approved ground is a deep pine whose green channel leads.
+Anything that "corrects" these toward neutral grey breaks the identity.
+
+**The call to action inverts by ground** — deep green on ivory, gold on pine.
+The two reference screens are otherwise identical and differ exactly here.
+
+## A.3 Typography
+
+| Role | Face |
+| --- | --- |
+| Display — headings, wordmark | **Cinzel** |
+| Body, UI, dense text | **Sora** |
+
+Cinzel is a capitals face: generous tracking, heading sizes only, never dense
+utility text. Sora replaced Montserrat on 2026-09-08.
+
+## A.4 Shape
+
+| Token | Value | Used for |
+| --- | --- | --- |
+| `--radius-pill` | `999px` | buttons, chips, filter fields, search |
+| `--radius-card` | `1.125rem` | cards, panels, media wells, feature blocks |
+| `--radius-xs … lg` | 2–8px | retained for dense console tables only |
+
+**Buttons are pills everywhere**, consoles included. It is the strongest shape
+signal in the approved design, so it lives on the shared `Button` rather than
+being reapplied per screen.
+
+## A.5 The components that own the language
+
+Do not create a second version of any of these. If one does not fit, change it.
+
+| Concern | Component |
+| --- | --- |
+| Public chrome | `SiteShell` → `MobileHeader` / `DesktopHeader` / `Footer` / `BottomNavigation` |
+| Account controls | `ProfileButton` — sign in, avatar, sign out |
+| Interior masthead | `PageHeader` · `PageBody` |
+| Listing card | `DestinationCard` |
+| Editorial card | `ExperienceCard` |
+| Result grid | `CatalogueGrid` |
+| Section title + rail | `SectionHeader` |
+| Search | `SearchBar` |
+| Buttons, fields, chips, alerts | `ui/button` · `ui/field` · `ui/status` · `ui/feedback` |
+
+## A.6 Two token vocabularies, deliberately
+
+`--lv-*` and the `bg/fg/accent/cta/panel` utilities serve the public site and
+come from the approved system verbatim. The `ink/gold/text/line/canvas` names
+serve the consoles, which have **no approved reference of their own** and would
+otherwise have been restyled on no evidence.
+
+They are not duplicates — where they overlap the values agree. Retiring the
+console vocabulary needs its own approved reference. Do not merge them on
+aesthetic grounds.
+
+## A.7 What is deliberately absent
+
+The references show **Stays**, **AI Genie** and **Trips**. None has a backend:
+there is no accommodation entity, AI discovery is a later phase with its
+embeddings provider unresolved (ADR-0007, A-006), and itineraries are Phase 9.
+
+`AIGenieSection` and `AIGenieFeature` are kept on disk, matching the approved
+design, and are **not mounted**. When the feature ships, mounting them restores
+the design with no rework. Until then, `CLAUDE.md` §7 governs: the interface
+must not promise capability the product lacks.
+
+---
+
+# B. Brand expression, experience principles and visual governance (2026-10-16)
+
+§A defines what the product **looks like** and remains the source of truth for
+every token. This section defines what it must **feel like**, how its surfaces
+should behave, and how UI work is verified. It is additive: it introduces no
+colour, radius or typeface value, and it overrides nothing in §A.
+
+## B.0 A rejected brand direction — RESOLVED 2026-10-20
+
+> **Closed.** The founders selected the existing forest-green-and-ivory identity
+> on 2026-10-20. The direction below was **rejected**; §A stands unchanged and
+> no token was altered. The comparison is retained as the record of what was
+> weighed — it is evidence, not a live proposal. Full decision:
+> `docs/VISUAL_IDENTITY_DECISION.md`.
+
+A brand direction supplied on 2026-10-16 conflicted with §A on the three points
+marked **CONFLICT** below. Both positions are recorded so the reasoning survives
+the decision.
+
+| Subject | §A — approved and implemented | 2026-10-16 direction | Status |
+| --- | --- | --- | --- |
+| Neutral axis | Deep pine. Heading ink `#16261e`, green channel leads | "Obsidian `#171715`" — effectively neutral grey-black | **CONFLICT** |
+| Primary | Deep green `#1f4d3a`, carrying the whole neutral axis | Forest demoted to "a restrained supporting accent" | **CONFLICT** |
+| Page ground | `#f3efe7` | "Ivory `#F5F2EA`" | Near-identical; a change would be cosmetic, not structural |
+| Third neutral | `--lv-bg-soft #ece5d8`, `--lv-surface-3 #eae1d2` | "Stone `#D8D1C3`" | Compatible in role; values differ |
+| Typography | Cinzel display + Sora UI | "Editorial serif + contemporary grotesk" | **No conflict** — the implemented pairing already satisfies this |
+| Brand line | `brand.tagline` = "Experience Every Journey Through Its Soul" (rendered in `Footer`, `Logo`, `MobileHome`) | "THE WORLD, CONSIDERED." / "Journeys composed around you." | **CONFLICT** |
+
+**Why it was rejected.** §A says, in terms:
+
+> The neutral axis is green, not brown. […] Anything that "corrects" these
+> toward neutral grey breaks the identity.
+
+`#171715` is that correction. Adopting it would have inverted the identity —
+green falling from the neutral axis and the primary to a decorative accent — and
+§A's values were not chosen aesthetically: they were **ported from references
+the founders approved** (ADR-0015, `public/uirefrence/`).
+
+The founders confirmed on 2026-10-20 that the green axis stands. **ADR-0015
+remains in force and `public/uirefrence/` remains the standard.**
+
+**What was kept from the rejected direction.** Its palette was declined; its
+craft was not. Generous whitespace, editorial typography, authentic travel
+photography, restrained motion, accessibility discipline and consistent tokens
+are all adopted — they are the substance of §B.1 and §B.6 through §B.12, and
+none of them ever depended on changing a colour.
+
+## B.1 Design territory and personality
+
+The territory is **Luxury Editorial × Quiet Luxury × Modern Digital Product**.
+
+The personality is **cultured, intelligent, personal, warm, modern, timeless,
+restrained**. These extend §2's Core Attributes rather than replacing them; the
+two lists are consistent, and where a word appears in both it means the same
+thing.
+
+The product must read as a considered travel house expressed through a
+sophisticated digital product — not a SaaS dashboard, and not a mass-market
+travel marketplace. The distinction is behavioural, not decorative: a travel
+house shows fewer things, says why each one is there, and does not shout.
+
+## B.2 Brand line — settled
+
+**"Experience Every Journey Through Its Soul"** — confirmed by the founders on
+2026-10-20. It lives in `brand.tagline` (`src/data/`) and is rendered by
+`Footer`, `MobileHome` and the `Logo` alt text. "THE WORLD, CONSIDERED." was
+rejected. **No code change is required; the implemented line is the approved
+line.**
+
+Two related items are **not** settled by that decision:
+
+**The lockup artwork is still defective.** `src/components/ui/wordmark.tsx`
+records that the supplied artwork misspells the tagline — "Joumey" and
+"Th1ough" — which is why only the pin is used and never the full lockup. It also
+carries a baked-in glow that makes it dark-surface-only. Re-cutting it, ideally
+as SVG, fixes both and is independent of the brand decision.
+
+**A third line exists in the product.** The document `<title>` renders as "La
+Vivenzia — Journeys Designed Around You", observed in the running application on
+2026-10-20. Whether that is intentional positioning copy or drift has not been
+decided.
+
+## B.3 The experience principles
+
+Every traveller-facing surface should sit somewhere on this progression, and
+should make clear where:
+
+**DISCOVER → UNDERSTAND → CURATE → PERSONALISE → BUILD → EXPERIENCE**
+
+| Stage | What the surface owes the traveller | Where it lives today |
+| --- | --- | --- |
+| Discover | A reason to look, before a box to type in | `/`, `/destinations`, `/categories` |
+| Understand | Enough to judge: place, duration, host, price basis | `/experiences/[slug]` |
+| Curate | A narrowing that reflects intent, not just filters | `/experiences` |
+| Personalise | Shaping around the person | **Not implemented** — no `TravellerProfile` |
+| Build | Assembling something across days | **Not implemented** — Phase 9 |
+| Experience | During and after the trip | **Not implemented** |
+
+**Intent before search.** Discovery should lead with intent rather than a
+general-purpose query box. A search field may exist; it should not be the first
+thing the page argues for.
+
+The last three rows are stated as direction, **not as capability**. Nothing in
+this section should be read as a claim that personalisation, itineraries or
+in-trip surfaces exist.
+
+## B.4 AI surfaces — a private concierge, not a chatbot
+
+When AI discovery ships (Phase 8, blocked on A-006), it must read as a
+considered concierge: it asks, listens, and returns a small number of
+well-reasoned options with the reasoning shown.
+
+- No generic assistant chrome — no robot avatars, no sparkle motifs, no
+  "AI is thinking" theatre.
+- Recommendations carry their reason. An unexplained recommendation is a guess.
+- Restraint over volume: fewer, better, explained.
+- The interface must not promise capability the product lacks (`CLAUDE.md` §7).
+  `AIGenieSection` and `AIGenieFeature` stay unmounted until there is a backend.
+
+## B.5 One system, three densities
+
+Traveller, host and admin share one design language and differ only in
+**information density**, because their jobs differ. They must not diverge into
+separate design systems.
+
+| Surface | Density | Governing intent |
+| --- | --- | --- |
+| Traveller | Generous. Editorial composition, large media | Persuade and inform |
+| Host | Moderate. Forms and status, still branded | Complete a task accurately |
+| Admin / ops | Dense. Tables, queues, filters | Decide quickly, repeatedly |
+
+Shared across all three without exception: typeface pairing, colour roles, pill
+buttons (§A.4), focus treatment, and the `Button` component with its variants.
+
+§A.6 records why two token vocabularies currently coexist and why they must not
+be merged on aesthetic grounds. That remains correct and is not relaxed here.
+
+## B.6 Photography and art direction
+
+Photography carries more of this identity than any component does.
+
+- **Real, specific places.** The catalogue's own listing photographs are what
+  the site renders — this is a content standard for hosts as much as a design
+  one.
+- Cinematic, human, architectural. Natural light preferred.
+- Composed with space for type to sit over it where the layout requires.
+- **Never** generic stock travel imagery unrelated to the actual listing. A
+  photograph that does not depict the thing being sold is a misrepresentation
+  before it is a design flaw.
+- Cropping must survive responsive reflow: check the subject is not lost at the
+  narrowest breakpoint.
+
+**Known gap:** there is no documented minimum resolution, aspect ratio set or
+compression target for host-supplied media. These need deciding — marked
+**REQUIRES VERIFICATION**; do not invent values.
+
+## B.7 Iconography
+
+Icons are functional, not decorative. One family, consistent stroke weight,
+aligned to the text they label. Icons never carry meaning alone — pair with a
+label or an accessible name. Current implementation uses `lucide-react` plus
+local `src/components/icons.tsx`; do not introduce a third source.
+
+## B.8 Motion
+
+Purposeful and short. Motion explains a relationship — where something came
+from, what changed — or it does not run.
+
+- Prefer opacity and small translations; avoid scale on large surfaces.
+- Nothing bounces, pulses or loops for decoration.
+- Honour `prefers-reduced-motion`. **REQUIRES VERIFICATION** — this audit did
+  not confirm it is implemented.
+
+## B.9 Accessibility and contrast
+
+- Body and UI text must meet **WCAG AA (4.5:1)**; large display text **3:1**.
+- `--lv-accent-ink` exists precisely because the logo gold fails contrast on a
+  pale ground. **Use `--lv-accent-ink`, never `--lv-accent`, for text on light
+  surfaces.**
+- Every interactive element needs a visible focus state, and it must survive
+  both modes and both palettes.
+- Colour alone must never carry status — pair with text or an icon.
+- Targets: 44px minimum on touch surfaces.
+
+**No automated contrast checking exists.** Contrast claims in this document are
+derived from the token values, not from a test. Marked **REQUIRES
+VERIFICATION**.
+
+## B.10 States
+
+Every data-bearing surface owes five states, and they are design work, not
+fallbacks:
+
+| State | Requirement |
+| --- | --- |
+| Loading | Shaped like the content it replaces. No full-page spinners on a populated page |
+| Empty | Says why it is empty and what to do next. Never a bare "No results" |
+| Error | Plain language, no codes, and a way forward. Never a raw message |
+| Success | Confirms what happened, briefly, without blocking |
+| Disabled | Visibly distinct and explained — why is more useful than that |
+
+`src/components/ui/feedback.tsx` and `status.tsx` own these. Do not reimplement
+them per screen.
+
+## B.11 Anti-patterns — explicitly prohibited
+
+Do not introduce:
+
+- Generic SaaS dashboard aesthetics.
+- Excessive rounded cards or nested containers — containers inside containers
+  inside containers.
+- Gradients or glassmorphism used decoratively.
+- Flashy AI visuals, cyberpunk styling, neon.
+- Generic decorative travel imagery unrelated to the real listing.
+- Decorative noise that competes with content.
+- Arbitrary colour, spacing, typography or radius values that bypass the tokens.
+- A second design system for any product area.
+- Another company's brand or interface, copied.
+
+The structural guard is `tests/unit/button-variants.test.ts`, which fails if a
+button is recoloured through `className` instead of a variant. It covers buttons
+only; everything else on this list is reviewed by eye.
+
+## B.12 Visual acceptance criteria
+
+A UI change is not done when it compiles. It is done when it has been **looked
+at**. This project's own record is the argument: four consecutive milestones
+produced defects that only appeared by opening the running product — an
+invisible hero button, a soft 404, a missing logout, and a client-boundary 500.
+Each component was individually correct; the composition was not.
+
+Before marking UI work complete:
+
+1. **Open it.** Not a unit test — the running page.
+2. **Both modes and both palettes** — light/dark × green/blue (§A.1).
+3. **Real breakpoints**, not a resized desktop window: 390, 768, 1024, 1440.
+4. **Tokens only** — no literal hex, px radius or font-family in a component.
+5. **All five states** from B.10 exercised.
+6. **Focus order and visible focus**, by keyboard.
+7. **Images** at the narrowest breakpoint — subject still intact after cropping.
+8. **Copy** — no placeholder text, no lorem, no misspellings.
+
+**There is no visual regression infrastructure in this repository** — no
+Playwright, no screenshot comparison, no responsive test. Items 1–8 are
+therefore manual, and item 4 is the only one with any automated backing. Adding
+visual regression coverage is outstanding design-system work, not a solved
+problem.

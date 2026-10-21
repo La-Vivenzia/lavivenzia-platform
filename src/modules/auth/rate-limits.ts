@@ -49,6 +49,30 @@ export const RATE_LIMITS = {
   experienceCreatePerHost: { limit: 40, windowMs: HOUR },
 
   /**
+   * Location autocomplete per client.
+   *
+   * The one public endpoint that costs money per call: each request can reach
+   * Google Places, which is billed per keystroke-driven lookup. The limit is a
+   * budget control first and an abuse control second.
+   *
+   * Sized for a person typing, not for a script: a traveller refining a
+   * destination two or three times in a session issues perhaps thirty debounced
+   * requests, so this leaves generous headroom while making a scraper expensive.
+   */
+  placesAutocompletePerIp: { limit: 120, windowMs: 15 * MINUTE },
+
+  /**
+   * Public discovery search per client.
+   *
+   * Browsing is deliberately unauthenticated and should stay cheap, so this is
+   * loose enough that no real traveller meets it. What it bounds is the
+   * keyword path specifically: a trigram similarity scan is far more expensive
+   * than an indexed equality filter, and an unauthenticated endpoint that will
+   * run one on any string is worth a ceiling.
+   */
+  discoverySearchPerIp: { limit: 300, windowMs: 15 * MINUTE },
+
+  /**
    * Media upload per host.
    *
    * Each accepted upload is up to 8 MB of stored bytes, so this is a storage

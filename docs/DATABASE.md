@@ -249,6 +249,38 @@ proposing to drop them.
 a generated column, a partial index — declare it in the schema too, or the next
 migration will quietly propose dropping it.
 
+The trigram indexes added for search follow that rule. Prisma _can_ express an
+operator class, so they are declared rather than written as raw SQL:
+
+```prisma
+@@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+```
+
+Four of them exist, on `experiences.title`, `experiences.summary`,
+`experiences.city` and `hosts.display_name` — the four columns traveller keyword
+search reads (ADR-0014). `prisma migrate diff --exit-code` returns 0 with them
+in place.
+
+## Reading the spatial column
+
+`experiences.geo` is written by the database and read only through raw SQL:
+Prisma has no PostGIS type, so `Unsupported` columns cannot appear in a `select`.
+Proximity search therefore lives in
+`src/adapters/persistence/prisma/discovery-repositories.ts`, which runs one
+`$queryRaw` to select matching ids and then hydrates them through Prisma.
+
+Two things about that query are load-bearing rather than stylistic.
+
+`ST_DWithin` is used for filtering, never a comparison against `ST_Distance`.
+Only the former can use the GiST index; the latter computes a distance for every
+row and then filters, which is the same query without the index.
+
+The column is `geography`, not `geometry`, so `ST_Distance` returns **metres on
+the spheroid**. The same call on a `geometry` column returns degrees, which look
+like plausible small numbers and are wrong by a factor of about 111,000 near the
+equator. The integration suite pins real distances between real Indian cities
+specifically so that a change to this cannot pass unnoticed.
+
 ## Known traps
 
 **`citext` + Prisma pattern matching.** `users.email` is `citext`, so equality is

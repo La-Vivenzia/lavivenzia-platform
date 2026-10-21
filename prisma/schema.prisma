@@ -322,6 +322,9 @@ model Host {
   reviewer    User?        @relation("HostReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
 
   @@index([verificationStatus])
+  /// Keyword search matches a host's brand name too, so it needs the same
+  /// trigram support as the experience text columns.
+  @@index([displayName(ops: raw("gin_trgm_ops"))], type: Gin)
   @@map("hosts")
 }
 
@@ -428,12 +431,23 @@ model Experience {
   host     Host              @relation(fields: [hostId], references: [id], onDelete: Cascade)
   category Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   media    ExperienceMedia[]
+  slots    ExperienceSlot[]
   /// See the note on Host.reviewer.
   reviewer User?             @relation("ExperienceReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
 
   /// The host dashboard lists a host's own experiences newest-first, and
   /// operations lists everything awaiting review. Both are covered here.
+  ///
+  /// The three GIN trigram indexes serve traveller keyword search (FR-02).
+  /// Without them, `ILIKE '%term%'` is a sequential scan on every keystroke,
+  /// and `similarity()` ranking would have to score the whole table. They are
+  /// declared here rather than created by raw SQL in a migration so that
+  /// `prisma migrate diff` stays clean — an index the schema does not know
+  /// about is one the next `migrate dev` generates a DROP for.
   @@index([geo], type: Gist)
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([summary(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([city(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([hostId, status, updatedAt])
   @@index([status, submittedAt])
   @@index([categoryId])
@@ -515,4 +529,61 @@ model Category {
 
   @@index([isActive, position])
   @@map("categories")
+}
+
+/// When a slot is open to booking (FR-08).
+enum SlotStatus {
+  /// Accepting bookings, subject to capacity and the cut-off.
+  OPEN
+  /// Closed by the host. Existing reservations stand; no new ones.
+  CLOSED
+}
+
+/// One bookable occurrence of an experience (FR-08).
+///
+/// Availability is modelled as explicit slots rather than as a recurrence rule
+/// on the experience. A rule has to be expanded to be booked against, and the
+/// expansion is where double-booking bugs live; a row per occurrence means the
+/// thing a traveller reserves is the thing the database constrains.
+///
+/// **`reservedCount` is the seat ledger, and the database owns its invariants.**
+/// Phase 6 will increment it inside the booking transaction. Every rule that
+/// matters is a CHECK constraint rather than application logic, so a bug in a
+/// future booking path cannot oversell a slot: see the migration for
+/// `experience_slots_reserved_within_capacity`.
+model ExperienceSlot {
+  id           String @id @default(uuid()) @db.Uuid
+  experienceId String @map("experience_id") @db.Uuid
+
+  /// Stored as timestamptz: a slot is an instant, and hosts and travellers are
+  /// not always in the same zone. Rendering is the UI's problem.
+  startsAt DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt   DateTime @map("ends_at") @db.Timestamptz(3)
+
+  /// Total seats for this occurrence. Distinct from the experience's
+  /// `maxGuests`, which caps a single party rather than the whole slot.
+  capacity Int
+
+  /// Seats committed. Always 0 until booking ships — kept here rather than
+  /// derived from a bookings table so the capacity invariant can be a CHECK
+  /// constraint instead of a query that races.
+  reservedCount Int @default(0) @map("reserved_count")
+
+  /// Minutes before `startsAt` that booking closes. 0 means right up to the
+  /// start. A host operations setting, not a pricing or cancellation rule.
+  bookingCutoffMinutes Int @default(0) @map("booking_cutoff_minutes")
+
+  status SlotStatus @default(OPEN)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  experience Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+
+  /// Two slots for one experience cannot begin at the same instant. Overlap
+  /// beyond that is checked in the domain, where the end time is known.
+  @@unique([experienceId, startsAt])
+  @@index([experienceId, startsAt])
+  @@index([startsAt])
+  @@map("experience_slots")
 }
