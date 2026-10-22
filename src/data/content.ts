@@ -186,28 +186,34 @@ export const experiences: Experience[] = [
   },
 ];
 
+/**
+ * AI Genie copy. It describes the Live Travel Copilot as it actually works —
+ * mood-based suggestions near a point in the Pune pilot corridor — and claims
+ * nothing more (CLAUDE.md §7). Multi-day itinerary planning does not exist yet;
+ * do not reintroduce copy that promises it.
+ */
 export const genie = {
   sectionTitle: "Plan Smarter with AI Genie",
   action: "Try Now",
-  headline: ["Tell us what you love,", "we'll craft your perfect journey."],
-  supporting: "Personalized itineraries, stays and experiences in seconds.",
+  headline: ["Tell us your mood,", "we'll find what's worth it nearby."],
+  supporting: "Live picks around Amanora, Seasons Mall, Magarpatta and Hadapsar.",
   prompts: [
-    "Ten quiet days in Japan, mostly walking",
-    "A coastline in Italy, no crowds, late September",
-    "Somewhere warm where my kids can learn to dive",
+    "Cold beer and bowling near Seasons Mall",
+    "A quiet coffee to work from in Magarpatta",
+    "Somewhere to unwind after work near Amanora",
   ],
   highlights: [
     {
-      title: "Reads the whole brief",
-      body: "Pace, budget, who you're travelling with, what you'd rather avoid.",
+      title: "Reads your mood",
+      body: "Gaming, craft beer, coffee, dining or a spa — or just say it in your own words.",
     },
     {
-      title: "Builds a real itinerary",
-      body: "Stays, routes and timings that hold together day to day.",
+      title: "Only real listings",
+      body: "Every pick is a published experience. Prices and distances come from the catalogue.",
     },
     {
-      title: "Keeps adjusting",
-      body: "Change one thing and the rest of the journey rearranges around it.",
+      title: "Takes you there",
+      body: "One tap for directions, or open the full experience to book.",
     },
   ],
 };

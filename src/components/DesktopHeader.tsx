@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { CopilotTrigger } from "@/components/copilot/CopilotProvider";
 import { Logo } from "@/components/Logo";
 import { PaletteToggle } from "@/components/PaletteToggle";
 import { NotificationButton, ProfileButton } from "@/components/ProfileButton";
@@ -85,8 +86,7 @@ export function DesktopHeader({
         </nav>
 
         <div className="flex shrink-0 items-center gap-2">
-          <a
-            href="#d-genie"
+          <CopilotTrigger
             className={cn(
               "hidden rounded-pill bg-cta px-5 py-2.5 text-[13.5px] font-medium whitespace-nowrap text-cta-fg xl:inline-block",
               "transition-[background-color,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -94,7 +94,7 @@ export function DesktopHeader({
             )}
           >
             Plan My Journey
-          </a>
+          </CopilotTrigger>
           <NotificationButton signedIn={signedIn} accountHref={accountHref} />
           <ProfileButton signedIn={signedIn} accountHref={accountHref} initials={initials} />
           <ThemeToggle className="ml-1" />

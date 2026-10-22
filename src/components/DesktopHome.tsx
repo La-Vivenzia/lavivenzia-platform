@@ -1,3 +1,4 @@
+import { AIGenieFeature } from "@/components/AIGenieFeature";
 import { CategoryNavigation } from "@/components/CategoryNavigation";
 import { DesktopHeader } from "@/components/DesktopHeader";
 import { DesktopHero } from "@/components/DesktopHero";
@@ -84,8 +85,10 @@ export function DesktopHome(props: HomeData) {
           </ul>
         </section>
 
+        <AIGenieFeature />
+
         {/* Popular destinations — editorial mosaic */}
-        <section id="d-popular" aria-labelledby="lv-popular-desktop" className={cn(shell, "pb-28")}>
+        <section id="d-popular" aria-labelledby="lv-popular-desktop" className={cn(shell, "py-28")}>
           <Reveal>
             <SectionHeader
               id="lv-popular-desktop"

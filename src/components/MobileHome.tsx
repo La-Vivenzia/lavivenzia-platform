@@ -1,3 +1,4 @@
+import { AIGenieSection } from "@/components/AIGenieSection";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { CategoryNavigation } from "@/components/CategoryNavigation";
 import { CuratedSection } from "@/components/CuratedSection";
@@ -40,6 +41,7 @@ export function MobileHome(props: HomeData) {
         </Reveal>
 
         <CuratedSection items={curated} />
+        <AIGenieSection />
         <PopularDestinations items={popular} />
         <ExperiencesSection items={stories} />
 

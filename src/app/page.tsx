@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CopilotProvider } from "@/components/copilot/CopilotProvider";
 import { DesktopHome } from "@/components/DesktopHome";
 import { MobileHome } from "@/components/MobileHome";
 import { getDiscoveryService } from "@/lib/container";
@@ -81,9 +82,9 @@ export default async function HomePage() {
   };
 
   return (
-    <>
+    <CopilotProvider>
       <MobileHome {...session} />
       <DesktopHome {...session} />
-    </>
+    </CopilotProvider>
   );
 }

@@ -1,25 +1,16 @@
-/*
- * NOT RENDERED.
- *
- * This is the approved "Plan Smarter with AI Genie" panel and it matches the
- * reference exactly. It is deliberately not mounted on the home screen: it
- * promises AI itinerary planning, and there is no such feature — no embeddings
- * provider is selected (ADR-0007, A-006) and AI discovery is a later phase.
- *
- * `CLAUDE.md` §7 is explicit that AI must not invent inventory or capability. A
- * panel inviting a traveller to "try now" against nothing is exactly that.
- *
- * Kept on disk rather than deleted: when the feature ships, mounting this file
- * in `MobileHome` restores the approved design with no rework.
- */
 import { ArrowRight } from "lucide-react";
 
+import { CopilotTrigger } from "@/components/copilot/CopilotProvider";
 import { GenieStar } from "@/components/icons";
 import { Reveal } from "@/components/Reveal";
 import { SectionHeader } from "@/components/SectionHeader";
 import { genie } from "@/data/content";
 
-/** Mobile AI Genie feature card. */
+/**
+ * Mobile AI Genie feature card. Both the section action and the arrow open the
+ * Live Travel Copilot drawer (`CopilotProvider`); the action is a plain
+ * `#copilot` link, which the provider listens for.
+ */
 export function AIGenieSection() {
   return (
     <section id="m-genie" aria-labelledby="lv-genie" className="px-5 pt-10">
@@ -28,7 +19,7 @@ export function AIGenieSection() {
           id="lv-genie"
           title={genie.sectionTitle}
           action={genie.action}
-          href="#m-genie"
+          href="#copilot"
         />
       </Reveal>
 
@@ -58,13 +49,12 @@ export function AIGenieSection() {
             </p>
           </div>
 
-          <a
-            href="#m-genie"
-            aria-label="Start planning with AI Genie"
+          <CopilotTrigger
+            aria-label="Open the Live Travel Copilot"
             className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cta text-cta-fg transition-[background-color,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-105 hover:bg-cta-hover active:scale-95 xs:h-11 xs:w-11 sm:h-12 sm:w-12"
           >
             <ArrowRight className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
-          </a>
+          </CopilotTrigger>
         </div>
       </Reveal>
     </section>
