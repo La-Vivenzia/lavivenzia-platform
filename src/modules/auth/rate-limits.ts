@@ -73,6 +73,15 @@ export const RATE_LIMITS = {
   discoverySearchPerIp: { limit: 300, windowMs: 15 * MINUTE },
 
   /**
+   * Travel copilot per client.
+   *
+   * Every request is a proximity query plus a detail read per suggestion, and
+   * may be a billed model call. Generous for a traveller re-asking with a new
+   * mood; a ceiling on a script.
+   */
+  copilotPerIp: { limit: 60, windowMs: 15 * MINUTE },
+
+  /**
    * Media upload per host.
    *
    * Each accepted upload is up to 8 MB of stored bytes, so this is a storage

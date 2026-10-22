@@ -7,6 +7,9 @@ import { ExperienceService } from "@/modules/experiences/service";
 import { AvailabilityService } from "@/modules/availability/service";
 import { OperationsService } from "@/modules/operations/service";
 import { DiscoveryService } from "@/modules/discovery/service";
+import { CopilotService } from "@/modules/copilot/service";
+import { getLogger } from "@/lib/logger";
+import { AnthropicLlmAdapter } from "@/adapters/llm/anthropic";
 import type { EmailPort } from "@/ports/email";
 import type { StoragePort } from "@/ports/storage";
 import type { MapsPort } from "@/ports/maps";
@@ -181,6 +184,26 @@ export function getDiscoveryService(): DiscoveryService {
   });
 
   return discoveryService;
+}
+
+let copilotService: CopilotService | undefined;
+
+/**
+ * AI travel copilot.
+ *
+ * The model is wired only when a key is configured. Without one — or when the
+ * call fails, times out or returns something unacceptable — every rationale is
+ * written deterministically, and the facts are identical either way (ADR-0007).
+ */
+export function getCopilotService(): CopilotService {
+  copilotService ??= new CopilotService({
+    discovery: getDiscoveryService(),
+    llm: env.ANTHROPIC_API_KEY ? new AnthropicLlmAdapter() : undefined,
+    onEnrichmentFailure: (reason) =>
+      getLogger().warn({ reason }, "copilot enrichment failed; using deterministic rationale"),
+  });
+
+  return copilotService;
 }
 
 let mapsPort: MapsPort | undefined;
