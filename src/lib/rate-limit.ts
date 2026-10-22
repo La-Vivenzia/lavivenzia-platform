@@ -28,19 +28,28 @@ const limiter = createRateLimiter(prisma);
  * of that is "count it", not "let it through".
  */
 export async function enforceIpRateLimit(name: RateLimitName): Promise<void> {
-  const rule = RATE_LIMITS[name];
-  const { ipAddress } = await getRequestContext();
+  try {
+    const rule = RATE_LIMITS[name];
+    const { ipAddress } = await getRequestContext();
 
-  const decision = await limiter.consume(
-    rateLimitKey(name, ipAddress ?? "unknown"),
-    rule.limit,
-    rule.windowMs,
-    new Date(),
-  );
+    const decision = await limiter.consume(
+      rateLimitKey(name, ipAddress ?? "unknown"),
+      rule.limit,
+      rule.windowMs,
+      new Date(),
+    );
 
-  if (!decision.allowed) {
-    throw new RateLimitedError("Too many requests. Please try again shortly.", {
-      retryAfterSeconds: decision.retryAfterSeconds,
-    });
+    if (!decision.allowed) {
+      throw new RateLimitedError("Too many requests. Please try again shortly.", {
+        retryAfterSeconds: decision.retryAfterSeconds,
+      });
+    }
+  } catch (error) {
+    if (error instanceof RateLimitedError) throw error;
+    if (process.env.NODE_ENV !== "production") {
+      // In local dev/preview when DB is offline, fail-open for rate limiting
+      return;
+    }
+    throw error;
   }
 }
