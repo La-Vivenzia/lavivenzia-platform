@@ -32,9 +32,9 @@ minutes of work that keeps being postponed.
 
 **Phase 1 — Design System & UI Foundation**, completed 2026-09-08, when the
 approved moodboard was implemented. That closed what the project's own notes
-called *"the longest-running blocker in the project."*
+called _"the longest-running blocker in the project."_
 
-Only **Phase 0 (Architecture & Foundation)** is rated *complete and verified* in
+Only **Phase 0 (Architecture & Foundation)** is rated _complete and verified_ in
 the strict sense. Four more phases — 1, 2, 5 and 7 — are implemented but have
 outstanding verification.
 
@@ -57,12 +57,12 @@ at numbers that would be expensive to change, which is the right call.
 
 ## What remains
 
-| Category | Work |
-| --- | --- |
-| **Features** | Booking & payments (Phase 6), AI discovery (8), itinerary engine (9), availability/slots, traveller profiles & wishlist, Google sign-in, password reset |
-| **Verification** | 190 database tests not currently runnable; no responsive/mobile testing exists at all; no real email has ever been sent |
-| **Infrastructure** | Nothing has ever run outside a developer laptop. No hosting, no deployment setup, no monitoring |
-| **Production readiness** | Security hardening on the money path, error monitoring, deployment pipeline |
+| Category                 | Work                                                                                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Features**             | Booking & payments (Phase 6), AI discovery (8), itinerary engine (9), availability/slots, traveller profiles & wishlist, Google sign-in, password reset |
+| **Verification**         | 190 database tests not currently runnable; no responsive/mobile testing exists at all; no real email has ever been sent                                 |
+| **Infrastructure**       | Nothing has ever run outside a developer laptop. No hosting, no deployment setup, no monitoring                                                         |
+| **Production readiness** | Security hardening on the money path, error monitoring, deployment pipeline                                                                             |
 
 Of 13 phases: **1 verified, 4 implemented pending verification, 4 partially
 built, 4 not started.** A simple "percent complete" would mislead — Phase 6
@@ -72,10 +72,10 @@ alone contains the entire revenue path.
 
 ## The biggest blockers
 
-**1. Seven weeks of uncommitted work.** *Critical. Engineering action, no
-decision needed.* One disk failure from losing it.
+**1. Seven weeks of uncommitted work.** _Critical. Engineering action, no
+decision needed._ One disk failure from losing it.
 
-**2. GST/TCS structure (A-005).** *Critical. Needs a chartered accountant.*
+**2. GST/TCS structure (A-005).** _Critical. Needs a chartered accountant._
 This is **the longest-lead item in the project and has still not been started.**
 It determines how money-holding database columns are structured — guessing means
 migrating financial data later rather than changing a setting. Every week of
@@ -116,17 +116,17 @@ monitoring. AWS work remains frozen pending your cost approval.
 
 ## Decisions that need you
 
-| # | Decision | Why it matters now |
-| --- | --- | --- |
-| 1 | **GST/TCS structure** | Longest lead time; blocks finishing Phase 6 |
-| 2 | **Platform fee** | Booking cannot calculate amounts without it |
-| 3 | **Cancellation & refund policy** | Determines refund records and payment states |
-| 4 | **AWS cost approval** | Nothing reaches production until this lifts |
-| 5 | **Embeddings provider** | Fixes a database column size; blocks AI discovery |
-| 6 | **Editing a live listing** | Now affects what travellers actually see |
-| 7 | **Operator MFA recovery** | Today the only fix is editing the database by hand |
-| 8 | **Google Maps account** | Needed for a map embedded in the page |
-| 9 | **Error monitoring spend** | Without it, production failures are invisible |
+| #   | Decision                         | Why it matters now                                 |
+| --- | -------------------------------- | -------------------------------------------------- |
+| 1   | **GST/TCS structure**            | Longest lead time; blocks finishing Phase 6        |
+| 2   | **Platform fee**                 | Booking cannot calculate amounts without it        |
+| 3   | **Cancellation & refund policy** | Determines refund records and payment states       |
+| 4   | **AWS cost approval**            | Nothing reaches production until this lifts        |
+| 5   | **Embeddings provider**          | Fixes a database column size; blocks AI discovery  |
+| 6   | **Editing a live listing**       | Now affects what travellers actually see           |
+| 7   | **Operator MFA recovery**        | Today the only fix is editing the database by hand |
+| 8   | **Google Maps account**          | Needed for a map embedded in the page              |
+| 9   | **Error monitoring spend**       | Without it, production failures are invisible      |
 
 ---
 

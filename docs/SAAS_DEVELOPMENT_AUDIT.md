@@ -31,7 +31,7 @@ Three findings dominate everything else:
 
 2. **Phase 6 is blocked on founder decisions, not engineering.** Booking and
    payments are genuinely not started (no `Booking` model, no booking or payment
-   routes, order creation throws `NotImplementedError`). It cannot *finish*
+   routes, order creation throws `NotImplementedError`). It cannot _finish_
    without the platform fee (A-003), the cancellation and refund policy (A-004)
    and the GST/TCS structure (A-005). **A-005 has the longest external lead time
    in the project and, per the project's own record, has still not been
@@ -58,13 +58,13 @@ a phase is done.
 
 **Confirmed: this is the main SaaS, not the internal CRM.**
 
-| Signal | Value |
-| --- | --- |
-| `package.json` name | `lavivenzia` |
-| `package.json` description | "La Vivenzia — curated experiential tourism marketplace" |
-| Application shape | Next.js App Router, traveller + host + operations surfaces |
-| Domain modules | `auth`, `discovery`, `experiences`, `hosts`, `media`, `notifications`, `operations`, `shared` |
-| CRM markers | None. No Twenty packages, no CRM schema, no CRM routes |
+| Signal                     | Value                                                                                         |
+| -------------------------- | --------------------------------------------------------------------------------------------- |
+| `package.json` name        | `lavivenzia`                                                                                  |
+| `package.json` description | "La Vivenzia — curated experiential tourism marketplace"                                      |
+| Application shape          | Next.js App Router, traveller + host + operations surfaces                                    |
+| Domain modules             | `auth`, `discovery`, `experiences`, `hosts`, `media`, `notifications`, `operations`, `shared` |
+| CRM markers                | None. No Twenty packages, no CRM schema, no CRM routes                                        |
 
 **A trap was present and avoided.** Two Docker containers named `lv-ai-server`
 and `lv-ai-worker` are running on this machine. Both use the image
@@ -74,7 +74,7 @@ main SaaS. The SaaS's own database container, `lavivenzia-postgres`, is
 **Exited (0) 25 hours ago**.
 
 The CRM gap analysis that lives at `docs/LA-VIVENZIA-TWENTY-GAP-ANALYSIS.md` is
-a document *about* a different product and was not used as evidence of progress
+a document _about_ a different product and was not used as evidence of progress
 in any phase here.
 
 ---
@@ -83,30 +83,30 @@ in any phase here.
 
 Read in full or in relevant part:
 
-| Document | Role in this audit |
-| --- | --- |
+| Document                       | Role in this audit                                            |
+| ------------------------------ | ------------------------------------------------------------- |
 | `PROJECT_STATE.md` (841 lines) | Primary living record; milestone history, blockers, next task |
-| `PROJECT.md` | Product scope |
-| `REQUIREMENTS.md` | FR references (FR-01 … FR-16) |
-| `CLAUDE.md` | Working agreement and constraints |
-| `DESIGN.md` (1,358 lines) | Design system, §A records the approved identity |
-| `SYSTEM_DESIGN.md` | Layering and dependency direction |
-| `DEVELOPMENT_WORKFLOW.md` | Definition of done, verification gate |
-| `WIREFRAME.md` | Screen inventory |
-| `docs/ASSUMPTIONS.md` | Assumption register A-001 … A-016 |
-| `docs/AUTHENTICATION.md` | Auth scope and known limitations |
-| `docs/DATABASE.md` | Schema and migration record |
-| `docs/EMAIL.md` | AWS SES checklist |
-| `docs/PHASE-5.1-AUDIT.md` | Prior audit, Phases 0–5 |
-| `docs/adr/0001` … `0015` | 15 architecture decision records |
-| `.github/workflows/ci.yml` | CI definition |
+| `PROJECT.md`                   | Product scope                                                 |
+| `REQUIREMENTS.md`              | FR references (FR-01 … FR-16)                                 |
+| `CLAUDE.md`                    | Working agreement and constraints                             |
+| `DESIGN.md` (1,358 lines)      | Design system, §A records the approved identity               |
+| `SYSTEM_DESIGN.md`             | Layering and dependency direction                             |
+| `DEVELOPMENT_WORKFLOW.md`      | Definition of done, verification gate                         |
+| `WIREFRAME.md`                 | Screen inventory                                              |
+| `docs/ASSUMPTIONS.md`          | Assumption register A-001 … A-016                             |
+| `docs/AUTHENTICATION.md`       | Auth scope and known limitations                              |
+| `docs/DATABASE.md`             | Schema and migration record                                   |
+| `docs/EMAIL.md`                | AWS SES checklist                                             |
+| `docs/PHASE-5.1-AUDIT.md`      | Prior audit, Phases 0–5                                       |
+| `docs/adr/0001` … `0015`       | 15 architecture decision records                              |
+| `.github/workflows/ci.yml`     | CI definition                                                 |
 
 **A documentation inconsistency was found.** `PROJECT_STATE.md` carries
 `**Last updated:** 2026-09-01` and a roadmap table reading
-*"Phase 1 — Complete for engineering; brand pending"*, yet the same file
+_"Phase 1 — Complete for engineering; brand pending"_, yet the same file
 contains a milestone record dated **2026-09-08** stating that the moodboard is
-approved and implemented and that *"the longest-running blocker in the project
-is closed."* The header and the summary table are stale relative to the body.
+approved and implemented and that _"the longest-running blocker in the project
+is closed."_ The header and the summary table are stale relative to the body.
 Treat the 2026-09-08 milestone record as the later and more accurate statement.
 
 ---
@@ -144,27 +144,27 @@ August has entered it.
 
 ### Working tree: 114 uncommitted paths
 
-| Kind | Count |
-| --- | --- |
-| Untracked (`??`) | 77 |
-| Modified (`M`) | 36 |
-| Renamed + modified (`RM`) | 1 |
+| Kind                      | Count |
+| ------------------------- | ----- |
+| Untracked (`??`)          | 77    |
+| Modified (`M`)            | 36    |
+| Renamed + modified (`RM`) | 1     |
 
 Untracked work by area:
 
-| Area | Untracked paths |
-| --- | --- |
-| `src/components/` | 31 |
-| `src/app/` | 11 |
-| `tests/unit/` | 8 |
-| `src/lib/` | 5 |
-| `src/adapters/` | 5 |
-| `src/modules/` | 3 |
-| `docs/` + `docs/adr/` | 5 |
-| `public/` (incl. `uirefrence/`, `images/`, `brand/`) | 6 |
-| `prisma/migrations/` | 1 |
-| `tests/integration/` | 1 |
-| `src/data/` | 1 |
+| Area                                                 | Untracked paths |
+| ---------------------------------------------------- | --------------- |
+| `src/components/`                                    | 31              |
+| `src/app/`                                           | 11              |
+| `tests/unit/`                                        | 8               |
+| `src/lib/`                                           | 5               |
+| `src/adapters/`                                      | 5               |
+| `src/modules/`                                       | 3               |
+| `docs/` + `docs/adr/`                                | 5               |
+| `public/` (incl. `uirefrence/`, `images/`, `brand/`) | 6               |
+| `prisma/migrations/`                                 | 1               |
+| `tests/integration/`                                 | 1               |
+| `src/data/`                                          | 1               |
 
 Modified tracked files include `PROJECT_STATE.md`, `DESIGN.md`,
 `SYSTEM_DESIGN.md`, `WIREFRAME.md`, `README.md`, `docs/ASSUMPTIONS.md`,
@@ -184,21 +184,21 @@ push was 2026-08-25.
 
 ## 5. Phase 0–12 audit table
 
-| Phase | Name | Status | Completion evidence |
-| --- | --- | --- | --- |
-| 0 | Architecture & Project Foundation | **COMPLETE AND VERIFIED** | Hexagonal layering present; boundary enforced by `no-restricted-imports` (`eslint.config.mjs:21,49`); 15 ADRs; env/logger/errors/HTTP/db primitives; CI defined; full gate passes locally today |
-| 1 | Design System & UI Foundation | **IMPLEMENTED, VERIFICATION INCOMPLETE** | Token layer + 26 ported components (ADR-0012, ADR-0015, `DESIGN.md` §A); A-007 CONFIRMED. Entire identity port is **uncommitted**; no responsive or visual regression tests exist |
-| 2 | Public Website & Discovery | **IMPLEMENTED, VERIFICATION INCOMPLETE** | 9 traveller screens; `src/modules/discovery` with no status parameter; `parseFilters`; 3 public API routes; `discovery-filters`, `route-structure`, `client-boundary` unit tests + `discovery` integration test. Curated collections (FR-01) deferred; integration suite not runnable now |
-| 3 | Authentication & User Profiles | **PARTIALLY IMPLEMENTED** | 8 `/api/v1/auth` endpoints; argon2id, hashed OTP, TOTP, server-side sessions, `__Host-` cookie, RBAC 6/38/82, rate limits; 8 auth unit suites + `auth-flows` integration. **Missing:** `TravellerProfile`, preferences, wishlist, Google OAuth, password reset, email change, TOTP replay prevention, MFA reset (A-012) |
-| 4 | Host & Inventory Management | **PARTIALLY IMPLEMENTED** | Host profile + verification lifecycle; experiences with lifecycle, media, location, pricing; magic-byte upload validation; 9 host screens; `host-profile`, `experience-lifecycle`, `experience-readiness`, `media-image` + `host-inventory` integration. **Missing:** availability and slots (FR-08), KYC documents (A-011) |
-| 5 | Search, Maps & Location | **IMPLEMENTED, VERIFICATION INCOMPLETE** | `ST_DWithin` / `ST_Distance` on the GiST-indexed `geo` column; 4 GIN trigram indexes; `word_similarity` ranking; `/places/autocomplete` + `/places/resolve`; Google adapter (243 lines, no stub markers) with catalogue fallback; ADR-0014; `discovery-geo`, `maps-adapters`, `like-escaping`. **Gaps:** no semantic/vector search (A-006), no embedded map, `GOOGLE_MAPS_API_KEY` unset locally so the real provider path is unexercised here |
-| 6 | Booking & Payments | **NOT STARTED — BLOCKED** | 0 `Booking` models, 0 booking/payment routes; `RazorpayAdapter` order creation and fetch throw `NotImplementedError` by design (ADR-0010). Webhook signature verification **is** implemented and tested (`razorpay-webhook`). Blocked on A-003, A-004, A-005 |
-| 7 | Admin & Operations | **IMPLEMENTED, VERIFICATION INCOMPLETE** | Operations console: 5 pages, 8 `/api/v1/ops` routes, review workflow; `operations-review` unit + integration tests. Built ahead of official order |
-| 8 | AI Discovery MVP | **NOT STARTED** | `LlmPort` + `AnthropicLlmAdapter` (22 lines) throws `NotImplementedError`; embeddings adapter is a 26-line stub; `ANTHROPIC_API_KEY` and `EMBEDDINGS_PROVIDER` unset; A-006 unresolved. `AIGenieSection`/`AIGenieFeature` exist on disk, unmounted |
-| 9 | Itinerary Engine | **NOT STARTED** | No itinerary module, model, route or test |
-| 10 | CRM & Notifications | **PARTIALLY IMPLEMENTED** | SES adapter (257 lines, no stub markers), console transport, `notifications` module, one template `auth.login-code`; 4 email unit suites + `email-delivery` integration. **Blocked externally:** no AWS account, no verified identity, no sandbox exit — no real email has ever been sent |
-| 11 | Analytics, Security & Hardening | **PARTIALLY IMPLEMENTED** | Security substantially present: RBAC, audit log, rate limiting, argon2id, hashed session tokens, secret redaction, magic-byte validation, webhook signature verification. **Analytics and observability absent:** PostHog adapter is an 11-line stub; `POSTHOG_KEY` and `SENTRY_DSN` unset |
-| 12 | Integration, QA & Production | **NOT STARTED** | No IaC, no deployment config, no Dockerfile for the app (only `docker/postgres/Dockerfile` for local dev). AWS work frozen pending founder approval |
+| Phase | Name                              | Status                                   | Completion evidence                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----- | --------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | Architecture & Project Foundation | **COMPLETE AND VERIFIED**                | Hexagonal layering present; boundary enforced by `no-restricted-imports` (`eslint.config.mjs:21,49`); 15 ADRs; env/logger/errors/HTTP/db primitives; CI defined; full gate passes locally today                                                                                                                                                                                                                                                |
+| 1     | Design System & UI Foundation     | **IMPLEMENTED, VERIFICATION INCOMPLETE** | Token layer + 26 ported components (ADR-0012, ADR-0015, `DESIGN.md` §A); A-007 CONFIRMED. Entire identity port is **uncommitted**; no responsive or visual regression tests exist                                                                                                                                                                                                                                                              |
+| 2     | Public Website & Discovery        | **IMPLEMENTED, VERIFICATION INCOMPLETE** | 9 traveller screens; `src/modules/discovery` with no status parameter; `parseFilters`; 3 public API routes; `discovery-filters`, `route-structure`, `client-boundary` unit tests + `discovery` integration test. Curated collections (FR-01) deferred; integration suite not runnable now                                                                                                                                                      |
+| 3     | Authentication & User Profiles    | **PARTIALLY IMPLEMENTED**                | 8 `/api/v1/auth` endpoints; argon2id, hashed OTP, TOTP, server-side sessions, `__Host-` cookie, RBAC 6/38/82, rate limits; 8 auth unit suites + `auth-flows` integration. **Missing:** `TravellerProfile`, preferences, wishlist, Google OAuth, password reset, email change, TOTP replay prevention, MFA reset (A-012)                                                                                                                        |
+| 4     | Host & Inventory Management       | **PARTIALLY IMPLEMENTED**                | Host profile + verification lifecycle; experiences with lifecycle, media, location, pricing; magic-byte upload validation; 9 host screens; `host-profile`, `experience-lifecycle`, `experience-readiness`, `media-image` + `host-inventory` integration. **Missing:** availability and slots (FR-08), KYC documents (A-011)                                                                                                                    |
+| 5     | Search, Maps & Location           | **IMPLEMENTED, VERIFICATION INCOMPLETE** | `ST_DWithin` / `ST_Distance` on the GiST-indexed `geo` column; 4 GIN trigram indexes; `word_similarity` ranking; `/places/autocomplete` + `/places/resolve`; Google adapter (243 lines, no stub markers) with catalogue fallback; ADR-0014; `discovery-geo`, `maps-adapters`, `like-escaping`. **Gaps:** no semantic/vector search (A-006), no embedded map, `GOOGLE_MAPS_API_KEY` unset locally so the real provider path is unexercised here |
+| 6     | Booking & Payments                | **NOT STARTED — BLOCKED**                | 0 `Booking` models, 0 booking/payment routes; `RazorpayAdapter` order creation and fetch throw `NotImplementedError` by design (ADR-0010). Webhook signature verification **is** implemented and tested (`razorpay-webhook`). Blocked on A-003, A-004, A-005                                                                                                                                                                                   |
+| 7     | Admin & Operations                | **IMPLEMENTED, VERIFICATION INCOMPLETE** | Operations console: 5 pages, 8 `/api/v1/ops` routes, review workflow; `operations-review` unit + integration tests. Built ahead of official order                                                                                                                                                                                                                                                                                              |
+| 8     | AI Discovery MVP                  | **NOT STARTED**                          | `LlmPort` + `AnthropicLlmAdapter` (22 lines) throws `NotImplementedError`; embeddings adapter is a 26-line stub; `ANTHROPIC_API_KEY` and `EMBEDDINGS_PROVIDER` unset; A-006 unresolved. `AIGenieSection`/`AIGenieFeature` exist on disk, unmounted                                                                                                                                                                                             |
+| 9     | Itinerary Engine                  | **NOT STARTED**                          | No itinerary module, model, route or test                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 10    | CRM & Notifications               | **PARTIALLY IMPLEMENTED**                | SES adapter (257 lines, no stub markers), console transport, `notifications` module, one template `auth.login-code`; 4 email unit suites + `email-delivery` integration. **Blocked externally:** no AWS account, no verified identity, no sandbox exit — no real email has ever been sent                                                                                                                                                      |
+| 11    | Analytics, Security & Hardening   | **PARTIALLY IMPLEMENTED**                | Security substantially present: RBAC, audit log, rate limiting, argon2id, hashed session tokens, secret redaction, magic-byte validation, webhook signature verification. **Analytics and observability absent:** PostHog adapter is an 11-line stub; `POSTHOG_KEY` and `SENTRY_DSN` unset                                                                                                                                                     |
+| 12    | Integration, QA & Production      | **NOT STARTED**                          | No IaC, no deployment config, no Dockerfile for the app (only `docker/postgres/Dockerfile` for local dev). AWS work frozen pending founder approval                                                                                                                                                                                                                                                                                            |
 
 ### Counts
 
@@ -296,7 +296,7 @@ OTP codes are SHA-256 hashed at rest, sessions are server-side with hashed token
 and a `__Host-` prefixed httpOnly cookie, revocation is immediate, and RBAC
 covers 6 roles / 38 permissions / 82 grants.
 
-**The phase is not complete** because its *profile* half does not exist:
+**The phase is not complete** because its _profile_ half does not exist:
 
 - No `TravellerProfile` model in the schema — confirmed against
   `prisma/schema.prisma` (13 models, none of them a traveller profile).
@@ -304,7 +304,7 @@ covers 6 roles / 38 permissions / 82 grants.
 - Google OAuth, password reset and email change each still need their own flow.
 - **TOTP replay prevention is outstanding** — a code remains valid for its whole
   window, so an intercepted code can be reused within it. The project's own note
-  says this must land *before the first money-moving endpoint ships*, which puts
+  says this must land _before the first money-moving endpoint ships_, which puts
   it on the critical path into Phase 6.
 - **No supported MFA reset path for a locked-out operator (A-012)** — the only
   recovery is a direct database update.
@@ -454,11 +454,11 @@ never CI-validated. The Stays, AI Genie and Trips surfaces were deliberately not
 shipped.
 
 **C. Current or most likely active phase**
-*Inference, clearly labelled.* The documented next phase is **6 — Booking &
+_Inference, clearly labelled._ The documented next phase is **6 — Booking &
 Payments**, and `PROJECT_STATE.md` states this "does not need re-deciding."
 However **no Phase 6 artefact exists in the repository** — no model, route,
-module or test. The evidence therefore supports: *Phase 5.1 and the Phase 1
-visual pass are finished; Phase 6 has been declared but not begun.*
+module or test. The evidence therefore supports: _Phase 5.1 and the Phase 1
+visual pass are finished; Phase 6 has been declared but not begun._
 
 **D. Last documented blocker**
 Three founder decisions gating Phase 6 completion — A-003 (platform fee),
@@ -495,8 +495,8 @@ executed during this audit. Queue verification against a live database
 82 grants).
 
 **J. Dependencies preventing the next phase from proceeding**
-Phase 6 can *start* — availability and slots (FR-08) depend on none of the
-blocked decisions. It cannot *finish* without A-003, A-004 and A-005.
+Phase 6 can _start_ — availability and slots (FR-08) depend on none of the
+blocked decisions. It cannot _finish_ without A-003, A-004 and A-005.
 
 ---
 
@@ -504,23 +504,23 @@ blocked decisions. It cannot *finish* without A-003, A-004 and A-005.
 
 Actual blockers and dependencies only; ordinary improvements are excluded.
 
-| ID | Description | Phase | Severity | Category | Evidence | Impact | Dependency | Recommended resolution | Founder approval |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **B-01** | ~7 weeks of work exists only in the working tree; never committed, pushed or CI-validated | All | **Critical** | Code | `git status` 114 paths; `HEAD aeff6d7` 2026-08-25; level with `origin/main` | Total loss of the visual identity port, Phase 5.1 work, 9 test files, a migration and 2 ADRs on any disk failure or stray `git clean` | None — purely an action | Branch, review, commit in logical units, push; let CI validate | No |
-| **B-02** | GST/TCS structure undecided (A-005) | 6 | **Critical** | Product | `docs/ASSUMPTIONS.md` A-005; `PROJECT_STATE.md` "still not been started" | Determines column structure for money-holding records; a wrong guess means migrating financial data | Chartered accountant engagement | Engage a CA now — longest external lead time in the project | **Yes** |
-| **B-03** | Platform fee undecided (A-003) | 6 | **High** | Product | A-003 DEFERRED, nothing built | Booking cannot compute amounts | Founder decision | Decide before the booking state machine is written | **Yes** |
-| **B-04** | Cancellation and refund policy undecided (A-004) | 6 | **High** | Product | A-004 DEFERRED, nothing built | Determines refund records and payment state transitions | Founder decision | Decide before payment capture ships | **Yes** |
-| **B-05** | No AWS account with a verified SES identity; no sandbox exit | 10, 12 | **High** | Credentials / Infrastructure | `docs/EMAIL.md`; no real email ever sent; `EMAIL_TRANSPORT` unset | Auth login codes cannot reach real users; product is unusable in production without it | AWS account + support request lead time | Start the sandbox-exit request first — it has lead time | **Yes** |
-| **B-06** | TOTP replay prevention absent | 3, 11 | **High** | Security | `PROJECT_STATE.md` open items | An intercepted TOTP code is reusable within its window | None — engineering only | Implement before the first money-moving endpoint | No |
-| **B-07** | Embeddings provider undecided (A-006) | 8 | **High** | Product / Architecture | A-006 DEFERRED; no vector column exists | Fixes the vector column dimension; blocks semantic search and AI discovery | Founder/technical decision | Decide before Phase 8; ADR-0014 names the attachment point | **Yes** |
-| **B-08** | No deployment configuration or IaC; nothing has run outside a dev machine | 12 | **High** | Infrastructure | No Terraform/CDK/SST/app Dockerfile found | No phase has runtime verification; production readiness is entirely unproven | AWS approval (frozen) | Unfreeze and plan infrastructure; keep audit-only until approved | **Yes** |
-| **B-09** | No MFA reset path for a locked-out operator (A-012) | 3, 7 | **Medium** | Security / Operations | `PROJECT_STATE.md` open items | Only recovery is a direct database update; acceptable with one operator, not a team | Policy decision | Define and build a supported reset path | **Yes** (policy) |
-| **B-10** | No analytics or error observability wired | 11 | **Medium** | Observability | PostHog adapter 11 lines; `POSTHOG_KEY`, `SENTRY_DSN` unset | Production failures would be invisible | Provider accounts | Wire Sentry before any deployment | **Yes** (spend) |
-| **B-11** | Integration suite not runnable; SaaS database container exited | 2,3,4,5,7,10 | **Medium** | Testing | `lavivenzia-postgres` Exited (0) 25 hours ago | 190 documented integration tests are unverified today | Start the local database | `npm run db:up` then `npm run test:integration` | No |
-| **B-12** | Google Maps provider path unexercised; no embedded map | 5 | **Medium** | Integration / Credentials | `GOOGLE_MAPS_API_KEY` unset; no Google account arranged | Fallback is what has actually been tested; no in-page map | Google account + billing | Arrange a Google Cloud account and key | **Yes** (spend) |
-| **B-13** | A-009 (editing a published listing) now has traveller-visible consequences | 2, 4 | **Medium** | Product | A-009 ASSUMED, conservative default in place | Affects what travellers see when a host edits a live listing | Founder decision | Settle before hosts accumulate live listings | **Yes** |
-| **B-14** | Availability and slots (FR-08) not built | 4, 6 | **Medium** | Code | No availability model or route | Required before booking; blocks nothing else | None — engineering only | Build first in Phase 6; it depends on no blocked decision | No |
-| **B-15** | `PROJECT_STATE.md` header and roadmap table are stale relative to its own body | — | **Low** | Documentation | Header says 2026-09-01 and "brand pending"; body has a 2026-09-08 approval record | Readers may conclude the design blocker is still open | None | Update header and the Phase 1 row | No |
+| ID       | Description                                                                               | Phase        | Severity     | Category                     | Evidence                                                                          | Impact                                                                                                                                | Dependency                              | Recommended resolution                                           | Founder approval |
+| -------- | ----------------------------------------------------------------------------------------- | ------------ | ------------ | ---------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ---------------------------------------------------------------- | ---------------- |
+| **B-01** | ~7 weeks of work exists only in the working tree; never committed, pushed or CI-validated | All          | **Critical** | Code                         | `git status` 114 paths; `HEAD aeff6d7` 2026-08-25; level with `origin/main`       | Total loss of the visual identity port, Phase 5.1 work, 9 test files, a migration and 2 ADRs on any disk failure or stray `git clean` | None — purely an action                 | Branch, review, commit in logical units, push; let CI validate   | No               |
+| **B-02** | GST/TCS structure undecided (A-005)                                                       | 6            | **Critical** | Product                      | `docs/ASSUMPTIONS.md` A-005; `PROJECT_STATE.md` "still not been started"          | Determines column structure for money-holding records; a wrong guess means migrating financial data                                   | Chartered accountant engagement         | Engage a CA now — longest external lead time in the project      | **Yes**          |
+| **B-03** | Platform fee undecided (A-003)                                                            | 6            | **High**     | Product                      | A-003 DEFERRED, nothing built                                                     | Booking cannot compute amounts                                                                                                        | Founder decision                        | Decide before the booking state machine is written               | **Yes**          |
+| **B-04** | Cancellation and refund policy undecided (A-004)                                          | 6            | **High**     | Product                      | A-004 DEFERRED, nothing built                                                     | Determines refund records and payment state transitions                                                                               | Founder decision                        | Decide before payment capture ships                              | **Yes**          |
+| **B-05** | No AWS account with a verified SES identity; no sandbox exit                              | 10, 12       | **High**     | Credentials / Infrastructure | `docs/EMAIL.md`; no real email ever sent; `EMAIL_TRANSPORT` unset                 | Auth login codes cannot reach real users; product is unusable in production without it                                                | AWS account + support request lead time | Start the sandbox-exit request first — it has lead time          | **Yes**          |
+| **B-06** | TOTP replay prevention absent                                                             | 3, 11        | **High**     | Security                     | `PROJECT_STATE.md` open items                                                     | An intercepted TOTP code is reusable within its window                                                                                | None — engineering only                 | Implement before the first money-moving endpoint                 | No               |
+| **B-07** | Embeddings provider undecided (A-006)                                                     | 8            | **High**     | Product / Architecture       | A-006 DEFERRED; no vector column exists                                           | Fixes the vector column dimension; blocks semantic search and AI discovery                                                            | Founder/technical decision              | Decide before Phase 8; ADR-0014 names the attachment point       | **Yes**          |
+| **B-08** | No deployment configuration or IaC; nothing has run outside a dev machine                 | 12           | **High**     | Infrastructure               | No Terraform/CDK/SST/app Dockerfile found                                         | No phase has runtime verification; production readiness is entirely unproven                                                          | AWS approval (frozen)                   | Unfreeze and plan infrastructure; keep audit-only until approved | **Yes**          |
+| **B-09** | No MFA reset path for a locked-out operator (A-012)                                       | 3, 7         | **Medium**   | Security / Operations        | `PROJECT_STATE.md` open items                                                     | Only recovery is a direct database update; acceptable with one operator, not a team                                                   | Policy decision                         | Define and build a supported reset path                          | **Yes** (policy) |
+| **B-10** | No analytics or error observability wired                                                 | 11           | **Medium**   | Observability                | PostHog adapter 11 lines; `POSTHOG_KEY`, `SENTRY_DSN` unset                       | Production failures would be invisible                                                                                                | Provider accounts                       | Wire Sentry before any deployment                                | **Yes** (spend)  |
+| **B-11** | Integration suite not runnable; SaaS database container exited                            | 2,3,4,5,7,10 | **Medium**   | Testing                      | `lavivenzia-postgres` Exited (0) 25 hours ago                                     | 190 documented integration tests are unverified today                                                                                 | Start the local database                | `npm run db:up` then `npm run test:integration`                  | No               |
+| **B-12** | Google Maps provider path unexercised; no embedded map                                    | 5            | **Medium**   | Integration / Credentials    | `GOOGLE_MAPS_API_KEY` unset; no Google account arranged                           | Fallback is what has actually been tested; no in-page map                                                                             | Google account + billing                | Arrange a Google Cloud account and key                           | **Yes** (spend)  |
+| **B-13** | A-009 (editing a published listing) now has traveller-visible consequences                | 2, 4         | **Medium**   | Product                      | A-009 ASSUMED, conservative default in place                                      | Affects what travellers see when a host edits a live listing                                                                          | Founder decision                        | Settle before hosts accumulate live listings                     | **Yes**          |
+| **B-14** | Availability and slots (FR-08) not built                                                  | 4, 6         | **Medium**   | Code                         | No availability model or route                                                    | Required before booking; blocks nothing else                                                                                          | None — engineering only                 | Build first in Phase 6; it depends on no blocked decision        | No               |
+| **B-15** | `PROJECT_STATE.md` header and roadmap table are stale relative to its own body            | —            | **Low**      | Documentation                | Header says 2026-09-01 and "brand pending"; body has a 2026-09-08 approval record | Readers may conclude the design blocker is still open                                                                                 | None                                    | Update header and the Phase 1 row                                | No               |
 
 **Explicitly not blockers:** the two deliberate token vocabularies, the unmounted
 AI Genie components, the deferred curated collections, and the boundary-only
@@ -532,29 +532,29 @@ adapters. Each is a recorded decision with a rationale, not debt.
 
 ### Commands executed and results
 
-| Command | Result |
-| --- | --- |
+| Command                                                                                                     | Result                                                                             |
+| ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `git rev-parse --abbrev-ref HEAD`, `git log`, `git status --porcelain`, `git rev-list --left-right --count` | Read-only. Branch `main`, HEAD `aeff6d7`, 114 uncommitted paths, level with origin |
-| `npx tsc --noEmit` | **PASS** — exit 0, no diagnostics |
-| `npm run lint` (`eslint .`) | **PASS** — no errors, no warnings |
-| `npm run format:check` (`prettier --check .`) | **PASS** — "All matched files use Prettier code style!" |
-| `npm run test` (`vitest run`) | **PASS** — 29 files, **409 tests**, 2.59s |
-| `npm run build` (`next build`) | **PASS** — compiled; route manifest emitted |
-| `docker ps -a` | Read-only. `lavivenzia-postgres` **Exited (0) 25 hours ago** |
+| `npx tsc --noEmit`                                                                                          | **PASS** — exit 0, no diagnostics                                                  |
+| `npm run lint` (`eslint .`)                                                                                 | **PASS** — no errors, no warnings                                                  |
+| `npm run format:check` (`prettier --check .`)                                                               | **PASS** — "All matched files use Prettier code style!"                            |
+| `npm run test` (`vitest run`)                                                                               | **PASS** — 29 files, **409 tests**, 2.59s                                          |
+| `npm run build` (`next build`)                                                                              | **PASS** — compiled; route manifest emitted                                        |
+| `docker ps -a`                                                                                              | Read-only. `lavivenzia-postgres` **Exited (0) 25 hours ago**                       |
 
 The documented count in `PROJECT_STATE.md` is 394 unit tests; the tree now has
 **409**, consistent with the uncommitted work having added 15.
 
 ### Commands deliberately NOT executed, and why
 
-| Command | Why not |
-| --- | --- |
-| `npm run test:integration` | Requires the database; `lavivenzia-postgres` is stopped. Starting it is a state change outside an audit-only brief |
-| `npm run db:up` | Would start infrastructure — excluded by the audit scope |
-| `npm run db:migrate` / `db:reset` / `db:seed` | Mutate database state; `db:reset` is destructive by design |
-| `npm run db:verify` | Requires a running database |
-| `npm run worker` | Starts a process and would attach to the queue |
-| Any deploy, AWS or DNS command | Explicitly prohibited by the brief and by the AWS freeze |
+| Command                                       | Why not                                                                                                            |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `npm run test:integration`                    | Requires the database; `lavivenzia-postgres` is stopped. Starting it is a state change outside an audit-only brief |
+| `npm run db:up`                               | Would start infrastructure — excluded by the audit scope                                                           |
+| `npm run db:migrate` / `db:reset` / `db:seed` | Mutate database state; `db:reset` is destructive by design                                                         |
+| `npm run db:verify`                           | Requires a running database                                                                                        |
+| `npm run worker`                              | Starts a process and would attach to the queue                                                                     |
+| Any deploy, AWS or DNS command                | Explicitly prohibited by the brief and by the AWS freeze                                                           |
 
 ### Outstanding verification
 
@@ -635,30 +635,30 @@ Four phases — 1, 2, 5 and 7 — sit in exactly that state.
 
 ### P0 — Critical blockers and data/security risk
 
-| Task | Reason | Dependency | Expected outcome | Verification | Founder approval |
-| --- | --- | --- | --- | --- | --- |
-| Commit and push the 114 uncommitted paths | Seven weeks of work is one disk failure from gone, and CI has never seen it | None | Work is durable and CI-validated | CI green on the pushed branch | No |
-| Engage a chartered accountant on GST/TCS (A-005) | Longest external lead time in the project; every week of delay is added to the end of Phase 6 | Founder action | Tax structure settled before money columns are designed | Written structure recorded in `ASSUMPTIONS.md` | **Yes** |
-| Start the AWS SES sandbox-exit request | Support request with lead time; blocks all real email | AWS account | Verified identity, production sending | A real email delivered to an unverified address | **Yes** |
+| Task                                             | Reason                                                                                        | Dependency     | Expected outcome                                        | Verification                                    | Founder approval |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------------- | ----------------------------------------------- | ---------------- |
+| Commit and push the 114 uncommitted paths        | Seven weeks of work is one disk failure from gone, and CI has never seen it                   | None           | Work is durable and CI-validated                        | CI green on the pushed branch                   | No               |
+| Engage a chartered accountant on GST/TCS (A-005) | Longest external lead time in the project; every week of delay is added to the end of Phase 6 | Founder action | Tax structure settled before money columns are designed | Written structure recorded in `ASSUMPTIONS.md`  | **Yes**          |
+| Start the AWS SES sandbox-exit request           | Support request with lead time; blocks all real email                                         | AWS account    | Verified identity, production sending                   | A real email delivered to an unverified address | **Yes**          |
 
 These three are independent and should run **in parallel**. Only the first is
 engineering work.
 
 ### P1 — Work needed to resume the current phase
 
-| Task | Reason | Dependency | Expected outcome | Verification | Founder approval |
-| --- | --- | --- | --- | --- | --- |
-| Start the database and run the full integration suite | 190 tests are documented but unverified; restores confidence in the tree before new work | `npm run db:up` | Known-good baseline | Suite green | No |
-| Decide A-003 (platform fee) and A-004 (cancellation/refund) | Booking cannot be completed without them | Founder decision | Booking state machine can be designed | Recorded in `ASSUMPTIONS.md` | **Yes** |
-| Implement TOTP replay prevention | Must land before the first money-moving endpoint | None | Replay window closed | Test proving a used code is rejected | No |
+| Task                                                        | Reason                                                                                   | Dependency       | Expected outcome                      | Verification                         | Founder approval |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------- | ------------------------------------- | ------------------------------------ | ---------------- |
+| Start the database and run the full integration suite       | 190 tests are documented but unverified; restores confidence in the tree before new work | `npm run db:up`  | Known-good baseline                   | Suite green                          | No               |
+| Decide A-003 (platform fee) and A-004 (cancellation/refund) | Booking cannot be completed without them                                                 | Founder decision | Booking state machine can be designed | Recorded in `ASSUMPTIONS.md`         | **Yes**          |
+| Implement TOTP replay prevention                            | Must land before the first money-moving endpoint                                         | None             | Replay window closed                  | Test proving a used code is rejected | No               |
 
 ### P2 — Remaining functionality for the current phase
 
-| Task | Reason | Dependency | Expected outcome | Verification | Founder approval |
-| --- | --- | --- | --- | --- | --- |
-| Build availability and slots (FR-08) | The first buildable piece of Phase 6; depends on none of the blocked decisions | None | Hosts can express when an experience runs | Unit + integration tests | No |
-| Build the booking state machine | Core of Phase 6 | A-003, A-004 | Reservations with correct state transitions | Integration tests including concurrency | No (after decisions) |
-| Implement payment capture and the money path | Revenue | A-003, A-004, A-005, Razorpay credentials | End-to-end booking and payment | Integration tests + webhook verification + a security review | **Yes** |
+| Task                                         | Reason                                                                         | Dependency                                | Expected outcome                            | Verification                                                 | Founder approval     |
+| -------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------- | ------------------------------------------- | ------------------------------------------------------------ | -------------------- |
+| Build availability and slots (FR-08)         | The first buildable piece of Phase 6; depends on none of the blocked decisions | None                                      | Hosts can express when an experience runs   | Unit + integration tests                                     | No                   |
+| Build the booking state machine              | Core of Phase 6                                                                | A-003, A-004                              | Reservations with correct state transitions | Integration tests including concurrency                      | No (after decisions) |
+| Implement payment capture and the money path | Revenue                                                                        | A-003, A-004, A-005, Razorpay credentials | End-to-end booking and payment              | Integration tests + webhook verification + a security review | **Yes**              |
 
 Availability and slots can start **immediately and in parallel** with the
 founder decisions. The state machine and payment work are **sequential** behind
@@ -666,23 +666,23 @@ them.
 
 ### P3 — Subsequent phases
 
-| Task | Dependency | Founder approval |
-| --- | --- | --- |
-| Decide the embeddings provider (A-006), then build Phase 8 AI discovery | A-006 fixes the vector column dimension | **Yes** |
-| Phase 9 itinerary engine | Phase 6 and 8 | No |
-| Complete Phase 3's profile half — traveller profile, preferences, wishlist | None | No |
-| Curated collections (FR-01) | Editorial content | **Yes** |
-| Settle A-009 before hosts accumulate live listings | Founder decision | **Yes** |
+| Task                                                                       | Dependency                              | Founder approval |
+| -------------------------------------------------------------------------- | --------------------------------------- | ---------------- |
+| Decide the embeddings provider (A-006), then build Phase 8 AI discovery    | A-006 fixes the vector column dimension | **Yes**          |
+| Phase 9 itinerary engine                                                   | Phase 6 and 8                           | No               |
+| Complete Phase 3's profile half — traveller profile, preferences, wishlist | None                                    | No               |
+| Curated collections (FR-01)                                                | Editorial content                       | **Yes**          |
+| Settle A-009 before hosts accumulate live listings                         | Founder decision                        | **Yes**          |
 
 ### P4 — Final integration and production readiness
 
-| Task | Dependency | Founder approval |
-| --- | --- | --- |
-| Wire Sentry and PostHog | Provider accounts | **Yes** (spend) |
-| Build the deployment pipeline and infrastructure | AWS cost approval | **Yes** |
-| Build an MFA reset path (A-012) | Policy decision | **Yes** |
-| Establish responsive and cross-viewport verification | None | No |
-| Full security review of the money path | Phase 6 complete | No |
+| Task                                                 | Dependency        | Founder approval |
+| ---------------------------------------------------- | ----------------- | ---------------- |
+| Wire Sentry and PostHog                              | Provider accounts | **Yes** (spend)  |
+| Build the deployment pipeline and infrastructure     | AWS cost approval | **Yes**          |
+| Build an MFA reset path (A-012)                      | Policy decision   | **Yes**          |
+| Establish responsive and cross-viewport verification | None              | No               |
+| Full security review of the money path               | Phase 6 complete  | No               |
 
 **Parallel vs sequential.** P0 items are parallel and should start now. Within
 P2, availability is parallel to the founder decisions; everything downstream of
@@ -774,7 +774,7 @@ NotImplementedError), `src/adapters/embeddings/` (26 lines, stub),
 4. **Secret values were never read.** Environment variables were checked for
    presence by name only.
 5. **Git history is thin.** Eight commits over six days, then seven weeks of
-   uncommitted work. History cannot explain *why* work stopped being committed.
+   uncommitted work. History cannot explain _why_ work stopped being committed.
 6. **The reason committing stopped is UNKNOWN.** There is no evidence in the
    repository, logs or documents. It is not inferred here.
 7. **The master roadmap document itself was not in the repository.** "LA
