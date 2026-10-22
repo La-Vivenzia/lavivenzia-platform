@@ -47,6 +47,19 @@ const baseSchema = z.object({
     .enum(["true", "false"])
     .default("true")
     .transform((value) => value === "true"),
+
+  /**
+   * Serve the Pune pilot catalogue from memory when PostgreSQL is unreachable,
+   * so the homepage and copilot render without a database.
+   *
+   * Unset means "on outside production, off in production". Set `true` only on
+   * a preview that runs with NODE_ENV=production and has no database; never on
+   * the real production deployment, where an outage must look like one.
+   */
+  DISCOVERY_OFFLINE_FALLBACK: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value === "true")),
 });
 
 /**

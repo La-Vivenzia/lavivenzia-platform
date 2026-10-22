@@ -13,6 +13,7 @@ import type {
   SortOption,
 } from "@/modules/discovery/ports";
 import type { ProximityFilter } from "@/modules/discovery/geo";
+import { createPilotDiscoveryRepository } from "@/adapters/persistence/prisma/pilot-discovery-fallback";
 
 /**
  * Prisma implementation of traveller discovery.
@@ -139,7 +140,164 @@ const SUMMARY_SELECT = {
   media: { select: { storageKey: true, altText: true }, orderBy: { position: "asc" }, take: 1 },
 } as const;
 
+/**
+ * Prisma error codes that mean "no database to talk to", as opposed to "the
+ * database said no". P1001 is unreachable, P1002 is a connect timeout, P1008 is
+ * a socket timeout and P1017 is the server closing the connection.
+ *
+ * Authentication failure (P1000) and a missing database (P1003) are absent on
+ * purpose: those are misconfiguration, and falling back would hide them behind
+ * a page that looks like it works.
+ */
+const UNREACHABLE_PRISMA_CODES: ReadonlySet<string> = new Set(["P1001", "P1002", "P1008", "P1017"]);
+
+/** The same condition as Node reports it, before Prisma has wrapped it. */
+const UNREACHABLE_SOCKET_CODES: ReadonlySet<string> = new Set([
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+]);
+
+/** The driver-adapter error kinds Prisma itself maps to the codes above. */
+const UNREACHABLE_ADAPTER_KINDS: ReadonlySet<string> = new Set([
+  "DatabaseNotReachable",
+  "SocketTimeout",
+  "ConnectionClosed",
+]);
+
+/**
+ * Whether an error means the database could not be reached at all.
+ *
+ * The driver-adapter stack reports this in several shapes depending on where
+ * it fails: a Prisma error carrying a P1xxx code, a `DriverAdapterError` whose
+ * `cause.kind` names it, or the raw Node socket error — and when `localhost`
+ * resolves to both `::1` and `127.0.0.1`, an `AggregateError` holding one
+ * ECONNREFUSED per address. The walk follows `cause` and `errors` to a bounded
+ * depth, so a cyclic cause chain cannot hang a request.
+ */
+export function isDatabaseUnreachable(error: unknown, depth = 0): boolean {
+  if (depth > 5 || typeof error !== "object" || error === null) return false;
+
+  const candidate = error as {
+    code?: unknown;
+    errorCode?: unknown;
+    kind?: unknown;
+    name?: unknown;
+    cause?: unknown;
+    errors?: unknown;
+  };
+
+  for (const code of [candidate.code, candidate.errorCode]) {
+    if (
+      typeof code === "string" &&
+      (UNREACHABLE_PRISMA_CODES.has(code) || UNREACHABLE_SOCKET_CODES.has(code))
+    ) {
+      return true;
+    }
+  }
+
+  if (typeof candidate.kind === "string" && UNREACHABLE_ADAPTER_KINDS.has(candidate.kind)) {
+    return true;
+  }
+
+  if (isDatabaseUnreachable(candidate.cause, depth + 1)) return true;
+
+  return (
+    Array.isArray(candidate.errors) &&
+    candidate.errors.some((inner) => isDatabaseUnreachable(inner, depth + 1))
+  );
+}
+
+/**
+ * How long to stop asking an unreachable database before trying it again.
+ *
+ * A refused connection fails instantly, but an address that drops packets
+ * holds every query for the pool's full connect timeout — and the homepage
+ * issues several. Remembering the failure briefly keeps one outage from
+ * costing a page load per query, while still noticing within seconds when
+ * `npm run db:up` brings the database back.
+ */
+const OFFLINE_RETRY_AFTER_MS = 15_000;
+
+export interface DiscoveryRepositoryOptions {
+  /**
+   * Serve the Pune pilot catalogue from memory when PostgreSQL is unreachable.
+   *
+   * **Off unless the caller turns it on, and the container never turns it on
+   * in production.** It exists so local development and previews work
+   * without a database. A production outage must surface as an outage, not
+   * as a site that keeps quietly showing a catalogue the database may no
+   * longer agree with.
+   *
+   * Only connection failures fall back — see `isDatabaseUnreachable`. A query
+   * error, a constraint violation or a bad credential still throws.
+   */
+  readonly offlineFallback?: {
+    /** Called each time the database is found unreachable. For logging. */
+    readonly onFallback?: (error: unknown) => void;
+    /** Injectable clock, for tests. */
+    readonly now?: () => number;
+  };
+}
+
 export function createDiscoveryRepository(
+  prisma: PrismaClient,
+  urlFor: UrlResolver,
+  options: DiscoveryRepositoryOptions = {},
+): DiscoveryRepository {
+  const primary = createPrismaDiscoveryRepository(prisma, urlFor);
+  if (!options.offlineFallback) return primary;
+
+  return withOfflineFallback(
+    primary,
+    createPilotDiscoveryRepository(urlFor),
+    options.offlineFallback,
+  );
+}
+
+/**
+ * Route each call to the database, or to the fallback while it is unreachable.
+ *
+ * Per call rather than per process: the first query after the database comes
+ * back is served from it, so no restart is needed once Postgres is up.
+ */
+function withOfflineFallback(
+  primary: DiscoveryRepository,
+  fallback: DiscoveryRepository,
+  options: NonNullable<DiscoveryRepositoryOptions["offlineFallback"]>,
+): DiscoveryRepository {
+  const now = options.now ?? Date.now;
+  let offlineUntil = 0;
+
+  async function attempt<T>(run: (repository: DiscoveryRepository) => Promise<T>): Promise<T> {
+    if (now() < offlineUntil) return run(fallback);
+
+    try {
+      return await run(primary);
+    } catch (error) {
+      if (!isDatabaseUnreachable(error)) throw error;
+
+      offlineUntil = now() + OFFLINE_RETRY_AFTER_MS;
+      options.onFallback?.(error);
+      return run(fallback);
+    }
+  }
+
+  return {
+    listExperiences: (filters) => attempt((repository) => repository.listExperiences(filters)),
+    findExperienceBySlug: (slug) => attempt((repository) => repository.findExperienceBySlug(slug)),
+    featuredExperiences: (limit) => attempt((repository) => repository.featuredExperiences(limit)),
+    listDestinations: (limit) => attempt((repository) => repository.listDestinations(limit)),
+    findDestination: (slug) => attempt((repository) => repository.findDestination(slug)),
+    listCategories: () => attempt((repository) => repository.listCategories()),
+  };
+}
+
+function createPrismaDiscoveryRepository(
   prisma: PrismaClient,
   urlFor: UrlResolver,
 ): DiscoveryRepository {

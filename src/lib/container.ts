@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { env } from "@/lib/env";
+import { env, isProduction } from "@/lib/env";
 import { AuthService } from "@/modules/auth/service";
 import { OTP_TTL_MS } from "@/modules/auth/otp";
 import { HostService } from "@/modules/hosts/service";
@@ -179,8 +179,22 @@ let discoveryService: DiscoveryService | undefined;
  * that could widen what the public site can see.
  */
 export function getDiscoveryService(): DiscoveryService {
+  // Offline fallback: see DISCOVERY_OFFLINE_FALLBACK in env.ts. Never implied
+  // in production — only an explicit flag turns it on there.
+  const offlineFallback = env.DISCOVERY_OFFLINE_FALLBACK ?? !isProduction;
+
   discoveryService ??= new DiscoveryService({
-    discovery: createDiscoveryRepository(prisma, (key) => getStorage().publicUrl(key)),
+    discovery: createDiscoveryRepository(prisma, (key) => getStorage().publicUrl(key), {
+      offlineFallback: offlineFallback
+        ? {
+            onFallback: (error) =>
+              getLogger().warn(
+                { reason: error instanceof Error ? error.message : String(error) },
+                "database unreachable; discovery is serving the in-memory Pune pilot catalogue",
+              ),
+          }
+        : undefined,
+    }),
   });
 
   return discoveryService;
