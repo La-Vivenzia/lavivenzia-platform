@@ -14,7 +14,16 @@ FROM postgis/postgis:16-3.4
 # Version-pinning is deliberately left to the repo: pgvector patch releases are
 # additive, and pinning here would silently diverge from RDS, which tracks the
 # extension version AWS ships.
-RUN apt-get update \
+#
+# The base image is Debian Bullseye, which PGDG has moved to its archive host:
+# apt.postgresql.org now returns 404 for bullseye-pgdg. Point the configured
+# sources at apt-archive.postgresql.org before updating.
+RUN for f in /etc/apt/sources.list.d/pgdg.list /etc/apt/sources.list; do \
+        if [ -f "$f" ]; then \
+            sed -i 's|apt\.postgresql\.org|apt-archive.postgresql.org|g' "$f"; \
+        fi; \
+    done \
+    && apt-get update \
     && apt-get install -y --no-install-recommends postgresql-16-pgvector \
     && rm -rf /var/lib/apt/lists/*
 
