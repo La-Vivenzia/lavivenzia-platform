@@ -472,6 +472,7 @@ export class CopilotService {
             distanceMetres: item.distanceMetres,
           }),
         googleMapsUrl: googleMapsDirectionsUrl(item.coordinates),
+        venue: { lat: item.coordinates.latitude, lng: item.coordinates.longitude },
         ...(candidate.coverUrl ? { imageUrl: candidate.coverUrl } : {}),
       };
     });

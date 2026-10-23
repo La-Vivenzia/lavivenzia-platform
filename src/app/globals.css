@@ -503,6 +503,110 @@
   color: var(--lv-fg-subtle);
 }
 
+/*
+ * Live map tracker (src/components/map/LiveMapTracker.tsx).
+ *
+ * `--lv-map-you` is functional, not brand: the blue "you are here" dot is a
+ * cross-app convention travellers read without a legend, like a red error. It
+ * is constant across palettes and modes, and used nowhere but the beacon.
+ * Everything else on the map — venue pin, route, chrome — is existing tokens.
+ */
+:root {
+  --lv-map-you: #2b7bf3;
+}
+
+.lv-map.leaflet-container {
+  background: var(--lv-bg-soft);
+  font-family: inherit;
+}
+
+.lv-map .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--lv-surface) 85%, transparent);
+  color: var(--lv-fg-muted);
+  font-size: 10px;
+}
+
+.lv-map .leaflet-control-attribution a {
+  color: var(--lv-fg);
+}
+
+.lv-map-you {
+  position: relative;
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+.lv-map-you__dot {
+  position: absolute;
+  inset: 3px;
+  border-radius: 9999px;
+  background: var(--lv-map-you);
+  border: 3px solid #fff;
+  box-shadow: var(--lv-shadow-md);
+}
+
+.lv-map-you__pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--lv-map-you);
+  opacity: 0.35;
+  animation: lv-map-pulse 2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+@keyframes lv-map-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+.lv-map-venue {
+  display: block;
+  width: 34px;
+  height: 34px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--lv-accent);
+  border: 3px solid var(--lv-surface);
+  box-shadow: var(--lv-shadow-md);
+}
+
+.lv-map-venue::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 9999px;
+  background: var(--lv-accent-fg);
+}
+
+.lv-map-route {
+  stroke: var(--lv-primary);
+}
+
+.lv-map-route-casing {
+  stroke: var(--lv-surface);
+}
+
+:root.dark .lv-map-route {
+  stroke: var(--lv-accent);
+}
+
+:root.dark .lv-map-route-casing {
+  stroke: var(--lv-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lv-map-you__pulse {
+    display: none;
+  }
+}
+
 /* Respect a stated preference for less motion. */
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -276,6 +276,7 @@ describe("CopilotService — deterministic path", () => {
       distanceMeters: 1200,
       distanceText: "1.2 km away",
       googleMapsUrl: "https://www.google.com/maps/dir/?api=1&destination=18.519,73.946",
+      venue: { lat: 18.519, lng: 73.946 },
       imageUrl: "https://cdn.example/arcade.jpg",
     });
     expect(first?.priceFormatted).toContain("1,000");

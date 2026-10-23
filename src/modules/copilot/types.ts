@@ -84,6 +84,8 @@ export interface CopilotSuggestion {
   readonly whyYouWillLoveIt: string;
   /** Directions to the listing's stored coordinates. */
   readonly googleMapsUrl: string;
+  /** The listing's stored coordinates — the live tracker's destination. */
+  readonly venue: { readonly lat: number; readonly lng: number };
   readonly imageUrl?: string;
 }
 

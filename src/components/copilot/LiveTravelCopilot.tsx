@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
@@ -12,6 +13,7 @@ import {
   LocateFixed,
   MapPin,
   Navigation,
+  Radar,
   RotateCcw,
   Search,
   UtensilsCrossed,
@@ -62,6 +64,12 @@ export interface CopilotPreset {
   /** Changes on every `open()` that carries a preset, so a repeat is honoured. */
   readonly nonce: number;
 }
+
+// Leaflet touches `window` at import, and the map is only wanted on demand.
+const LiveMapTracker = dynamic(
+  () => import("@/components/map/LiveMapTracker").then((mod) => mod.LiveMapTracker),
+  { ssr: false },
+);
 
 const MOOD_ICONS: Record<string, LucideIcon> = {
   gaming: Gamepad2,
@@ -124,6 +132,10 @@ export function LiveTravelCopilot({
   const [query, setQuery] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [request, setRequest] = useState<RequestState>({ status: "idle" });
+  const [tracking, setTracking] = useState<CopilotSuggestion | null>(null);
+
+  // Closing the drawer also closes the tracker, so it never reopens mid-walk.
+  if (!open && tracking) setTracking(null);
 
   // A preset (from a Genie prompt, say) replaces the text and mood. Adjusted
   // during render rather than in an effect, so the first fetch already uses it.
@@ -342,6 +354,7 @@ export function LiveTravelCopilot({
         aria-labelledby={titleId}
         aria-describedby={statusId}
         onKeyDown={onPanelKeyDown}
+        inert={tracking !== null}
         className={cn(
           "absolute flex flex-col overflow-hidden border-line bg-bg shadow-editorial",
           // Bottom sheet on phones and tablets…
@@ -573,7 +586,10 @@ export function LiveTravelCopilot({
                 <ul className="mt-4 flex flex-col gap-4 lg:grid lg:grid-cols-2">
                   {request.data.suggestions.map((suggestion) => (
                     <li key={suggestion.id}>
-                      <SuggestionCard suggestion={suggestion} />
+                      <SuggestionCard
+                        suggestion={suggestion}
+                        onLiveTrack={() => setTracking(suggestion)}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -587,11 +603,27 @@ export function LiveTravelCopilot({
           </section>
         </div>
       </div>
+
+      {tracking ? (
+        <LiveMapTracker
+          key={tracking.id}
+          destination={tracking.venue}
+          destinationLabel={tracking.title}
+          fallbackOrigin={point}
+          onClose={() => setTracking(null)}
+        />
+      ) : null}
     </div>
   );
 }
 
-function SuggestionCard({ suggestion }: { readonly suggestion: CopilotSuggestion }) {
+function SuggestionCard({
+  suggestion,
+  onLiveTrack,
+}: {
+  readonly suggestion: CopilotSuggestion;
+  readonly onLiveTrack: () => void;
+}) {
   const [imageFailed, setImageFailed] = useState(false);
   const showImage = suggestion.imageUrl && !imageFailed;
 
@@ -640,13 +672,23 @@ function SuggestionCard({ suggestion }: { readonly suggestion: CopilotSuggestion
         <p className="mt-1.5 text-[13px] leading-relaxed text-fg">{suggestion.whyYouWillLoveIt}</p>
       </div>
 
-      <div className="mt-3.5 grid grid-cols-2 gap-2.5">
+      <button
+        type="button"
+        onClick={onLiveTrack}
+        className="mt-3.5 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-pill bg-cta px-3 text-[13px] font-medium text-cta-fg transition-colors duration-200 hover:bg-cta-hover"
+      >
+        <Radar className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+        Live Track
+        <span className="sr-only"> to {suggestion.title}</span>
+      </button>
+
+      <div className="mt-2.5 grid grid-cols-2 gap-2.5">
         <a
           href={suggestion.googleMapsUrl}
           target="_blank"
           // `noreferrer` keeps this page's URL off the request to Google.
           rel="noopener noreferrer"
-          className="inline-flex h-11 items-center justify-center gap-1.5 rounded-pill bg-cta px-3 text-[13px] font-medium text-cta-fg transition-colors duration-200 hover:bg-cta-hover"
+          className="inline-flex h-11 items-center justify-center gap-1.5 rounded-pill border border-line-strong px-3 text-[13px] font-medium text-fg transition-colors duration-200 hover:bg-surface-2"
         >
           <Navigation className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
           Take Me There
