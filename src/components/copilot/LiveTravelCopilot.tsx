@@ -346,12 +346,12 @@ export function LiveTravelCopilot({
           "absolute flex flex-col overflow-hidden border-line bg-bg shadow-editorial",
           // Bottom sheet on phones and tablets…
           "inset-x-0 bottom-0 max-h-[92dvh] rounded-t-[1.75rem] border-t",
-          // …a right-hand slide-over from `lg`.
-          "lg:inset-y-0 lg:right-0 lg:left-auto lg:max-h-none lg:w-[480px] lg:rounded-none lg:rounded-l-[1.75rem] lg:border-t-0 lg:border-l",
-          "motion-safe:transition-transform motion-safe:duration-500 motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]",
+          // …a centred concierge spotlight from `lg`.
+          "lg:inset-x-auto lg:bottom-auto lg:top-1/2 lg:left-1/2 lg:w-full lg:max-w-3xl lg:max-h-[85vh] lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-[1.75rem] lg:border",
+          "motion-safe:transition-[translate,scale,opacity] motion-safe:duration-500 motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]",
           open
-            ? "translate-y-0 lg:translate-x-0"
-            : "translate-y-full lg:translate-x-full lg:translate-y-0",
+            ? "translate-y-0 lg:scale-100 lg:opacity-100"
+            : "translate-y-full lg:scale-95 lg:opacity-0",
         )}
       >
         {/* Grab handle — decorative; the close button is the real control. */}
@@ -570,7 +570,7 @@ export function LiveTravelCopilot({
                   <span className="font-medium text-heading">{request.data.count}</span>{" "}
                   {request.data.count === 1 ? "pick" : "picks"} within {radiusKm} km of {placeLabel}
                 </p>
-                <ul className="mt-4 flex flex-col gap-4">
+                <ul className="mt-4 flex flex-col gap-4 lg:grid lg:grid-cols-2">
                   {request.data.suggestions.map((suggestion) => (
                     <li key={suggestion.id}>
                       <SuggestionCard suggestion={suggestion} />
@@ -670,7 +670,7 @@ function SuggestionCard({ suggestion }: { readonly suggestion: CopilotSuggestion
 
 function ResultsSkeleton() {
   return (
-    <ul aria-hidden="true" className="flex flex-col gap-4">
+    <ul aria-hidden="true" className="flex flex-col gap-4 lg:grid lg:grid-cols-2">
       {[0, 1, 2].map((index) => (
         <li key={index} className="rounded-card border border-line bg-surface p-3.5">
           <div className="flex gap-3.5">
