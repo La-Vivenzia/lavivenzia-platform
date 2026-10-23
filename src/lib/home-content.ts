@@ -39,8 +39,10 @@ export interface LinkedExperience extends CardExperience {
  * A published listing, as a destination-shaped card.
  *
  * The rails in the reference show *places*; the catalogue stores *experiences*.
- * A listing carries its city, so it renders in that shape without inventing
- * anything — the name is the place, the badge is the category the host chose.
+ * The name is the listing's own title — using the city made every card in a
+ * single-city catalogue read identically — and the place line carries the
+ * city and region, falling back to the country. The badge is the category the
+ * host chose. Nothing is invented.
  */
 export function toDestinationCard(experience: ExperienceSummary): LinkedDestination | null {
   // No photograph means no card. The approved design is photography-led, and a
@@ -49,8 +51,8 @@ export function toDestinationCard(experience: ExperienceSummary): LinkedDestinat
 
   return {
     id: experience.id,
-    name: experience.city ?? experience.title,
-    country: [experience.region, experience.country].filter(Boolean).join(", "),
+    name: experience.title,
+    country: [experience.city, experience.region].filter(Boolean).join(", ") || experience.country,
     badge: experience.categoryName ?? "Experience",
     image: experience.coverUrl,
     // The host's own alt text. Empty rather than invented when absent, so a

@@ -65,7 +65,7 @@ export function DestinationCard({
 
         <div className="absolute inset-x-0 bottom-0 z-10 p-4 sm:p-5">
           <span className="eyebrow text-[10px] text-white/70">{badge}</span>
-          <h3 className="mt-1.5 font-display text-lg leading-tight text-white sm:text-xl lg:text-2xl">
+          <h3 className="mt-1.5 line-clamp-2 font-display text-lg leading-tight text-white sm:text-xl lg:text-2xl">
             {name}
           </h3>
           <p className="mt-0.5 text-[13px] font-light text-white/75 lg:mt-1 lg:text-[14.5px]">
@@ -109,7 +109,7 @@ export function DestinationCard({
       </div>
 
       <div className="flex flex-1 flex-col px-2 pt-3 pb-2.5 lg:px-3 lg:pt-4 lg:pb-3.5">
-        <h3 className="font-sans text-[15px] leading-snug font-semibold text-heading lg:text-[17px]">
+        <h3 className="line-clamp-2 font-sans text-[15px] leading-snug font-semibold text-heading lg:text-[17px]">
           {/* Stretched link keeps the whole card clickable while leaving the
               favourite button (z-20) on top of it. */}
           <a href={href} className="z-10 after:absolute after:inset-0 after:rounded-card">
