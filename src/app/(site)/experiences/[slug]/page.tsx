@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert } from "@/components/ui/feedback";
 import { GoldRule } from "@/components/ui/wordmark";
+import { LiveTrackButton } from "@/components/site/live-track-button";
 import { LocationPanel } from "@/components/site/location-panel";
 import { getDiscoveryService } from "@/lib/container";
 import { NotFoundError, ValidationError } from "@/lib/errors";
@@ -268,6 +269,7 @@ export default async function ExperienceDetailPage({
               latitude={experience.latitude}
               longitude={experience.longitude}
               title={experience.title}
+              slug={experience.slug}
             />
 
             {gallery.length > 0 ? (
@@ -352,6 +354,16 @@ export default async function ExperienceDetailPage({
                   <Row label="Languages" value={experience.languages.join(", ").toUpperCase()} />
                 ) : null}
               </dl>
+
+              {experience.latitude !== null && experience.longitude !== null ? (
+                <LiveTrackButton
+                  slug={experience.slug}
+                  title={experience.title}
+                  latitude={experience.latitude}
+                  longitude={experience.longitude}
+                  fullWidth
+                />
+              ) : null}
 
               {/*
                * Inert on purpose, and honest about it. Booking is a later

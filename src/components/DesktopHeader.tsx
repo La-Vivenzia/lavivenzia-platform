@@ -4,8 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { CopilotTrigger } from "@/components/copilot/CopilotProvider";
+import { Radar } from "lucide-react";
+
+import { CopilotTrigger, LiveMapTrigger } from "@/components/copilot/CopilotProvider";
 import { Logo } from "@/components/Logo";
+import { LiveDot } from "@/components/map/LiveDot";
 import { PaletteToggle } from "@/components/PaletteToggle";
 import { NotificationButton, ProfileButton } from "@/components/ProfileButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -86,6 +89,23 @@ export function DesktopHeader({
         </nav>
 
         <div className="flex shrink-0 items-center gap-2">
+          {/* Icon-only until `xl`, where the label fits beside "Plan My Journey". */}
+          <LiveMapTrigger
+            aria-label="Open the live map tracker"
+            className={cn(
+              "inline-flex h-10 items-center gap-2 rounded-pill border border-line-strong px-3 text-[13.5px] font-medium whitespace-nowrap text-fg xl:px-4",
+              "transition-[background-color,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              "hover:-translate-y-px hover:bg-surface-2 active:translate-y-0",
+            )}
+          >
+            <span aria-hidden="true" className="relative">
+              <Radar className="h-[18px] w-[18px] text-accent-ink" strokeWidth={1.8} />
+              <LiveDot className="absolute -top-0.5 -right-1 ring-2 ring-bg" />
+            </span>
+            <span aria-hidden="true" className="hidden xl:inline">
+              Live Map
+            </span>
+          </LiveMapTrigger>
           <CopilotTrigger
             className={cn(
               "hidden rounded-pill bg-cta px-5 py-2.5 text-[13.5px] font-medium whitespace-nowrap text-cta-fg xl:inline-block",

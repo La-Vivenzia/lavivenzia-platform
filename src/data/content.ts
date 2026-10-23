@@ -218,6 +218,20 @@ export const genie = {
   ],
 };
 
+/** The live map tracking feature tile on the home screen. */
+export const liveTracking = {
+  eyebrow: "Live tracking",
+  title: "Walk there, live on the map",
+  supporting:
+    "Pick an experience and follow your route to the door — distance and walking time update as you move.",
+  action: "Open Live Map",
+  points: [
+    "Your position, live from your phone",
+    "A walking route, not a guess",
+    "Hand off to Google Maps any time",
+  ],
+};
+
 /**
  * Desktop navigation.
  *

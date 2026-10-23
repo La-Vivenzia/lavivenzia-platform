@@ -4,6 +4,7 @@ import { CategoryNavigation } from "@/components/CategoryNavigation";
 import { CuratedSection } from "@/components/CuratedSection";
 import { ExperiencesSection } from "@/components/ExperiencesSection";
 import { Hero } from "@/components/Hero";
+import { LiveTrackingSection } from "@/components/LiveTrackingFeature";
 import { MobileHeader } from "@/components/MobileHeader";
 import { PopularDestinations } from "@/components/PopularDestinations";
 import { Reveal } from "@/components/Reveal";
@@ -42,6 +43,7 @@ export function MobileHome(props: HomeData) {
 
         <CuratedSection items={curated} />
         <AIGenieSection />
+        <LiveTrackingSection />
         <PopularDestinations items={popular} />
         <ExperiencesSection items={stories} />
 

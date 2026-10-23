@@ -6,6 +6,7 @@ import { DestinationCard } from "@/components/DestinationCard";
 import { ExperienceCard } from "@/components/ExperienceCard";
 import { Footer } from "@/components/Footer";
 import { GenieSparkle, iconMap } from "@/components/icons";
+import { LiveTrackingFeature } from "@/components/LiveTrackingFeature";
 import { Reveal } from "@/components/Reveal";
 import { SectionHeader } from "@/components/SectionHeader";
 import { pillars } from "@/data/content";
@@ -86,6 +87,8 @@ export function DesktopHome(props: HomeData) {
         </section>
 
         <AIGenieFeature />
+
+        <LiveTrackingFeature className={cn(shell, "pt-28")} />
 
         {/* Popular destinations — editorial mosaic */}
         <section id="d-popular" aria-labelledby="lv-popular-desktop" className={cn(shell, "py-28")}>

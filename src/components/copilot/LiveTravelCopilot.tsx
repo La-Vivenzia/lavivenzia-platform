@@ -21,7 +21,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import {
+  trackDestinationFromExperience,
+  type TrackTarget,
+} from "@/components/copilot/track-target";
 import { GenieSparkle, GenieStar } from "@/components/icons";
+import { LiveDot } from "@/components/map/LiveDot";
+import type { LatLng } from "@/components/map/live-map-tracking";
 import { Alert, Skeleton } from "@/components/ui/feedback";
 import { cn } from "@/lib/cn";
 import {
@@ -61,9 +67,31 @@ import {
 export interface CopilotPreset {
   readonly query?: string;
   readonly mood?: CopilotMood;
+  /** Opened from a "Live Map" entry: show the live-tracking tip. */
+  readonly liveMap?: boolean;
   /** Changes on every `open()` that carries a preset, so a repeat is honoured. */
   readonly nonce: number;
 }
+
+/** A request to open straight onto the tracker for one listing. */
+export interface TrackRequest extends TrackTarget {
+  /** Changes on every `track()`, so tracking the same listing again is honoured. */
+  readonly nonce: number;
+}
+
+type TrackState =
+  | { readonly status: "idle" }
+  /** Only a slug was given; its stored coordinates are being looked up. */
+  | { readonly status: "resolving"; readonly slug: string; readonly attempt: number }
+  | { readonly status: "error"; readonly slug: string; readonly message: string }
+  | {
+      readonly status: "tracking";
+      readonly id: string;
+      readonly destination: LatLng;
+      readonly label: string;
+      /** Opened from outside the drawer, so closing the map closes everything. */
+      readonly direct: boolean;
+    };
 
 // Leaflet touches `window` at import, and the map is only wanted on demand.
 const LiveMapTracker = dynamic(
@@ -80,6 +108,7 @@ const MOOD_ICONS: Record<string, LucideIcon> = {
 };
 
 const REQUEST_TIMEOUT_MS = 15_000;
+const LOOKUP_TIMEOUT_MS = 10_000;
 const DEBOUNCE_MS = 250;
 
 type Place =
@@ -112,10 +141,12 @@ export function LiveTravelCopilot({
   open,
   onClose,
   preset,
+  trackRequest,
 }: {
   readonly open: boolean;
   readonly onClose: () => void;
   readonly preset?: CopilotPreset | undefined;
+  readonly trackRequest?: TrackRequest | undefined;
 }) {
   const titleId = useId();
   const statusId = useId();
@@ -132,10 +163,30 @@ export function LiveTravelCopilot({
   const [query, setQuery] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [request, setRequest] = useState<RequestState>({ status: "idle" });
-  const [tracking, setTracking] = useState<CopilotSuggestion | null>(null);
+  const [track, setTrack] = useState<TrackState>({ status: "idle" });
+  const [liveMapTip, setLiveMapTip] = useState(false);
 
   // Closing the drawer also closes the tracker, so it never reopens mid-walk.
-  if (!open && tracking) setTracking(null);
+  if (!open && track.status !== "idle") setTrack({ status: "idle" });
+  if (!open && liveMapTip) setLiveMapTip(false);
+
+  // A track request (the experience page, a `#track=` link) opens straight onto
+  // the map — at once with stored coordinates, after a lookup with a slug only.
+  const [appliedTrackNonce, setAppliedTrackNonce] = useState<number | null>(null);
+  if (open && trackRequest && trackRequest.nonce !== appliedTrackNonce) {
+    setAppliedTrackNonce(trackRequest.nonce);
+    setTrack(
+      trackRequest.destination
+        ? {
+            status: "tracking",
+            id: trackRequest.slug,
+            destination: trackRequest.destination,
+            label: trackRequest.title ?? "Your experience",
+            direct: true,
+          }
+        : { status: "resolving", slug: trackRequest.slug, attempt: 0 },
+    );
+  }
 
   // A preset (from a Genie prompt, say) replaces the text and mood. Adjusted
   // during render rather than in an effect, so the first fetch already uses it.
@@ -147,6 +198,7 @@ export function LiveTravelCopilot({
       setQuery(preset.query);
     }
     if (preset.mood !== undefined) setMood(preset.mood);
+    setLiveMapTip(preset.liveMap === true);
   }
 
   const point = place.kind === "gps" ? { lat: place.lat, lng: place.lng } : findHotspot(place.id);
@@ -272,6 +324,75 @@ export function LiveTravelCopilot({
     };
   }, [open, lat, lng, radiusKm, mood, query, attempt]);
 
+  /* ------------------------------------------------------ tracker lookup */
+
+  const resolvingSlug = track.status === "resolving" ? track.slug : null;
+  const resolvingAttempt = track.status === "resolving" ? track.attempt : 0;
+
+  useEffect(() => {
+    if (resolvingSlug === null) return;
+    const slug = resolvingSlug;
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeout = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, LOOKUP_TIMEOUT_MS);
+
+    (async () => {
+      try {
+        const response = await fetch(`/api/v1/experiences/${encodeURIComponent(slug)}`, {
+          headers: { accept: "application/json" },
+          signal: controller.signal,
+        });
+        const payload: unknown = await response.json().catch(() => null);
+        const found = response.ok ? trackDestinationFromExperience(payload) : null;
+        if (found) {
+          setTrack({
+            status: "tracking",
+            id: slug,
+            destination: found.destination,
+            label: found.title,
+            direct: true,
+          });
+        } else {
+          setTrack({
+            status: "error",
+            slug,
+            message:
+              response.status === 404
+                ? "We couldn\u2019t find that experience. It may no longer be listed."
+                : response.ok
+                  ? "This experience doesn\u2019t have a pinned location to track to yet."
+                  : "We couldn\u2019t load this experience\u2019s location. Please try again.",
+          });
+        }
+      } catch {
+        // Superseded or the drawer closed: say nothing.
+        if (controller.signal.aborted && !timedOut) return;
+        setTrack({
+          status: "error",
+          slug,
+          message: timedOut
+            ? "Finding the location took longer than it should. Please try again."
+            : "We couldn\u2019t reach La Vivenzia. Check your connection and try again.",
+        });
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    })();
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [resolvingSlug, resolvingAttempt]);
+
+  function closeTracker() {
+    if (track.status === "tracking" && track.direct) onClose();
+    else setTrack({ status: "idle" });
+  }
+
   /* ------------------------------------------------- focus, keys, scrolling */
 
   useEffect(() => {
@@ -354,7 +475,7 @@ export function LiveTravelCopilot({
         aria-labelledby={titleId}
         aria-describedby={statusId}
         onKeyDown={onPanelKeyDown}
-        inert={tracking !== null}
+        inert={track.status !== "idle"}
         className={cn(
           "absolute flex flex-col overflow-hidden border-line bg-bg shadow-editorial",
           // Bottom sheet on phones and tablets…
@@ -541,6 +662,17 @@ export function LiveTravelCopilot({
 
           {/* Results */}
           <section aria-label="Suggestions" className="mt-8 border-t border-line pt-6">
+            {liveMapTip ? (
+              <p className="mb-5 flex items-start gap-2.5 rounded-2xl border border-line bg-surface-2 px-4 py-3 text-[12.5px] leading-relaxed text-fg">
+                <LiveDot className="mt-[5px]" />
+                <span>
+                  <span className="font-medium text-heading">Live map tracking.</span> Tap{" "}
+                  <span className="font-medium text-heading">Live Track</span> on any pick to follow
+                  your walk there on the map, with distance and time updating as you move.
+                </span>
+              </p>
+            ) : null}
+
             <p id={statusId} role="status" aria-live="polite" className="sr-only">
               {request.status === "loading"
                 ? `Finding suggestions near ${placeLabel}`
@@ -588,7 +720,15 @@ export function LiveTravelCopilot({
                     <li key={suggestion.id}>
                       <SuggestionCard
                         suggestion={suggestion}
-                        onLiveTrack={() => setTracking(suggestion)}
+                        onLiveTrack={() =>
+                          setTrack({
+                            status: "tracking",
+                            id: suggestion.id,
+                            destination: suggestion.venue,
+                            label: suggestion.title,
+                            direct: false,
+                          })
+                        }
                       />
                     </li>
                   ))}
@@ -604,13 +744,20 @@ export function LiveTravelCopilot({
         </div>
       </div>
 
-      {tracking ? (
+      {track.status === "tracking" ? (
         <LiveMapTracker
-          key={tracking.id}
-          destination={tracking.venue}
-          destinationLabel={tracking.title}
+          key={track.id}
+          destination={track.destination}
+          destinationLabel={track.label}
           fallbackOrigin={point}
-          onClose={() => setTracking(null)}
+          onClose={closeTracker}
+          closeLabel={track.direct ? "Close live tracking" : "Back to suggestions"}
+        />
+      ) : track.status === "resolving" || track.status === "error" ? (
+        <TrackLookup
+          state={track}
+          onRetry={() => setTrack({ status: "resolving", slug: track.slug, attempt: Date.now() })}
+          onClose={onClose}
         />
       ) : null}
     </div>
@@ -624,6 +771,7 @@ function SuggestionCard({
   readonly suggestion: CopilotSuggestion;
   readonly onLiveTrack: () => void;
 }) {
+  const tipId = useId();
   const [imageFailed, setImageFailed] = useState(false);
   const showImage = suggestion.imageUrl && !imageFailed;
 
@@ -675,12 +823,20 @@ function SuggestionCard({
       <button
         type="button"
         onClick={onLiveTrack}
-        className="mt-3.5 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-pill bg-cta px-3 text-[13px] font-medium text-cta-fg transition-colors duration-200 hover:bg-cta-hover"
+        aria-describedby={tipId}
+        className="mt-3.5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-pill bg-cta px-3 text-[14px] font-medium text-cta-fg shadow-card transition-[background-color,transform] duration-200 hover:-translate-y-px hover:bg-cta-hover active:translate-y-0"
       >
-        <Radar className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+        <Radar className="h-[18px] w-[18px]" strokeWidth={1.8} aria-hidden="true" />
         Live Track
         <span className="sr-only"> to {suggestion.title}</span>
+        <span className="ml-1 inline-flex items-center gap-1.5 rounded-pill bg-cta-fg/12 px-2 py-0.5 text-[10.5px] font-medium tracking-[0.12em] uppercase">
+          <LiveDot />
+          Live
+        </span>
       </button>
+      <p id={tipId} className="mt-1.5 text-center text-[11.5px] leading-snug text-fg-muted">
+        Follow your walk on the map — distance and time update as you move.
+      </p>
 
       <div className="mt-2.5 grid grid-cols-2 gap-2.5">
         <a
@@ -707,6 +863,82 @@ function SuggestionCard({
         </Link>
       </div>
     </article>
+  );
+}
+
+/** Covers the drawer while a `#track=<slug>` link's coordinates are looked up. */
+function TrackLookup({
+  state,
+  onRetry,
+  onClose,
+}: {
+  readonly state: Extract<TrackState, { status: "resolving" | "error" }>;
+  readonly onRetry: () => void;
+  readonly onClose: () => void;
+}) {
+  const titleId = useId();
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    closeRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === "Escape") onClose();
+      }}
+      className="absolute inset-0 z-10 grid place-items-center bg-bg/85 p-5 backdrop-blur-md"
+    >
+      <div className="w-full max-w-md rounded-card border border-line bg-surface p-6 shadow-editorial">
+        <p className="eyebrow flex items-center gap-2 text-[10.5px] text-fg-subtle">
+          <LiveDot />
+          Live tracking
+        </p>
+        <h2 id={titleId} className="mt-2 font-display text-[18px] leading-snug text-heading">
+          {state.status === "resolving"
+            ? "Finding the way there\u2026"
+            : "We couldn\u2019t start tracking"}
+        </h2>
+
+        <div role="status" aria-live="polite" className="mt-4">
+          {state.status === "resolving" ? (
+            <div aria-hidden="true" className="flex flex-col gap-2.5">
+              <Skeleton className="h-3 w-4/5" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          ) : (
+            <Alert tone="danger">{state.message}</Alert>
+          )}
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          {state.status === "error" ? (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="inline-flex h-11 items-center gap-2 rounded-pill bg-cta px-5 text-[13px] font-medium text-cta-fg transition-colors duration-200 hover:bg-cta-hover"
+            >
+              <RotateCcw className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+              Try again
+            </button>
+          ) : null}
+          <button
+            ref={closeRef}
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-11 items-center gap-2 rounded-pill border border-line-strong px-5 text-[13px] font-medium text-fg transition-colors duration-200 hover:bg-surface-2"
+          >
+            <X className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

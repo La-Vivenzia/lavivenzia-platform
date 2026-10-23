@@ -82,6 +82,7 @@ export function LiveMapTracker({
   destinationLabel,
   fallbackOrigin,
   onClose,
+  closeLabel = "Back to suggestions",
   allowSimulation = process.env.NODE_ENV !== "production",
 }: {
   readonly destination: LatLng;
@@ -89,6 +90,8 @@ export function LiveMapTracker({
   /** Where the traveller said they are — used until (or unless) GPS answers. */
   readonly fallbackOrigin: LatLng;
   readonly onClose: () => void;
+  /** The back button's accessible name — where closing the map takes you. */
+  readonly closeLabel?: string;
   /** Shows the walk simulator. Defaults to development builds only. */
   readonly allowSimulation?: boolean;
 }) {
@@ -412,7 +415,7 @@ export function LiveMapTracker({
           ref={closeRef}
           type="button"
           onClick={onClose}
-          aria-label="Back to suggestions"
+          aria-label={closeLabel}
           className="pointer-events-auto grid h-11 w-11 shrink-0 place-items-center rounded-full border border-line bg-surface text-fg shadow-card transition-colors duration-200 hover:bg-surface-2"
         >
           <ArrowLeft className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />

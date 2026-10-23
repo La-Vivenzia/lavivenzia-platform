@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { LiveTrackButton } from "@/components/site/live-track-button";
+
 /**
  * Where an experience happens (FR-03).
  *
@@ -18,6 +20,9 @@ import Link from "next/link";
  * When a key exists, the embed replaces the placeholder block below and this
  * component is the only file that changes.
  *
+ * The live tracker is the exception that needs no key: it opens on demand,
+ * over keyless OpenStreetMap tiles, and only when the traveller asks for it.
+ *
  * **What is shown and what is not.** A published listing carries an address the
  * host chose to publish, so it is shown. A precise meeting point is a different
  * thing — it belongs after a booking, not before one — and no such field exists
@@ -32,6 +37,7 @@ export function LocationPanel({
   latitude,
   longitude,
   title,
+  slug,
 }: {
   readonly addressLine: string | null;
   readonly city: string | null;
@@ -41,6 +47,8 @@ export function LocationPanel({
   readonly latitude: number | null;
   readonly longitude: number | null;
   readonly title: string;
+  /** Enables the live tracker when the listing has a pinned point. */
+  readonly slug?: string;
 }) {
   const lines = [addressLine, [city, region].filter(Boolean).join(", "), postalCode, country]
     .map((line) => line?.trim())
@@ -71,6 +79,15 @@ export function LocationPanel({
           </span>
         ))}
       </address>
+
+      {latitude !== null && longitude !== null && slug ? (
+        <div className="flex flex-col gap-2">
+          <LiveTrackButton slug={slug} title={title} latitude={latitude} longitude={longitude} />
+          <p className="text-text-subtle text-[12px]">
+            Walk there with a live map — distance and time update as you move.
+          </p>
+        </div>
+      ) : null}
 
       {mapHref ? (
         <Link

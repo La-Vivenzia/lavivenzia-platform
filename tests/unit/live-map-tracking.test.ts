@@ -309,9 +309,31 @@ describe("copilot integration", () => {
     const copilot = read("src/components/copilot/LiveTravelCopilot.tsx");
     expect(copilot).toMatch(/dynamic\(\s*\(\) => import\("@\/components\/map\/LiveMapTracker"\)/);
     expect(copilot).toContain("{ ssr: false }");
-    expect(copilot).toContain("onLiveTrack={() => setTracking(suggestion)}");
+    expect(copilot).toMatch(/onLiveTrack=\{\(\) =>\s*setTrack\(\{/);
+    expect(copilot).toContain("destination: suggestion.venue");
     expect(copilot).toContain("Live Track");
-    expect(copilot).toContain("destination={tracking.venue}");
+    expect(copilot).toContain("destination={track.destination}");
+  });
+
+  it("opens straight onto the tracker from outside the drawer", () => {
+    const provider = read("src/components/copilot/CopilotProvider.tsx");
+    expect(provider).toContain("parseTrackHash(hash)");
+    expect(provider).toContain("export function LiveTrackTrigger");
+    expect(provider).toContain("export function LiveMapTrigger");
+    const copilot = read("src/components/copilot/LiveTravelCopilot.tsx");
+    // A slug-only request reads the stored coordinates from the catalogue.
+    expect(copilot).toContain("/api/v1/experiences/${encodeURIComponent(slug)}");
+    expect(copilot).toContain("trackDestinationFromExperience(payload)");
+  });
+
+  it("offers live tracking on the experience page, headers and home", () => {
+    const page = read("src/app/(site)/experiences/[slug]/page.tsx");
+    expect(page).toContain("<LiveTrackButton");
+    expect(read("src/components/site/location-panel.tsx")).toContain("<LiveTrackButton");
+    expect(read("src/components/DesktopHeader.tsx")).toContain("<LiveMapTrigger");
+    expect(read("src/components/MobileHeader.tsx")).toContain("<LiveMapTrigger");
+    expect(read("src/components/MobileHome.tsx")).toContain("<LiveTrackingSection />");
+    expect(read("src/components/DesktopHome.tsx")).toContain("<LiveTrackingFeature");
   });
 
   it("keeps Leaflet out of the server render", () => {
