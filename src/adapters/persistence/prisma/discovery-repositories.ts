@@ -187,9 +187,23 @@ export function isDatabaseUnreachable(error: unknown, depth = 0): boolean {
     errorCode?: unknown;
     kind?: unknown;
     name?: unknown;
+    message?: unknown;
     cause?: unknown;
     errors?: unknown;
   };
+
+  if (typeof candidate.message === "string") {
+    const msg = candidate.message.toLowerCase();
+    if (
+      msg.includes("connection terminated") ||
+      msg.includes("connection timeout") ||
+      msg.includes("econnrefused") ||
+      msg.includes("etimedout") ||
+      msg.includes("can't reach database server")
+    ) {
+      return true;
+    }
+  }
 
   for (const code of [candidate.code, candidate.errorCode]) {
     if (
