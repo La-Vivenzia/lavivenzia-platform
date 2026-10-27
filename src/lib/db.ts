@@ -20,6 +20,7 @@ const globalForPrisma = globalThis as unknown as {
 function createPrismaClient(): PrismaClient {
   const adapter = new PrismaPg({
     connectionString: env.DATABASE_URL,
+    ssl: env.DATABASE_URL.includes("supabase.co") ? { rejectUnauthorized: false } : undefined,
     // Bounded pool: the web service and the worker both draw from the same
     // database, so an unbounded pool per process is how connection limits get
     // exhausted under load.

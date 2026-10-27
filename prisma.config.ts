@@ -42,7 +42,7 @@ export default defineConfig({
      * replays every migration into this throwaway database to compute the diff,
      * so it must be a separate database the migration role can fully control.
      */
-    shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL ?? "",
+    shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL || undefined,
   },
 
   migrations: {

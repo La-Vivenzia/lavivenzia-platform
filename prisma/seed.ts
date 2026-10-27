@@ -1,3 +1,4 @@
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 import "../src/lib/load-env";
 
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -39,7 +40,10 @@ if (!connectionString) {
 }
 
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString }),
+  adapter: new PrismaPg({
+    connectionString,
+    ssl: connectionString.includes("supabase.co") ? { rejectUnauthorized: false } : undefined,
+  }),
 });
 
 async function seedPermissions(): Promise<Map<string, string>> {
