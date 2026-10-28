@@ -1,7 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 import { InternalError, NotImplementedError, ValidationError } from "@/lib/errors";
-import type { StoragePort, StoredObject } from "@/ports/storage";
+import { isStaticAssetKey, type StoragePort, type StoredObject } from "@/ports/storage";
 
 /**
  * Local filesystem storage — development only.
@@ -18,9 +18,6 @@ import type { StoragePort, StoredObject } from "@/ports/storage";
 
 /** Root inside `public/`. Kept in one constant so the URL and the path agree. */
 export const LOCAL_MEDIA_PREFIX = "uploads";
-
-/** Keys served straight from `public/` rather than from the upload root. */
-const STATIC_ASSET_PREFIXES = ["images/", "brand/"] as const;
 
 /**
  * Keys this adapter will accept.
@@ -93,7 +90,7 @@ export class LocalStorageAdapter implements StoragePort {
     assertSafeKey(key);
     // Static photography and brand assets ship in `public/images` and
     // `public/brand`, not under the upload root.
-    if (STATIC_ASSET_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+    if (isStaticAssetKey(key)) {
       return `/${key}`;
     }
     return `/${LOCAL_MEDIA_PREFIX}/${key}`;

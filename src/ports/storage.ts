@@ -14,6 +14,18 @@
  * S3 later changes the adapter and nothing above it.
  */
 
+/**
+ * Key prefixes for assets that ship with the app in `public/` rather than
+ * living in storage — seeded photography and brand marks. Every adapter serves
+ * these from the app's own origin, so seed data resolves the same way whether
+ * media is local or in a bucket.
+ */
+export const STATIC_ASSET_PREFIXES = ["images/", "brand/"] as const;
+
+export function isStaticAssetKey(key: string): boolean {
+  return STATIC_ASSET_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+
 export interface SignedUpload {
   readonly url: string;
   readonly fields: Readonly<Record<string, string>>;

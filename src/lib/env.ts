@@ -211,6 +211,11 @@ export function assertDeploymentInvariants(): void {
       "EMAIL_FROM is required in production (an address on a domain verified with the configured provider)",
     );
   }
+  if (env.MEDIA_STORAGE !== "s3") {
+    problems.push(
+      "MEDIA_STORAGE must be 's3' in production; local uploads are lost when the container is replaced",
+    );
+  }
   if (env.MEDIA_STORAGE === "s3" && !env.S3_MEDIA_BUCKET) {
     problems.push("S3_MEDIA_BUCKET is required when MEDIA_STORAGE is 's3'");
   }

@@ -5,7 +5,12 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import type { SignedUpload, StoragePort, StoredObject } from "@/ports/storage";
+import {
+  isStaticAssetKey,
+  type SignedUpload,
+  type StoragePort,
+  type StoredObject,
+} from "@/ports/storage";
 import { InternalError, ProviderUnavailableError, ValidationError } from "@/lib/errors";
 
 /**
@@ -246,9 +251,15 @@ export class S3StorageAdapter implements StoragePort {
    * Derived rather than stored, so changing bucket or putting a CDN in front is
    * a configuration change instead of a data migration — the same reason the
    * media table has never held a URL.
+   *
+   * Static assets (seed photography, brand marks) ship in `public/` and are
+   * never uploaded to the bucket, so they resolve against the app's origin.
    */
   publicUrl(key: string): string {
     assertSafeKey(key);
+    if (isStaticAssetKey(key)) {
+      return `/${key}`;
+    }
     return `${this.#config.publicBaseUrl.replace(/\/+$/, "")}/${key}`;
   }
 }

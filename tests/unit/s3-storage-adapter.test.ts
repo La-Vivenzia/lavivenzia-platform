@@ -70,6 +70,13 @@ describe("S3StorageAdapter — publicUrl", () => {
     );
     expect(adapter.publicUrl("a.jpg")).toBe("https://media.lavivenzia.com/a.jpg");
   });
+
+  it("serves static assets from the app origin, not the bucket", () => {
+    // Seed photography and brand marks ship in `public/` and are never uploaded.
+    const { adapter } = makeAdapter();
+    expect(adapter.publicUrl("images/amalfi-coast.jpg")).toBe("/images/amalfi-coast.jpg");
+    expect(adapter.publicUrl("brand/mark.png")).toBe("/brand/mark.png");
+  });
 });
 
 describe("S3StorageAdapter — key safety", () => {
