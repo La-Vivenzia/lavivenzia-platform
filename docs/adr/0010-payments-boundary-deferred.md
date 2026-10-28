@@ -2,6 +2,9 @@
 
 - **Status:** Accepted (boundary) — business logic **blocked**
 - **Date:** 2026-08-19
+- **Amended by:** ADR-0016 (2026-10-28) — `createOrder` and checkout signature
+  verification are now implemented for demo and test-mode checkout. Live
+  payments, persistence and reconciliation remain blocked as described below.
 
 ## Context
 

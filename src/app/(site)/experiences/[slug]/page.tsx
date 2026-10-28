@@ -3,26 +3,42 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Alert } from "@/components/ui/feedback";
 import { GoldRule } from "@/components/ui/wordmark";
+import { BookingPanel } from "@/components/site/booking-panel";
 import { LiveTrackButton } from "@/components/site/live-track-button";
 import { LocationPanel } from "@/components/site/location-panel";
-import { getDiscoveryService } from "@/lib/container";
+import { getCheckoutService, getDiscoveryService } from "@/lib/container";
+import { getLogger } from "@/lib/logger";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { formatDuration, formatGuestRange, formatMoneyMinor } from "@/lib/format";
 import { slugify } from "@/modules/experiences/slug";
 import type { ExperienceDetail } from "@/modules/discovery/ports";
+import type { CheckoutMode } from "@/modules/booking/contract";
 
 /**
  * The experience detail page (FR-01).
  *
- * The information architecture is the part that matters in this milestone. The
- * booking panel is a real column with real content in it — price, duration,
- * capacity, host — and only its call to action is inert. When booking lands it
- * fills that panel; nothing around it moves.
- *
- * The visual treatment is the existing system, unchanged, pending the moodboard.
+ * The booking panel is a real column — price, duration, capacity, host — with
+ * the interactive `BookingPanel` (FR-09) beneath the facts. How its reserve
+ * action completes (off, demo or Razorpay test mode) is server configuration,
+ * resolved here and passed down as data (ADR-0016).
  */
+
+/**
+ * The checkout mode, without letting booking configuration take the page down.
+ *
+ * A misconfigured checkout (say, live Razorpay keys) is refused by the service.
+ * On the page that refusal degrades to "off" — the listing still renders, the
+ * reserve action stays closed — and the error is logged for whoever deployed it.
+ */
+function checkoutMode(): CheckoutMode {
+  try {
+    return getCheckoutService().mode;
+  } catch (error) {
+    getLogger().error({ err: error }, "booking checkout is misconfigured; reserve is closed");
+    return "off";
+  }
+}
 
 /**
  * Structured data for the listing.
@@ -322,8 +338,8 @@ export default async function ExperienceDetailPage({
               <span className="eyebrow">Where</span>
               <p className="text-text text-[15px]">{place || "Location on request"}</p>
               <p className="text-text-subtle text-[12px]">
-                {/* The street address is shared after booking, not before. */}
-                The exact address is shared with guests once a booking is confirmed.
+                {/* The venue is restated on the confirmation, after booking. */}
+                The venue and directions are on your booking confirmation.
               </p>
             </section>
           </div>
@@ -365,23 +381,18 @@ export default async function ExperienceDetailPage({
                 />
               ) : null}
 
-              {/*
-               * Inert on purpose, and honest about it. Booking is a later
-               * milestone; a button that looks live and does nothing is worse
-               * than one that says what it is. The panel around it is real, so
-               * booking drops in here without the page being redesigned.
-               */}
-              <div
-                aria-disabled="true"
-                className="border-line-strong text-text-muted bg-surface-sunken cursor-not-allowed rounded-sm border px-5 py-3 text-center text-[11px] font-medium tracking-[0.14em] uppercase"
-              >
-                Booking opens soon
+              <div className="border-line border-t pt-6">
+                <BookingPanel
+                  slug={experience.slug}
+                  title={experience.title}
+                  basePriceMinor={experience.basePriceMinor}
+                  currency={experience.currency}
+                  pricingUnit={experience.pricingUnit}
+                  minGuests={experience.minGuests}
+                  maxGuests={experience.maxGuests}
+                  checkoutMode={checkoutMode()}
+                />
               </div>
-
-              <Alert tone="info">
-                Availability and booking are not open yet. This listing has been reviewed and
-                approved by our team.
-              </Alert>
             </div>
           </aside>
         </div>

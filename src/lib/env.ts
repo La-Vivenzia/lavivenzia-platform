@@ -2,6 +2,7 @@ import { z } from "zod";
 import { withoutEmptyValues } from "@/lib/env-utils";
 import { EMAIL_TRANSPORTS } from "@/adapters/email/transport";
 import { MEDIA_STORAGE_TRANSPORTS } from "@/adapters/storage/transport";
+import { CHECKOUT_MODES } from "@/modules/booking/contract";
 
 /**
  * Environment validation (ADR-0009).
@@ -76,6 +77,14 @@ const providerSchema = z.object({
   RAZORPAY_KEY_ID: z.string().optional(),
   RAZORPAY_KEY_SECRET: z.string().optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+
+  /**
+   * How the booking panel completes checkout (ADR-0016): `off`, `demo` (no
+   * provider, no money) or `razorpay_test` (hosted checkout, test keys only).
+   * Unset means `demo` outside production and `off` in production. There is no
+   * live value: live checkout waits for persisted bookings.
+   */
+  BOOKING_CHECKOUT: z.enum(CHECKOUT_MODES).optional(),
 
   ANTHROPIC_API_KEY: z.string().optional(),
 

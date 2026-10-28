@@ -144,14 +144,19 @@ address and a keyless link that opens the traveller's own map application.
 **Semantic and vector search are not built and no vector column exists.** The
 embeddings provider fixes the column dimension and remains unresolved (A-006).
 
-**Booking is inert, and says so.** The experience detail page has a real booking
-panel — price, duration, capacity, host — with a call to action that states
-booking is not open rather than pretending. The information architecture is
-built so booking fills that panel without the page being redesigned.
+**Booking is interactive, with demo and test checkout only (ADR-0016, 2026-10-28).**
+The experience page's `BookingPanel` lets a traveller pick a date, a time
+(shown in IST) and a party size, shows an INR price breakdown, and completes
+checkout in one of three modes set by `BOOKING_CHECKOUT`: `off` (the production
+default), `demo` (the default elsewhere) or `razorpay_test` (hosted Checkout,
+`rzp_test_` keys only; live keys are refused). The server prices and checks every
+request. Confirmation is verified on the server and is the only place the venue
+is shown. **No seat is reserved and no booking is persisted.** That waits for the
+Booking/Payment aggregate.
 
-**No financial arithmetic exists anywhere.** `experiences.base_price_minor`
-holds the host's own list price and nothing else. No fee, commission, tax or
-payout is stored, derived or displayed.
+**The only financial arithmetic is `quoteBooking`**: the host's price × guests
+(per person) or the host's price once (per group), in integer paise. No fee,
+commission, tax or payout is stored, derived or displayed.
 
 Authentication now has a working transport, but **no real email has been sent**:
 the AWS account is being arranged separately, so the SES adapter has never

@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { env, isProduction } from "@/lib/env";
 import { AuthService } from "@/modules/auth/service";
@@ -8,8 +9,10 @@ import { AvailabilityService } from "@/modules/availability/service";
 import { OperationsService } from "@/modules/operations/service";
 import { DiscoveryService } from "@/modules/discovery/service";
 import { CopilotService } from "@/modules/copilot/service";
+import { CheckoutService, resolveCheckoutMode } from "@/modules/booking/checkout";
 import { getLogger } from "@/lib/logger";
 import { AnthropicLlmAdapter } from "@/adapters/llm/anthropic";
+import { RazorpayAdapter } from "@/adapters/payments/razorpay";
 import type { EmailPort } from "@/ports/email";
 import type { StoragePort } from "@/ports/storage";
 import type { MapsPort } from "@/ports/maps";
@@ -218,6 +221,70 @@ export function getCopilotService(): CopilotService {
   });
 
   return copilotService;
+}
+
+let checkoutService: CheckoutService | undefined;
+
+/**
+ * Booking checkout (FR-09, ADR-0016).
+ *
+ * `resolveCheckoutMode` refuses live Razorpay keys and an incomplete key pair,
+ * so a misconfiguration fails here, on the first checkout request, with a
+ * message naming the variable — never by charging someone.
+ *
+ * The intent signing key is derived from SESSION_SECRET with a purpose label,
+ * so a value signed for checkout can never be replayed as a session and the
+ * deployment needs no new secret.
+ */
+export function getCheckoutService(): CheckoutService {
+  if (checkoutService) return checkoutService;
+
+  const mode = resolveCheckoutMode({
+    configured: env.BOOKING_CHECKOUT,
+    isProduction,
+    razorpayKeyId: env.RAZORPAY_KEY_ID,
+    razorpayKeySecret: env.RAZORPAY_KEY_SECRET,
+  });
+
+  checkoutService = new CheckoutService({
+    mode,
+    findExperience: async (slug) => {
+      const experience = await getDiscoveryService().getExperience(slug);
+      return {
+        id: experience.id,
+        slug: experience.slug,
+        title: experience.title,
+        hostName: experience.host.displayName,
+        basePriceMinor: experience.basePriceMinor,
+        currency: experience.currency,
+        pricingUnit: experience.pricingUnit,
+        minGuests: experience.minGuests,
+        maxGuests: experience.maxGuests,
+        addressLine: experience.addressLine,
+        city: experience.city,
+        region: experience.region,
+        postalCode: experience.postalCode,
+        country: experience.country,
+        latitude: experience.latitude,
+        longitude: experience.longitude,
+      };
+    },
+    listBookableSlots: (experienceId) => getAvailabilityService().listBookable(experienceId),
+    gateway:
+      mode === "razorpay_test"
+        ? new RazorpayAdapter({
+            keyId: env.RAZORPAY_KEY_ID,
+            keySecret: env.RAZORPAY_KEY_SECRET,
+            webhookSecret: env.RAZORPAY_WEBHOOK_SECRET,
+          })
+        : null,
+    razorpayKeyId: mode === "razorpay_test" ? (env.RAZORPAY_KEY_ID ?? null) : null,
+    signingKey: createHmac("sha256", env.SESSION_SECRET)
+      .update("lv.booking-intent.v1")
+      .digest("hex"),
+  });
+
+  return checkoutService;
 }
 
 let mapsPort: MapsPort | undefined;

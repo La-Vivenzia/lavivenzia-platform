@@ -64,20 +64,28 @@ describe("RazorpayAdapter.verifyWebhook", () => {
 });
 
 describe("RazorpayAdapter construction", () => {
-  it("refuses to construct without a webhook secret", () => {
+  it("refuses to construct with no credentials at all", () => {
     expect(() => new RazorpayAdapter({ webhookSecret: "" })).toThrow(ValidationError);
+  });
+
+  it("refuses to verify a webhook when only the key pair is configured", async () => {
+    const keysOnly = new RazorpayAdapter({ keyId: "rzp_test_x", keySecret: "s" });
+    const body = JSON.stringify({ id: "evt_1", event: "payment.captured" });
+    await expect(keysOnly.verifyWebhook(body, sign(body))).rejects.toThrow(ValidationError);
   });
 });
 
-describe("deferred payment operations", () => {
-  it("fails loudly rather than returning empty data", () => {
-    expect(() =>
+describe("operations that need the key pair", () => {
+  it("refuses to create an order without keys rather than calling out", async () => {
+    await expect(
       adapter.createOrder({
         amount: { amountMinor: 499900, currency: "INR" },
         referenceId: "ref-1",
       }),
-    ).toThrow(NotImplementedError);
+    ).rejects.toThrow(ValidationError);
+  });
 
+  it("keeps payment fetch deferred, failing loudly", () => {
     expect(() => adapter.fetchPayment("pay_1")).toThrow(NotImplementedError);
   });
 });

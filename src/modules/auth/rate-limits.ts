@@ -82,6 +82,15 @@ export const RATE_LIMITS = {
   copilotPerIp: { limit: 60, windowMs: 15 * MINUTE },
 
   /**
+   * Booking checkout per client (prepare and confirm share it).
+   *
+   * In Razorpay test mode each prepare creates a provider order, so this is
+   * the ceiling on how many orders a script can open. A traveller changing
+   * their mind a dozen times never meets it.
+   */
+  checkoutPerIp: { limit: 30, windowMs: 15 * MINUTE },
+
+  /**
    * Media upload per host.
    *
    * Each accepted upload is up to 8 MB of stored bytes, so this is a storage

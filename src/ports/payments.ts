@@ -1,10 +1,11 @@
 /**
  * Payment gateway port.
  *
- * Boundary only. No payment business logic exists yet: the state machine,
- * refund policy engine, commission model and ledger are deliberately deferred
- * until the founder decisions on GST/TCS structure, cancellation policy and
- * platform fee are made — each of those determines column-level schema.
+ * Order creation and checkout-signature verification are implemented, for the
+ * test-mode checkout (ADR-0016). The state machine, refund policy engine,
+ * commission model and ledger are still deliberately deferred until the
+ * founder decisions on GST/TCS structure, cancellation policy and platform fee
+ * are made — each of those determines column-level schema.
  * See PROJECT_STATE.md → Pending decisions.
  */
 
@@ -36,8 +37,21 @@ export interface VerifiedWebhookEvent {
   readonly payload: unknown;
 }
 
+export interface CheckoutSignatureInput {
+  readonly orderId: string;
+  readonly paymentId: string;
+  readonly signature: string;
+}
+
 export interface PaymentGatewayPort {
   createOrder(input: CreateOrderInput): Promise<ProviderOrder>;
+
+  /**
+   * Verify the signature the hosted checkout returns on success, against the
+   * order *we* created. This is the server-side check that turns a browser
+   * callback — which proves nothing on its own — into evidence of payment.
+   */
+  verifyCheckoutSignature(input: CheckoutSignatureInput): boolean;
 
   /**
    * Verify a webhook signature against the raw request body and return the
