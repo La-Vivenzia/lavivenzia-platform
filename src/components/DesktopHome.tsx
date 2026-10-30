@@ -1,7 +1,7 @@
 import { AIGenieFeature } from "@/components/AIGenieFeature";
 import { TasteArchetypeFinder } from "@/components/archetypes/TasteArchetypeFinder";
 import { CategoryNavigation } from "@/components/CategoryNavigation";
-import { InstantVibeConcierge } from "@/components/concierge/InstantVibeConcierge";
+import { ConciergeChatBar } from "@/components/concierge/ConciergeChatBar";
 import { DesktopHeader } from "@/components/DesktopHeader";
 import { DesktopHero } from "@/components/DesktopHero";
 import { DestinationCard } from "@/components/DestinationCard";
@@ -54,11 +54,11 @@ export function DesktopHome(props: HomeData) {
 
         <section
           id="d-concierge"
-          aria-labelledby="lv-concierge-desktop"
+          aria-label="Ask the Concierge"
           className={cn(shell, "scroll-mt-24 pt-4 pb-24")}
         >
           <Reveal>
-            <InstantVibeConcierge headingId="lv-concierge-desktop" />
+            <ConciergeChatBar id="lv-concierge-desktop" className="max-w-[720px]" />
           </Reveal>
         </section>
 

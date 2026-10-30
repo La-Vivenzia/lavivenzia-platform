@@ -1,23 +1,39 @@
 import { PILOT_EXPERIENCES, type PilotExperienceInput } from "@/data/pune-pilot";
 import { formatGuestRange, formatMoneyMinor } from "@/lib/format";
-import { parseCoordinates, type Coordinates } from "@/modules/discovery/geo";
+import type { Coordinates } from "@/modules/discovery/geo";
 import { quoteBooking } from "@/modules/booking/pricing";
 import {
-  BUDGET_TIERS,
-  DEFAULT_HOTSPOT_ID,
-  HOTSPOTS,
+  CONCIERGE_CURRENCY,
   MATCH_LIMIT,
   PARTY_SIZE,
+  formatBudget,
   partyKind,
-  type BudgetTier,
-  type BudgetTierDefinition,
+  type ConciergeBudget,
   type Hotspot,
-  type HotspotId,
   type PartyKind,
 } from "@/modules/concierge/options";
+import {
+  distanceMetres,
+  findHotspot,
+  normalise,
+  resolveLocation,
+  type ResolvedLocation,
+} from "@/modules/concierge/places";
+
+// Re-exported so callers keep one import for the concierge's arithmetic.
+export { CONCIERGE_CURRENCY, formatBudget } from "@/modules/concierge/options";
+export {
+  PILOT_AREA_METRES,
+  distanceMetres,
+  findHotspot,
+  findHotspotInText,
+  resolveLocation,
+  type LocationSource,
+  type ResolvedLocation,
+} from "@/modules/concierge/places";
 
 /**
- * The Instant Vibe Concierge — "I'm here, I want this, there are N of us, this
+ * The concierge's ranking — "I'm here, I want this, there are N of us, this
  * is my budget: where do we go right now?"
  *
  * Deterministic and framework-free. Every fact on a match is read from the
@@ -31,13 +47,7 @@ import {
  * What this module owns is ranking: which listings fit, and in what order.
  */
 
-/* ------------------------------------------------------------- location */
-
-/** A GPS fix this close to a hotspot's centre is treated as being in it. */
-const HOTSPOT_SNAP_METRES = 250;
-
-/** Further than this from every hotspot, the traveller is outside the pilot. */
-export const PILOT_AREA_METRES = 25_000;
+/* -------------------------------------------------------------- distance */
 
 /** Listings further than this are never "right now" recommendations. */
 const MAX_MATCH_METRES = 15_000;
@@ -53,106 +63,6 @@ const WALKABLE_METRES = 2_500;
  * `@/components` (src/modules/README.md).
  */
 export const CONCIERGE_WALKING_SPEED_MPS = 1.33;
-
-const EARTH_RADIUS_METRES = 6_371_008.8;
-const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
-
-/** Great-circle distance in metres. */
-export function distanceMetres(a: Coordinates, b: Coordinates): number {
-  const dLat = toRadians(b.latitude - a.latitude);
-  const dLng = toRadians(b.longitude - a.longitude);
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRadians(a.latitude)) * Math.cos(toRadians(b.latitude)) * Math.sin(dLng / 2) ** 2;
-  return 2 * EARTH_RADIUS_METRES * Math.asin(Math.min(1, Math.sqrt(h)));
-}
-
-export function findHotspot(id: string | undefined | null): Hotspot | null {
-  if (!id) return null;
-  const key = id.trim().toLowerCase();
-  return HOTSPOTS.find((hotspot) => hotspot.id === key) ?? null;
-}
-
-function defaultHotspot(): Hotspot {
-  return findHotspot(DEFAULT_HOTSPOT_ID)!;
-}
-
-export type LocationSource = "gps" | "hotspot" | "fallback";
-
-export interface ResolvedLocation {
-  readonly source: LocationSource;
-  /** The hotspot the traveller is in, or null when a GPS fix is between hotspots. */
-  readonly hotspotId: HotspotId | null;
-  readonly label: string;
-  readonly latitude: number;
-  readonly longitude: number;
-  /** Set on a fallback, explaining it to the traveller. */
-  readonly notice: string | null;
-}
-
-/**
- * Coordinates first, then a hotspot id, then the default hotspot.
- *
- * Never throws: a denied geolocation prompt, a mangled coordinate or an
- * unknown hotspot should still produce recommendations, with a notice saying
- * where they are measured from.
- */
-export function resolveLocation(input: {
-  readonly latitude?: string | number | undefined;
-  readonly longitude?: string | number | undefined;
-  readonly hotspot?: string | undefined;
-}): ResolvedLocation {
-  const coordinates = parseCoordinates(input.latitude, input.longitude);
-  const fromHotspot = (hotspot: Hotspot, source: LocationSource, notice: string | null) => ({
-    source,
-    hotspotId: hotspot.id,
-    label: hotspot.label,
-    latitude: hotspot.latitude,
-    longitude: hotspot.longitude,
-    notice,
-  });
-
-  if (coordinates) {
-    let nearest = defaultHotspot();
-    let nearestMetres = Infinity;
-    for (const hotspot of HOTSPOTS) {
-      const metres = distanceMetres(coordinates, hotspot);
-      if (metres < nearestMetres) {
-        nearest = hotspot;
-        nearestMetres = metres;
-      }
-    }
-
-    if (nearestMetres > PILOT_AREA_METRES) {
-      const fallback = findHotspot(input.hotspot) ?? defaultHotspot();
-      return fromHotspot(
-        fallback,
-        "fallback",
-        `You're outside our East Pune pilot, so we're showing picks around ${fallback.label}.`,
-      );
-    }
-
-    const snapped = nearestMetres <= HOTSPOT_SNAP_METRES;
-    return {
-      source: "gps",
-      hotspotId: snapped ? nearest.id : null,
-      label: snapped ? nearest.label : `Near ${nearest.label}`,
-      latitude: coordinates.latitude,
-      longitude: coordinates.longitude,
-      notice: null,
-    };
-  }
-
-  const hotspot = findHotspot(input.hotspot);
-  if (hotspot) return fromHotspot(hotspot, "hotspot", null);
-
-  const fallback = defaultHotspot();
-  return fromHotspot(
-    fallback,
-    "fallback",
-    `We couldn't place you, so we're showing picks around ${fallback.label}.`,
-  );
-}
 
 /* --------------------------------------------------------------- craving */
 
@@ -267,11 +177,6 @@ const STOPWORDS = new Set([
   "quick",
 ]);
 
-/** Lower-case, accents stripped, so "Café" and "cafe" are one word. */
-function normalise(text: string): string {
-  return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-}
-
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -347,18 +252,23 @@ function partyPhrase(size: number): string {
   return `squad of ${size}`;
 }
 
-export function budgetTier(id: BudgetTier): BudgetTierDefinition {
-  return BUDGET_TIERS.find((tier) => tier.id === id)!;
+export type BudgetFit = "within" | "flexible" | "over";
+
+/** What the budget is compared against: the per-head share, or the party total. */
+function spendAgainst(
+  cost: { readonly totalMinor: number; readonly perPersonMinor: number },
+  budget: ConciergeBudget,
+): number {
+  return budget.basis === "each" ? cost.perPersonMinor : cost.totalMinor;
 }
 
-export type BudgetFit = "in-tier" | "under-tier" | "over-tier";
-
-/** Over the tier's ceiling is excluded; under its floor still fits, a little less well. */
-export function budgetFit(perPersonMinor: number, tier: BudgetTierDefinition): BudgetFit {
-  if (tier.maxInclusiveMinor !== null && perPersonMinor > tier.maxInclusiveMinor) {
-    return "over-tier";
-  }
-  return perPersonMinor > tier.minExclusiveMinor ? "in-tier" : "under-tier";
+/** Over the traveller's own cap is excluded; no cap at all is "flexible". */
+export function budgetFit(
+  cost: { readonly totalMinor: number; readonly perPersonMinor: number },
+  budget: ConciergeBudget | null,
+): BudgetFit {
+  if (budget === null) return "flexible";
+  return spendAgainst(cost, budget) <= budget.amountMinor ? "within" : "over";
 }
 
 /**
@@ -390,11 +300,6 @@ export function formatPartyPrice(totalMinor: number, partySize: number): string 
   return `${money} ${formatPartyQualifier(partySize)}`;
 }
 
-/** Every pilot listing is priced in rupees (scripts/seed-pune-pilot.ts). */
-export const CONCIERGE_CURRENCY = "INR";
-
-/* -------------------------------------------------------------- distance */
-
 export function walkMinutes(metres: number): number {
   return Math.max(1, Math.round(metres / CONCIERGE_WALKING_SPEED_MPS / 60));
 }
@@ -423,7 +328,8 @@ export interface ConciergeRequest {
   readonly hotspot?: string | undefined;
   readonly craving: string;
   readonly partySize: number;
-  readonly budget: BudgetTier;
+  /** The traveller's own cap, or null for "flexible". */
+  readonly budget: ConciergeBudget | null;
   readonly limit?: number | undefined;
 }
 
@@ -448,7 +354,7 @@ export interface ConciergeMatch {
   readonly partyLabel: string;
   /** "₹998 total for 2" */
   readonly priceLabel: string;
-  readonly budgetFit: Exclude<BudgetFit, "over-tier">;
+  readonly budgetFit: Exclude<BudgetFit, "over">;
   readonly score: number;
   readonly reasons: readonly string[];
   readonly actions: {
@@ -466,8 +372,20 @@ export interface ConciergeResult {
   readonly location: ResolvedLocation;
   readonly craving: { readonly id: ResolvedCraving["id"]; readonly label: string };
   readonly party: { readonly size: number; readonly kind: PartyKind };
-  readonly budget: { readonly tier: BudgetTier; readonly label: string };
+  readonly budget: { readonly cap: ConciergeBudget | null; readonly label: string };
   readonly matches: readonly ConciergeMatch[];
+  /**
+   * The cheapest listing that fitted everything but the budget, at its real
+   * price — so an empty result can say what it would take, rather than
+   * guessing. Null when nothing was excluded on price.
+   */
+  readonly stretch: {
+    readonly slug: string;
+    readonly title: string;
+    /** In the budget's own basis: per head for "each", the party total for "total". */
+    readonly amountMinor: number;
+    readonly label: string;
+  } | null;
 }
 
 /** Craving matters most, then how close, then how well the price sits. */
@@ -487,8 +405,10 @@ export function findVibeMatches(
   const hotspot = findHotspot(location.hotspotId);
   const craving = resolveCraving(request.craving);
   const partySize = clampPartySize(request.partySize);
-  const tier = budgetTier(request.budget);
+  const budget = request.budget;
   const limit = Math.min(MATCH_LIMIT.max, Math.max(1, request.limit ?? MATCH_LIMIT.default));
+
+  let stretch: ConciergeResult["stretch"] = null;
 
   const ranked = catalogue.flatMap((listing) => {
     if (listing.basePriceMinor <= 0) return [];
@@ -497,16 +417,30 @@ export function findVibeMatches(
     const cravingWeight = cravingScore(listing, craving);
     if (cravingWeight === 0) return [];
 
-    const { totalMinor, perPersonMinor } = partyCost(listing, partySize);
-    const fit = budgetFit(perPersonMinor, tier);
-    if (fit === "over-tier") return [];
-
     const metres = distanceMetres(origin, listing);
     if (metres > MAX_MATCH_METRES) return [];
 
+    const cost = partyCost(listing, partySize);
+    const { totalMinor, perPersonMinor } = cost;
+    const fit = budgetFit(cost, budget);
+    if (fit === "over") {
+      const amountMinor = spendAgainst(cost, budget!);
+      if (stretch === null || amountMinor < stretch.amountMinor) {
+        stretch = {
+          slug: listing.slug,
+          title: listing.title,
+          amountMinor,
+          label: formatBudget({ basis: budget!.basis, amountMinor }),
+        };
+      }
+      return [];
+    }
+
     const within = hotspot !== null && isWithinHotspot(listing, hotspot);
     const distanceWeight = within ? 1 : Math.max(0, 1 - metres / 5_000);
-    const budgetWeight = fit === "in-tier" ? 1 : 0.6;
+    // Inside the cap is inside the cap: a cheaper listing is not a better
+    // answer to "₹500 each", so the budget never reorders what fits.
+    const budgetWeight = 1;
     const score =
       WEIGHTS.craving * cravingWeight +
       WEIGHTS.distance * distanceWeight +
@@ -523,9 +457,7 @@ export function findVibeMatches(
         : metres <= WALKABLE_METRES
           ? `About ${minutes} min on foot`
           : `${(metres / 1000).toFixed(1)} km away — best by cab`,
-      fit === "in-tier"
-        ? `${perHead} a head sits inside your ${tier.label} budget`
-        : `${perHead} a head — under your ${tier.label} budget`,
+      budgetReason(fit, budget, { perHead, total: formatPartyPrice(totalMinor, partySize) }),
       `Takes ${formatGuestRange(listing.minGuests, listing.maxGuests).toLowerCase()}, so your ${partyPhrase(partySize)} fits`,
     ];
 
@@ -551,7 +483,7 @@ export function findVibeMatches(
       score: Math.round(score * 1000) / 1000,
       reasons,
       actions: {
-        book: { label: "Book Slot", href: `/experiences/${encodeURIComponent(listing.slug)}` },
+        book: { label: "Book", href: `/experiences/${encodeURIComponent(listing.slug)}` },
         walk: {
           label: "Walk There",
           slug: listing.slug,
@@ -575,7 +507,24 @@ export function findVibeMatches(
     location,
     craving: { id: craving.id, label: craving.label },
     party: { size: partySize, kind: partyKind(partySize) },
-    budget: { tier: tier.id, label: tier.label },
+    budget: { cap: budget, label: formatBudget(budget) },
     matches: ranked.slice(0, limit),
+    stretch,
   };
+}
+
+/**
+ * Why the price fits, quoting the traveller's own number back to them —
+ * "₹499 a head — within your ₹500 each" — never a tier name.
+ */
+function budgetReason(
+  fit: Exclude<BudgetFit, "over">,
+  budget: ConciergeBudget | null,
+  price: { readonly perHead: string | null; readonly total: string },
+): string {
+  if (fit === "flexible" || budget === null) return `${price.perHead} a head — no budget cap set`;
+  const cap = formatBudget(budget);
+  return budget.basis === "each"
+    ? `${price.perHead} a head — within your ${cap}`
+    : `${price.total} — within your ${cap}`;
 }

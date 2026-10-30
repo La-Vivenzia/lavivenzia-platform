@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 import { jsonResponse, parseQuery, withRoute } from "@/lib/http";
-import { BUDGET_TIER_IDS, MATCH_LIMIT, PARTY_SIZE } from "@/modules/concierge/options";
+import { budgetFromRupees } from "@/modules/concierge/conversation";
+import { BUDGET_RUPEES, MATCH_LIMIT, PARTY_SIZE } from "@/modules/concierge/options";
 import { findVibeMatches } from "@/modules/concierge/service";
 
 /**
@@ -15,15 +16,17 @@ const conciergeQuerySchema = z.object({
   hotspot: z.string().max(32).optional(),
   craving: z.string().trim().min(1).max(80),
   party: z.coerce.number().int().min(PARTY_SIZE.min).max(PARTY_SIZE.max).default(2),
-  budget: z.enum(BUDGET_TIER_IDS).default("mid"),
+  /** Whole rupees, as the traveller said them. Absent means "flexible": no cap. */
+  budget: z.coerce.number().int().min(BUDGET_RUPEES.min).max(BUDGET_RUPEES.max).optional(),
+  budgetFor: z.enum(["each", "total"]).default("each"),
   limit: z.coerce.number().int().min(1).max(MATCH_LIMIT.max).default(MATCH_LIMIT.default),
 });
 
 /**
- * GET /api/v1/concierge — the Instant Vibe Concierge.
+ * GET /api/v1/concierge — the concierge's ranking.
  *
  * Unauthenticated and read-only. Ranks the pilot catalogue by craving, distance
- * and budget for the party; every price is the booking quote for that party,
+ * and the traveller's own budget for the party; every price is the booking quote for that party,
  * and every distance is measured from the listing's stored coordinates.
  */
 export const GET = withRoute(async (request) => {
@@ -35,7 +38,7 @@ export const GET = withRoute(async (request) => {
     hotspot: query.hotspot,
     craving: query.craving,
     partySize: query.party,
-    budget: query.budget,
+    budget: query.budget === undefined ? null : budgetFromRupees(query.budget, query.budgetFor),
     limit: query.limit,
   });
 

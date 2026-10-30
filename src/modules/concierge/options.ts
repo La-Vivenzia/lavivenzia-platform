@@ -1,12 +1,14 @@
 /**
- * The Instant Vibe Concierge's choices — hotspots, party bounds, budget tiers
- * and the craving chips.
+ * The concierge's choices — hotspots, party bounds, budget bounds and the
+ * suggestion chips the conversation offers.
  *
  * Separate from `service.ts` so the browser can import them without pulling the
  * catalogue into its bundle, and a plain module rather than `"use client"` so
  * they are real values on both sides of the RSC boundary
  * (tests/unit/client-boundary.test.ts).
  */
+
+import { formatMoneyMinor } from "@/lib/format";
 
 export type HotspotId = "seasons" | "amanora" | "magarpatta";
 
@@ -15,6 +17,8 @@ export interface Hotspot {
   readonly label: string;
   readonly latitude: number;
   readonly longitude: number;
+  /** What a traveller might type for it, lower-case: "seasons", "hadapsar". */
+  readonly aliases: readonly string[];
   /** A venue counts as "within" the hotspot when its address names one of these… */
   readonly addressMarkers: readonly string[];
   /** …and it is no further than this from the hotspot's centre. */
@@ -27,6 +31,9 @@ export const HOTSPOTS: readonly Hotspot[] = [
     label: "Seasons Mall",
     latitude: 18.51955,
     longitude: 73.9316,
+    // Seasons Mall's own address reads "Magarpatta City, Hadapsar", and it is
+    // the pilot's default centre, so the locality resolves here.
+    aliases: ["seasons", "seasons mall", "hadapsar"],
     addressMarkers: ["Seasons Mall"],
     withinRadiusMetres: 250,
   },
@@ -35,6 +42,7 @@ export const HOTSPOTS: readonly Hotspot[] = [
     label: "Amanora Mall",
     latitude: 18.5179,
     longitude: 73.9345,
+    aliases: ["amanora", "amanora mall", "amanora town centre", "amanora park town"],
     addressMarkers: ["Amanora Mall", "Amanora Town Centre"],
     withinRadiusMetres: 300,
   },
@@ -43,6 +51,7 @@ export const HOTSPOTS: readonly Hotspot[] = [
     label: "Magarpatta City",
     latitude: 18.5155,
     longitude: 73.9265,
+    aliases: ["magarpatta", "magarpatta city"],
     addressMarkers: ["North Court", "Destination Centre Courtyard"],
     withinRadiusMetres: 300,
   },
@@ -61,53 +70,51 @@ export function partyKind(size: number): PartyKind {
   return "squad";
 }
 
-export type BudgetTier = "pocket" | "mid" | "luxury";
+/**
+ * The traveller's own budget, in minor units — never a tier. `each` is a cap
+ * per person; `total` is a cap on what the whole party pays. Null means
+ * "flexible": no cap at all.
+ */
+export type BudgetBasis = "each" | "total";
 
-export interface BudgetTierDefinition {
-  readonly id: BudgetTier;
-  readonly label: string;
-  /** Chip copy. */
-  readonly range: string;
-  /** Per-person price bounds in minor units. */
-  readonly minExclusiveMinor: number;
-  readonly maxInclusiveMinor: number | null;
+export interface ConciergeBudget {
+  readonly basis: BudgetBasis;
+  readonly amountMinor: number;
 }
 
-/** Pocket ≤ ₹600, mid ₹600–1,200, luxury above ₹1,200 — per person. */
-export const BUDGET_TIERS: readonly BudgetTierDefinition[] = [
-  {
-    id: "pocket",
-    label: "pocket-friendly",
-    range: "Up to ₹600",
-    minExclusiveMinor: 0,
-    maxInclusiveMinor: 60_000,
-  },
-  {
-    id: "mid",
-    label: "mid-range",
-    range: "₹600–1,200",
-    minExclusiveMinor: 60_000,
-    maxInclusiveMinor: 120_000,
-  },
-  {
-    id: "luxury",
-    label: "luxury",
-    range: "₹1,200+",
-    minExclusiveMinor: 120_000,
-    maxInclusiveMinor: null,
-  },
-];
+/** Every pilot listing is priced in rupees (scripts/seed-pune-pilot.ts). */
+export const CONCIERGE_CURRENCY = "INR";
 
-export const BUDGET_TIER_IDS = BUDGET_TIERS.map((tier) => tier.id) as [BudgetTier, ...BudgetTier[]];
+/** "₹500 each", "₹2,000 total", or "Flexible" — the traveller's words, not a tier. */
+export function formatBudget(budget: ConciergeBudget | null): string {
+  if (budget === null) return "Flexible";
+  const money = formatMoneyMinor(budget.amountMinor, CONCIERGE_CURRENCY) ?? "";
+  return `${money} ${budget.basis === "each" ? "each" : "total"}`;
+}
+
+/** ₹1 to ₹1,00,000, in rupees as typed. Outside this, the number is a typo. */
+export const BUDGET_RUPEES = { min: 1, max: 100_000 } as const;
+
+/** One-tap answers to "what can each of you spend?" — rupees per person. */
+export const BUDGET_SUGGESTIONS_RUPEES: readonly number[] = [300, 500, 1_000, 2_000];
 
 export const MATCH_LIMIT = { default: 3, max: 10 } as const;
 
-/** The one-tap craving chips. `value` is what the API is sent. */
+/**
+ * The one-tap craving chips. `value` is the craving the ranking is sent — a
+ * canonical id, so "Beer & chill" does not also search for the word "chill";
+ * `label` is what the chip and the traveller's reply say.
+ */
 export const CRAVING_CHIPS: readonly { readonly value: string; readonly label: string }[] = [
-  { value: "beer", label: "Beer" },
-  { value: "coffee", label: "Coffee" },
-  { value: "arcade", label: "Gaming" },
+  { value: "beer", label: "Beer & chill" },
+  { value: "coffee", label: "Coffee & work" },
+  { value: "arcade", label: "Arcade & fun" },
+  { value: "dining", label: "Dinner date" },
   { value: "rooftop", label: "Rooftop" },
   { value: "spa", label: "Spa" },
-  { value: "dining", label: "Dining" },
 ];
+
+/** The label a chip value is shown with, or the text itself when it is not a chip. */
+export function cravingDisplay(value: string): string {
+  return CRAVING_CHIPS.find((chip) => chip.value === value)?.label ?? value;
+}
