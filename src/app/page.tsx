@@ -14,6 +14,7 @@ import {
   toQuickAccess,
 } from "@/lib/home-content";
 import { listJourneys } from "@/modules/journeys/data";
+import { filterTripsByRating, listTrips } from "@/modules/trips/data";
 
 export const metadata: Metadata = {
   title: "La Vivenzia — Journeys Designed Around You",
@@ -81,6 +82,7 @@ export default async function HomePage() {
     quickAccess: toQuickAccess(categories),
     heroImage: toHeroImage(featured),
     journeys: listJourneys(),
+    trips: filterTripsByRating(listTrips()),
   };
 
   return (

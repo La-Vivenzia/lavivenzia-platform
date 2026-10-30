@@ -13,6 +13,7 @@ import { PopularDestinations } from "@/components/PopularDestinations";
 import { Reveal } from "@/components/Reveal";
 import { SearchBar } from "@/components/SearchBar";
 import { SectionHeader } from "@/components/SectionHeader";
+import { CuratedTripsSection } from "@/components/trips/CuratedTripsSection";
 import { brand } from "@/data/content";
 import type {
   HeroImage,
@@ -21,6 +22,7 @@ import type {
   QuickAccessItem,
 } from "@/lib/home-content";
 import type { Journey } from "@/modules/journeys/data";
+import type { Trip } from "@/modules/trips/data";
 
 /**
  * The mobile product surface. Designed first, on its own terms — the desktop
@@ -37,6 +39,7 @@ export function MobileHome(props: HomeData) {
     quickAccess,
     heroImage,
     journeys,
+    trips,
   } = props;
 
   return (
@@ -60,6 +63,8 @@ export function MobileHome(props: HomeData) {
         <Reveal className="px-5 pt-7" delay={60}>
           <CategoryNavigation items={quickAccess} />
         </Reveal>
+
+        <CuratedTripsSection trips={trips} variant="mobile" id="m-trips" className="px-5 pt-10" />
 
         <CuratedSection items={curated} />
 
@@ -126,4 +131,5 @@ export interface HomeData {
   readonly quickAccess: readonly QuickAccessItem[];
   readonly heroImage: HeroImage;
   readonly journeys: readonly Journey[];
+  readonly trips: readonly Trip[];
 }

@@ -12,6 +12,7 @@ import { JourneyArcView } from "@/components/journeys/JourneyArcView";
 import { LiveTrackingFeature } from "@/components/LiveTrackingFeature";
 import { Reveal } from "@/components/Reveal";
 import { SectionHeader } from "@/components/SectionHeader";
+import { CuratedTripsSection } from "@/components/trips/CuratedTripsSection";
 import { pillars } from "@/data/content";
 import type { HomeData } from "@/components/MobileHome";
 import { cn } from "@/lib/cn";
@@ -43,6 +44,7 @@ export function DesktopHome(props: HomeData) {
     quickAccess,
     heroImage,
     journeys,
+    trips,
   } = props;
 
   return (
@@ -76,6 +78,13 @@ export function DesktopHome(props: HomeData) {
             <CategoryNavigation items={quickAccess} variant="expanded" className="mt-8" />
           </Reveal>
         </section>
+
+        <CuratedTripsSection
+          trips={trips}
+          variant="desktop"
+          id="d-trips"
+          className={cn(shell, "pb-28")}
+        />
 
         {/* Curated for you */}
         <section id="d-curated" aria-labelledby="lv-curated-desktop" className={cn(shell, "pb-28")}>
