@@ -1,27 +1,35 @@
 import Link from "next/link";
 
 import { LiveTrackButton } from "@/components/site/live-track-button";
+import { buildLocationEmbed } from "@/components/map/location-embed";
+
+/**
+ * A browser key, so it is read from the public variable — never from
+ * `GOOGLE_MAPS_API_KEY`, which is the server's Places key. See
+ * `location-embed.ts` for the restrictions it must carry.
+ */
+const GOOGLE_EMBED_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 /**
  * Where an experience happens (FR-03).
  *
- * **There is deliberately no embedded map here yet.** An interactive Google map
- * needs the Maps JavaScript API key published to the browser, and no Google
- * account has been arranged for this project — so an embed would be a grey box
- * with a "for development purposes only" watermark across it, on the page that
- * has to persuade someone to book. What this renders instead is the information
- * a traveller actually acts on, plus a link that opens their own map
- * application, which needs no key and no account and works today.
+ * **The embedded map.** A pinned listing always shows a real map:
  *
- * The link uses the documented `google.com/maps` URL scheme rather than an
- * embed. It is a plain hyperlink, so it costs nothing, loads nothing, and
- * tracks nobody until the traveller chooses to follow it.
+ * - With `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` set, the Google Maps Embed API —
+ *   an iframe, no script on our page, and no per-load charge.
+ * - Without it, the OpenStreetMap embed, which needs no key and no account.
  *
- * When a key exists, the embed replaces the placeholder block below and this
- * component is the only file that changes.
+ * The choice and the URLs live in `buildLocationEmbed`, which is pure and
+ * tested. The iframe loads lazily, so a traveller who never scrolls this far
+ * never fetches a tile, and it sends only our origin as the referrer — enough
+ * for Google to check the key's referrer restriction, not enough to leak the
+ * search filters in the page URL.
  *
- * The live tracker is the exception that needs no key: it opens on demand,
- * over keyless OpenStreetMap tiles, and only when the traveller asks for it.
+ * The "open on a map" link stays beneath the embed: it hands the traveller to
+ * their own map application, which is where they will actually navigate from.
+ *
+ * The live tracker opens on demand, over keyless OpenStreetMap tiles, and only
+ * when the traveller asks for it.
  *
  * **What is shown and what is not.** A published listing carries an address the
  * host chose to publish, so it is shown. A precise meeting point is a different
@@ -68,6 +76,13 @@ export function LocationPanel({
     ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
     : null;
 
+  const embed = buildLocationEmbed({
+    latitude,
+    longitude,
+    address: lines.join(", "),
+    googleApiKey: GOOGLE_EMBED_API_KEY,
+  });
+
   return (
     <section className="border-line flex flex-col gap-4 border-t pt-10">
       <span className="eyebrow">Where it happens</span>
@@ -79,6 +94,19 @@ export function LocationPanel({
           </span>
         ))}
       </address>
+
+      {embed ? (
+        <div className="border-line bg-surface-sunken rounded-card aspect-[4/3] w-full overflow-hidden border sm:aspect-[16/9]">
+          <iframe
+            src={embed.src}
+            title={`Map showing where ${title} takes place`}
+            loading="lazy"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+            className="block h-full w-full border-0"
+          />
+        </div>
+      ) : null}
 
       {latitude !== null && longitude !== null && slug ? (
         <div className="flex flex-col gap-2">

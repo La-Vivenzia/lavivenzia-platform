@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Logger } from "pino";
-import { GoogleMapsAdapter } from "@/adapters/maps/google";
+import { GoogleMapsAdapter, classifyFailure } from "@/adapters/maps/google";
 import { FallbackMapsAdapter } from "@/adapters/maps/fallback";
 import { resolveMapsProvider } from "@/adapters/maps/provider";
 import type { Coordinates, MapsPort, PlaceSuggestion } from "@/ports/maps";
@@ -9,6 +9,7 @@ import {
   NotFoundError,
   ProviderTimeoutError,
   ProviderUnavailableError,
+  ValidationError,
 } from "@/lib/errors";
 
 /**
@@ -229,6 +230,80 @@ describe("GoogleMapsAdapter failures", () => {
     expect((down as ProviderUnavailableError).context.isTerminal).toBe(false);
   });
 
+  it("classifies 403 API_KEY_SERVICE_BLOCKED as a retryable access failure", async () => {
+    const { fetch } = fakeFetch(() =>
+      jsonResponse(
+        {
+          error: {
+            code: 403,
+            message: `Requests to this API are blocked. key=${CONFIG.apiKey}`,
+            status: "PERMISSION_DENIED",
+            details: [{ reason: "API_KEY_SERVICE_BLOCKED", domain: "googleapis.com" }],
+          },
+        },
+        403,
+      ),
+    );
+
+    const caught = await new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch })
+      .autocomplete("Jaipur", 5)
+      .catch((error: unknown) => error);
+
+    expect(caught).toBeInstanceOf(ProviderUnavailableError);
+    const error = caught as ProviderUnavailableError;
+    // Retryable is what lets the fallback take over.
+    expect(error.isRetryable).toBe(true);
+    expect(error.context).toMatchObject({
+      status: 403,
+      failure: "access",
+      reason: "API_KEY_SERVICE_BLOCKED",
+      accessDenied: true,
+    });
+    // The free-text message, which echoes the key, is never carried.
+    expect(JSON.stringify(error.context)).not.toContain(CONFIG.apiKey);
+  });
+
+  it("treats a 401 as an access failure too", async () => {
+    const { fetch } = fakeFetch(() => jsonResponse({ error: { status: "UNAUTHENTICATED" } }, 401));
+
+    const caught = (await new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch })
+      .geocode("p1")
+      .catch((error: unknown) => error)) as ProviderUnavailableError;
+
+    expect(caught.context).toMatchObject({ failure: "access", reason: "UNAUTHENTICATED" });
+  });
+
+  it("does not mark an unknown place id as an access failure", async () => {
+    const { fetch } = fakeFetch(() => jsonResponse({ error: { status: "INVALID_ARGUMENT" } }, 400));
+
+    const caught = (await new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch })
+      .geocode("city:jaipur")
+      .catch((error: unknown) => error)) as ProviderUnavailableError;
+
+    expect(caught.context).toMatchObject({ failure: "request", accessDenied: false });
+  });
+
+  it("ignores a reason that is not a bare enum token", async () => {
+    const { fetch } = fakeFetch(() =>
+      jsonResponse({ error: { details: [{ reason: `leak ${CONFIG.apiKey}` }] } }, 403),
+    );
+
+    const caught = (await new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch })
+      .autocomplete("Jaipur", 5)
+      .catch((error: unknown) => error)) as ProviderUnavailableError;
+
+    expect(caught.context.reason).toBeUndefined();
+  });
+
+  it("classifies statuses by what should happen next", () => {
+    expect(classifyFailure(401)).toBe("access");
+    expect(classifyFailure(403)).toBe("access");
+    expect(classifyFailure(400)).toBe("request");
+    expect(classifyFailure(404)).toBe("request");
+    expect(classifyFailure(429)).toBe("availability");
+    expect(classifyFailure(503)).toBe("availability");
+  });
+
   it("does not log the response body, which can echo the key back", async () => {
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as Logger;
     const { fetch } = fakeFetch(() => jsonResponse({ error: { message: CONFIG.apiKey } }, 400));
@@ -320,6 +395,110 @@ describe("FallbackMapsAdapter", () => {
     );
 
     await expect(adapter.geocode("p1")).rejects.toThrow(NotFoundError);
+    expect(fallback).not.toHaveBeenCalled();
+  });
+
+  it("falls back when Google has the Places API blocked for our key", async () => {
+    // End to end through the real Google adapter: 403 API_KEY_SERVICE_BLOCKED
+    // must reach the traveller as catalogue suggestions, not an empty box.
+    const { fetch } = fakeFetch(() =>
+      jsonResponse({ error: { details: [{ reason: "API_KEY_SERVICE_BLOCKED" }] } }, 403),
+    );
+    const adapter = new FallbackMapsAdapter(
+      new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch }),
+      stubProvider("local", { autocomplete: () => Promise.resolve([suggestion]) }),
+      silentLogger,
+    );
+
+    await expect(adapter.autocomplete("Jaipur", 5)).resolves.toEqual([suggestion]);
+  });
+
+  it("falls back on a terminal request failure", async () => {
+    const adapter = new FallbackMapsAdapter(
+      stubProvider("google", {
+        geocode: () =>
+          Promise.reject(
+            new ProviderUnavailableError("rejected", { isTerminal: true, failure: "request" }),
+          ),
+      }),
+      stubProvider("local", {
+        geocode: () => Promise.resolve({ latitude: 26.9124, longitude: 75.7873 }),
+      }),
+      silentLogger,
+    );
+
+    await expect(adapter.geocode("city:jaipur")).resolves.toEqual({
+      latitude: 26.9124,
+      longitude: 75.7873,
+    });
+  });
+
+  it("falls back on an error that is not an AppError at all", async () => {
+    const adapter = new FallbackMapsAdapter(
+      stubProvider("google", { autocomplete: () => Promise.reject(new TypeError("boom")) }),
+      stubProvider("local", { autocomplete: () => Promise.resolve([suggestion]) }),
+      silentLogger,
+    );
+
+    await expect(adapter.autocomplete("Jaipur", 5)).resolves.toEqual([suggestion]);
+  });
+
+  it("falls back on a non-retryable provider fault that is not an answer", async () => {
+    const adapter = new FallbackMapsAdapter(
+      stubProvider("google", {
+        autocomplete: () => Promise.reject(new InternalError("misconfigured")),
+      }),
+      stubProvider("local", { autocomplete: () => Promise.resolve([suggestion]) }),
+      silentLogger,
+    );
+
+    await expect(adapter.autocomplete("Jaipur", 5)).resolves.toEqual([suggestion]);
+  });
+
+  it("skips the primary for a cooldown after a rejected key, then asks again", async () => {
+    let now = 1_000;
+    const primary = vi.fn(() =>
+      Promise.reject(new ProviderUnavailableError("blocked", { accessDenied: true })),
+    );
+    const adapter = new FallbackMapsAdapter(
+      stubProvider("google", { autocomplete: primary }),
+      stubProvider("local", { autocomplete: () => Promise.resolve([suggestion]) }),
+      silentLogger,
+      { now: () => now, accessDeniedCooldownMs: 60_000 },
+    );
+
+    await adapter.autocomplete("Ja", 5);
+    await adapter.autocomplete("Jai", 5);
+    await adapter.autocomplete("Jaip", 5);
+    expect(primary).toHaveBeenCalledTimes(1);
+
+    now += 60_000;
+    await expect(adapter.autocomplete("Jaipur", 5)).resolves.toEqual([suggestion]);
+    expect(primary).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not open the circuit for a transient failure", async () => {
+    const primary = vi.fn(() => Promise.reject(new ProviderUnavailableError("down")));
+    const adapter = new FallbackMapsAdapter(
+      stubProvider("google", { autocomplete: primary }),
+      stubProvider("local", { autocomplete: () => Promise.resolve([suggestion]) }),
+      silentLogger,
+    );
+
+    await adapter.autocomplete("Ja", 5);
+    await adapter.autocomplete("Jai", 5);
+    expect(primary).toHaveBeenCalledTimes(2);
+  });
+
+  it("does NOT fall back on a validation error", async () => {
+    const fallback = vi.fn();
+    const adapter = new FallbackMapsAdapter(
+      stubProvider("google", { geocode: () => Promise.reject(new ValidationError("bad id")) }),
+      stubProvider("local", { geocode: fallback as never }),
+      silentLogger,
+    );
+
+    await expect(adapter.geocode("p1")).rejects.toThrow(ValidationError);
     expect(fallback).not.toHaveBeenCalled();
   });
 

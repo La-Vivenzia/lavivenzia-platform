@@ -81,6 +81,66 @@ interface PlaceDetailsResponse {
   readonly location?: { readonly latitude?: number; readonly longitude?: number };
 }
 
+/**
+ * Why a request failed, in the terms that decide what happens next.
+ *
+ * - `access` — 401/403: the key is missing, invalid, or not allowed to call
+ *   this API (`API_KEY_SERVICE_BLOCKED`, `API_KEY_INVALID`, billing disabled).
+ *   Nothing changes until someone edits the key or the Cloud console.
+ * - `request` — any other 4xx except 429: we asked for something Google will
+ *   not answer, such as a place id it does not recognise.
+ * - `availability` — 429 and 5xx: Google is throttling or faulting, and a
+ *   later attempt may well succeed.
+ */
+export type GoogleFailureKind = "access" | "request" | "availability";
+
+export function classifyFailure(status: number): GoogleFailureKind {
+  if (status === 401 || status === 403) return "access";
+  if (status === 429 || status >= 500) return "availability";
+  return "request";
+}
+
+const FAILURE_MESSAGES: Record<GoogleFailureKind, string> = {
+  access: "The location service refused our credentials.",
+  request: "The location service rejected the request.",
+  availability: "The location service is unavailable.",
+};
+
+/**
+ * Google's machine-readable failure reason, e.g. `API_KEY_SERVICE_BLOCKED`.
+ *
+ * Read from `error.details[].reason`, falling back to `error.status`. Only a
+ * bare enum token is accepted. Anything else is discarded, because the
+ * free-text parts of the body can echo the request (and so the key) back.
+ */
+const REASON_PATTERN = /^[A-Z][A-Z0-9_]{0,63}$/;
+
+interface GoogleErrorBody {
+  readonly error?: {
+    readonly status?: unknown;
+    readonly details?: readonly { readonly reason?: unknown }[];
+  };
+}
+
+async function readErrorReason(response: Response): Promise<string | undefined> {
+  let body: GoogleErrorBody;
+  try {
+    body = (await response.json()) as GoogleErrorBody;
+  } catch {
+    return undefined;
+  }
+
+  const candidates = [
+    ...(Array.isArray(body.error?.details) ? body.error.details.map((d) => d?.reason) : []),
+    body.error?.status,
+  ];
+
+  return candidates.find(
+    (candidate): candidate is string =>
+      typeof candidate === "string" && REASON_PATTERN.test(candidate),
+  );
+}
+
 export class GoogleMapsAdapter implements MapsPort {
   readonly provider = "google";
 
@@ -210,25 +270,32 @@ export class GoogleMapsAdapter implements MapsPort {
     }
 
     if (!response.ok) {
-      // The error body can echo the request back, so the status is logged and
-      // the body is not.
+      const failure = classifyFailure(response.status);
+      const reason = await readErrorReason(response);
+
+      // The error body can echo the request back, so the status and Google's
+      // enumerated reason are logged and the body is not.
       this.#logger().warn(
-        { provider: this.provider, operation, status: response.status },
+        { provider: this.provider, operation, status: response.status, failure, reason },
         "maps provider rejected the request",
       );
 
-      throw new ProviderUnavailableError(
-        response.status >= 500 || response.status === 429
-          ? "The location service is unavailable."
-          : "The location service rejected the request.",
-        {
-          provider: this.provider,
-          operation,
-          status: response.status,
-          // A 4xx other than 429 will fail identically on a retry.
-          isTerminal: response.status < 500 && response.status !== 429,
-        },
-      );
+      // Every non-2xx is an availability failure *from the caller's point of
+      // view*: none of them is Google answering the question asked. That is
+      // what lets the fallback serve the catalogue instead of an empty box.
+      throw new ProviderUnavailableError(FAILURE_MESSAGES[failure], {
+        provider: this.provider,
+        operation,
+        status: response.status,
+        failure,
+        ...(reason ? { reason } : {}),
+        // A 4xx other than 429 will fail identically on a retry.
+        isTerminal: failure !== "availability",
+        // A blocked or unauthorised key fails identically for *every* request
+        // until someone changes the key or the console, so callers may stop
+        // asking for a while (see FallbackMapsAdapter).
+        accessDenied: failure === "access",
+      });
     }
 
     try {
