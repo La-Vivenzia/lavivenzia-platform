@@ -230,6 +230,36 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     coverImageKey: "images/rajasthan.jpg",
     altText: "Neon-lit modern bidding bar counter with cocktails and energetic ambiance",
   },
+  {
+    slug: "indimex-urban-lounge-seasons",
+    title: "Indimex Urban Lounge & Bar: Pocket-Friendly Pints & Gastropub Bites",
+    summary:
+      "Chilled draught beer and loaded gastropub plates inside Seasons Mall — an easy, budget-friendly round with friends.",
+    description:
+      "A relaxed urban lounge tucked inside Seasons Mall for when the plan is simply a cold beer and good company. Pull up at the bar or a high table, pour from the draught taps, and share crispy gastropub bites without stretching the budget.",
+    categoryKey: "culinary",
+    addressLine: "Seasons Mall, Magarpatta City, Hadapsar",
+    city: "Pune",
+    region: "Maharashtra",
+    postalCode: "411028",
+    latitude: 18.51948,
+    longitude: 73.93165,
+    durationMinutes: 90,
+    minGuests: 1,
+    maxGuests: 10,
+    basePriceMinor: 49900,
+    pricingUnit: "PER_PERSON",
+    inclusions: [
+      "1 Draught beer pint or soft beverage",
+      "Choice of gastropub bite (Masala Fries, Chilli Paneer or Chicken Wings)",
+      "Reserved lounge seating",
+    ],
+    exclusions: ["Additional pints", "Premium spirits and cocktails"],
+    guestNotes:
+      "Legal drinking age required for alcoholic beverages; soft beverage served otherwise. Walk-in friendly; reservations hold a table at peak hours.",
+    coverImageKey: "images/amalfi-coast.jpg",
+    altText: "Chilled draught beer pints and gastropub plates on a lounge bar counter",
+  },
 
   // ── Artisanal Cafes, Workspaces & Slow Living ─────────────────────────────
   {

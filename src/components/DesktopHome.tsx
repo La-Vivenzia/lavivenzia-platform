@@ -1,6 +1,7 @@
 import { AIGenieFeature } from "@/components/AIGenieFeature";
 import { TasteArchetypeFinder } from "@/components/archetypes/TasteArchetypeFinder";
 import { CategoryNavigation } from "@/components/CategoryNavigation";
+import { InstantVibeConcierge } from "@/components/concierge/InstantVibeConcierge";
 import { DesktopHeader } from "@/components/DesktopHeader";
 import { DesktopHero } from "@/components/DesktopHero";
 import { DestinationCard } from "@/components/DestinationCard";
@@ -50,6 +51,16 @@ export function DesktopHome(props: HomeData) {
 
       <main id="d-top">
         <DesktopHero image={heroImage} />
+
+        <section
+          id="d-concierge"
+          aria-labelledby="lv-concierge-desktop"
+          className={cn(shell, "scroll-mt-24 pt-4 pb-24")}
+        >
+          <Reveal>
+            <InstantVibeConcierge headingId="lv-concierge-desktop" />
+          </Reveal>
+        </section>
 
         {/* Quick discovery */}
         <section aria-labelledby="lv-discovery" className={cn(shell, "pb-24")}>
