@@ -95,6 +95,18 @@ export function formatDuration(minutes: number | null): string | null {
 }
 
 /**
+ * A clock time from minutes after midnight: 990 → "16:30".
+ *
+ * Wraps past midnight, so a suggested start of 24:30 reads "00:30".
+ */
+export function formatClock(minuteOfDay: number): string {
+  const normalised = ((minuteOfDay % 1440) + 1440) % 1440;
+  const hours = Math.floor(normalised / 60);
+  const minutes = normalised % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+/**
  * A short relative time: "just now", "4 hours ago", "12 Aug".
  *
  * Relative only inside a week. Beyond that a date is more useful than "43 days

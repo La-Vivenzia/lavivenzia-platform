@@ -1,4 +1,5 @@
 import { AIGenieFeature } from "@/components/AIGenieFeature";
+import { TasteArchetypeFinder } from "@/components/archetypes/TasteArchetypeFinder";
 import { CategoryNavigation } from "@/components/CategoryNavigation";
 import { DesktopHeader } from "@/components/DesktopHeader";
 import { DesktopHero } from "@/components/DesktopHero";
@@ -6,6 +7,7 @@ import { DestinationCard } from "@/components/DestinationCard";
 import { ExperienceCard } from "@/components/ExperienceCard";
 import { Footer } from "@/components/Footer";
 import { GenieSparkle, iconMap } from "@/components/icons";
+import { JourneyArcView } from "@/components/journeys/JourneyArcView";
 import { LiveTrackingFeature } from "@/components/LiveTrackingFeature";
 import { Reveal } from "@/components/Reveal";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -30,8 +32,17 @@ const mosaic = [
  * imagery, more whitespace, and its own content order.
  */
 export function DesktopHome(props: HomeData) {
-  const { signedIn, accountHref, initials, curated, popular, stories, quickAccess, heroImage } =
-    props;
+  const {
+    signedIn,
+    accountHref,
+    initials,
+    curated,
+    popular,
+    stories,
+    quickAccess,
+    heroImage,
+    journeys,
+  } = props;
 
   return (
     <div className="hidden lg:block">
@@ -85,6 +96,44 @@ export function DesktopHome(props: HomeData) {
             ))}
           </ul>
         </section>
+
+        {journeys.length > 0 ? (
+          <>
+            <section
+              id="d-journeys"
+              aria-labelledby="lv-journeys-desktop"
+              className={cn(shell, "scroll-mt-24 pb-28")}
+            >
+              <Reveal>
+                <SectionHeader id="lv-journeys-desktop" title="Curated Journeys" size="lg" />
+              </Reveal>
+              <Reveal delay={80}>
+                <p className="mt-4 max-w-[56ch] text-[15px] leading-relaxed font-light text-fg-muted">
+                  Three venues, sequenced into a single evening across Amanora, Seasons and
+                  Magarpatta — each chapter carrying a La Vivenzia privilege.
+                </p>
+              </Reveal>
+              <Reveal delay={140}>
+                <JourneyArcView journeys={journeys} className="mt-10" />
+              </Reveal>
+            </section>
+
+            <section id="d-taste" aria-labelledby="lv-taste-desktop" className={cn(shell, "pb-28")}>
+              <Reveal>
+                <div className="rounded-[1.75rem] border border-line bg-surface p-10 shadow-card xl:p-14">
+                  <h2 id="lv-taste-desktop" className="eyebrow text-[11px] text-fg-subtle">
+                    Find Your Taste
+                  </h2>
+                  <TasteArchetypeFinder
+                    journeys={journeys}
+                    arcTargetId="d-journeys"
+                    className="mt-6"
+                  />
+                </div>
+              </Reveal>
+            </section>
+          </>
+        ) : null}
 
         <AIGenieFeature />
 

@@ -13,6 +13,7 @@ import {
   toHeroImage,
   toQuickAccess,
 } from "@/lib/home-content";
+import { listJourneys } from "@/modules/journeys/data";
 
 export const metadata: Metadata = {
   title: "La Vivenzia — Journeys Designed Around You",
@@ -79,6 +80,7 @@ export default async function HomePage() {
     stories,
     quickAccess: toQuickAccess(categories),
     heroImage: toHeroImage(featured),
+    journeys: listJourneys(),
   };
 
   return (

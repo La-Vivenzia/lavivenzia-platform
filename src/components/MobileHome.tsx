@@ -1,14 +1,17 @@
 import { AIGenieSection } from "@/components/AIGenieSection";
+import { TasteArchetypeFinder } from "@/components/archetypes/TasteArchetypeFinder";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { CategoryNavigation } from "@/components/CategoryNavigation";
 import { CuratedSection } from "@/components/CuratedSection";
 import { ExperiencesSection } from "@/components/ExperiencesSection";
 import { Hero } from "@/components/Hero";
+import { JourneyArcView } from "@/components/journeys/JourneyArcView";
 import { LiveTrackingSection } from "@/components/LiveTrackingFeature";
 import { MobileHeader } from "@/components/MobileHeader";
 import { PopularDestinations } from "@/components/PopularDestinations";
 import { Reveal } from "@/components/Reveal";
 import { SearchBar } from "@/components/SearchBar";
+import { SectionHeader } from "@/components/SectionHeader";
 import { brand } from "@/data/content";
 import type {
   HeroImage,
@@ -16,14 +19,24 @@ import type {
   LinkedExperience,
   QuickAccessItem,
 } from "@/lib/home-content";
+import type { Journey } from "@/modules/journeys/data";
 
 /**
  * The mobile product surface. Designed first, on its own terms — the desktop
  * layout is a separate interpretation rather than this stretched wide.
  */
 export function MobileHome(props: HomeData) {
-  const { signedIn, accountHref, initials, curated, popular, stories, quickAccess, heroImage } =
-    props;
+  const {
+    signedIn,
+    accountHref,
+    initials,
+    curated,
+    popular,
+    stories,
+    quickAccess,
+    heroImage,
+    journeys,
+  } = props;
 
   return (
     <div className="lg:hidden">
@@ -42,6 +55,39 @@ export function MobileHome(props: HomeData) {
         </Reveal>
 
         <CuratedSection items={curated} />
+
+        {journeys.length > 0 ? (
+          <>
+            <section
+              id="m-journeys"
+              aria-labelledby="lv-journeys"
+              className="scroll-mt-20 px-5 pt-10"
+            >
+              <Reveal>
+                <SectionHeader id="lv-journeys" title="Curated Journeys" />
+                <p className="mt-2 text-[13px] leading-relaxed font-light text-fg-muted">
+                  Three chapters, one evening in East Pune — each with a privilege of its own.
+                </p>
+              </Reveal>
+              <Reveal delay={80}>
+                <JourneyArcView journeys={journeys} className="mt-5" />
+              </Reveal>
+            </section>
+
+            <section id="m-taste" aria-labelledby="lv-taste" className="px-5 pt-10">
+              <Reveal>
+                <SectionHeader id="lv-taste" title="Find Your Taste" />
+              </Reveal>
+              <Reveal delay={80}>
+                <TasteArchetypeFinder
+                  journeys={journeys}
+                  arcTargetId="m-journeys"
+                  className="mt-5 rounded-card border border-line bg-surface p-5 shadow-card"
+                />
+              </Reveal>
+            </section>
+          </>
+        ) : null}
         <AIGenieSection />
         <LiveTrackingSection />
         <PopularDestinations items={popular} />
@@ -72,4 +118,5 @@ export interface HomeData {
   readonly stories: readonly LinkedExperience[];
   readonly quickAccess: readonly QuickAccessItem[];
   readonly heroImage: HeroImage;
+  readonly journeys: readonly Journey[];
 }
