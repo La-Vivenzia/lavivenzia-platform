@@ -27,21 +27,17 @@ export interface WalkingRoute {
 
 /* ---------------------------------------------------------------- tiles */
 
-const CARTO_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
-
-/** CartoDB basemaps — Voyager in light mode, Dark Matter in dark mode. */
+/**
+ * Standard OpenStreetMap tiles — keyless, so no watermark. One tile set for
+ * both modes: dark mode is a CSS filter over the tile pane (globals.css).
+ * The OSM tile policy asks for the single host, not the old a/b/c subdomains,
+ * and serves up to zoom 19.
+ */
 export const MAP_TILES = {
-  light: {
-    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-    attribution: CARTO_ATTRIBUTION,
-  },
-  dark: {
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    attribution: CARTO_ATTRIBUTION,
-  },
-  subdomains: "abcd",
-  maxZoom: 20,
+  url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  attribution:
+    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  maxZoom: 19,
 } as const;
 
 /* ------------------------------------------------------------- geometry */

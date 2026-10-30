@@ -163,10 +163,12 @@ describe("formatting", () => {
     expect(withOrigin.searchParams.get("origin")).toBe("18.5195,73.9312");
   });
 
-  it("uses CartoDB Voyager tiles in light mode", () => {
-    expect(MAP_TILES.light.url).toContain("basemaps.cartocdn.com/rastertiles/voyager");
-    expect(MAP_TILES.light.attribution).toContain("OpenStreetMap");
-    expect(MAP_TILES.light.attribution).toContain("CARTO");
+  it("uses keyless OpenStreetMap tiles with OSM attribution", () => {
+    expect(MAP_TILES.url).toBe("https://tile.openstreetmap.org/{z}/{x}/{y}.png");
+    expect(MAP_TILES.url).not.toContain("carto");
+    expect(MAP_TILES.attribution).toContain("https://www.openstreetmap.org/copyright");
+    expect(MAP_TILES.attribution).toContain("OpenStreetMap</a> contributors");
+    expect(MAP_TILES.maxZoom).toBe(19);
   });
 });
 

@@ -601,6 +601,15 @@
   stroke: var(--lv-bg);
 }
 
+/*
+ * OSM has no keyless dark basemap, so dark mode inverts the light tiles.
+ * Only the tile pane is filtered — markers, route and controls keep their
+ * token colours.
+ */
+:root.dark .lv-map .leaflet-tile-pane {
+  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lv-map-you__pulse {
     display: none;

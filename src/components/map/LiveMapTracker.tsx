@@ -14,7 +14,6 @@ import {
   Play,
 } from "lucide-react";
 
-import { useTheme } from "@/components/ThemeProvider";
 import { Alert, Skeleton } from "@/components/ui/feedback";
 import { cn } from "@/lib/cn";
 import {
@@ -96,7 +95,6 @@ export function LiveMapTracker({
   readonly allowSimulation?: boolean;
 }) {
   const titleId = useId();
-  const { theme } = useTheme();
 
   const rootRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -137,12 +135,8 @@ export function LiveMapTracker({
         created = map;
         L.control.zoom({ position: "topright" }).addTo(map);
 
-        const tileSet = document.documentElement.classList.contains("dark")
-          ? MAP_TILES.dark
-          : MAP_TILES.light;
-        const tiles = L.tileLayer(tileSet.url, {
-          attribution: tileSet.attribution,
-          subdomains: MAP_TILES.subdomains,
+        const tiles = L.tileLayer(MAP_TILES.url, {
+          attribution: MAP_TILES.attribution,
           maxZoom: MAP_TILES.maxZoom,
           detectRetina: false,
         }).addTo(map);
@@ -222,12 +216,6 @@ export function LiveMapTracker({
     // The map is built once per mount; later changes are applied by the effects below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Follow the site theme with the matching basemap.
-  useEffect(() => {
-    const tileSet = theme === "dark" ? MAP_TILES.dark : MAP_TILES.light;
-    layersRef.current?.tiles.setUrl(tileSet.url);
-  }, [theme, mapStatus]);
 
   /* ------------------------------------------------------------ location */
 
