@@ -8,6 +8,7 @@ import {
   Check,
   Clock,
   MapPin,
+  MessageSquare,
   Minus,
   Plus,
   Printer,
@@ -557,6 +558,19 @@ function MasterTripVoucher({
   const headingRef = useRef<HTMLHeadingElement>(null);
   const { payment } = booking;
 
+  const whatsappText = [
+    "*La Vivenzia Curated Trip Concierge* 🛎️",
+    "",
+    `Trip: ${booking.trip.title}`,
+    `Reference: ${booking.bookingReference}`,
+    `Party Size: ${booking.partySize} ${booking.partySize === 1 ? "traveller" : "travellers"}`,
+    `Region: ${booking.trip.region}`,
+    "",
+    "Hi Butler! I've confirmed my trip. Please activate live concierge updates, route guidance, and dynamic recommendations for my group.",
+  ].join("\n");
+
+  const whatsappHref = `https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappText)}`;
+
   // Move focus to the result so keyboard and screen-reader users land on it.
   useEffect(() => headingRef.current?.focus(), []);
 
@@ -648,14 +662,25 @@ function MasterTripVoucher({
 
       <Alert tone="warning">{booking.notice}</Alert>
 
-      <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
-        <Button variant="secondary" className="w-full" onClick={() => window.print()}>
-          <Printer className="h-4 w-4" aria-hidden="true" />
-          Print voucher
-        </Button>
-        <Button variant="ghost" className="w-full" onClick={onStartOver}>
-          Plan another trip
-        </Button>
+      <div className="flex flex-col gap-2.5">
+        <a
+          href={whatsappHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-btn bg-[#25D366] px-4 py-2.5 text-[14px] font-medium text-white shadow-subtle transition-opacity hover:opacity-90 active:scale-[0.99]"
+        >
+          <MessageSquare className="h-4 w-4" aria-hidden="true" />
+          Activate WhatsApp Trip Butler
+        </a>
+        <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+          <Button variant="secondary" className="w-full" onClick={() => window.print()}>
+            <Printer className="h-4 w-4" aria-hidden="true" />
+            Print voucher
+          </Button>
+          <Button variant="ghost" className="w-full" onClick={onStartOver}>
+            Plan another trip
+          </Button>
+        </div>
       </div>
     </section>
   );
