@@ -82,6 +82,15 @@ export const RATE_LIMITS = {
   copilotPerIp: { limit: 60, windowMs: 15 * MINUTE },
 
   /**
+   * Itinerary generation and swap per client.
+   *
+   * No model and no database read, but each request is an exhaustive search
+   * over tens of thousands of sequences. Generous for a traveller tuning a plan
+   * and swapping stops; a ceiling on a script using it as free compute.
+   */
+  itineraryPerIp: { limit: 90, windowMs: 15 * MINUTE },
+
+  /**
    * Booking checkout per client (prepare and confirm share it).
    *
    * In Razorpay test mode each prepare creates a provider order, so this is

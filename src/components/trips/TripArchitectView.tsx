@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -9,13 +9,11 @@ import {
   Clock,
   MapPin,
   MessageSquare,
-  Minus,
-  Plus,
   Printer,
-  Users,
 } from "lucide-react";
 
 import { CuratorScore } from "@/components/trips/CuratorScore";
+import { PartyStepper } from "@/components/trips/PartyStepper";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/feedback";
 import { Wordmark } from "@/components/ui/wordmark";
@@ -169,6 +167,7 @@ export function TripArchitectView({
                     value={party}
                     max={selected.maxPartySize}
                     disabled={phase.kind === "booking"}
+                    hint={`Up to ${selected.maxPartySize} travellers on this trip.`}
                     onChange={(next) => {
                       setPartySize(next);
                       setPhase({ kind: "idle" });
@@ -432,71 +431,6 @@ function IndicativeTag() {
 }
 
 // ── Party and price ─────────────────────────────────────────────────────────
-
-function PartyStepper({
-  value,
-  max,
-  disabled,
-  onChange,
-}: {
-  readonly value: number;
-  readonly max: number;
-  readonly disabled: boolean;
-  readonly onChange: (next: number) => void;
-}) {
-  return (
-    <fieldset className="flex flex-col gap-3" disabled={disabled}>
-      <legend className="eyebrow mb-3 flex items-center gap-2 text-fg-muted">
-        <Users className="h-3.5 w-3.5" aria-hidden="true" />
-        Travellers
-      </legend>
-      <div className="flex items-center justify-between rounded-pill border border-line-strong px-2 py-1.5">
-        <StepButton
-          label="Remove a traveller"
-          disabled={value <= 1}
-          onClick={() => onChange(value - 1)}
-        >
-          <Minus className="h-4 w-4" aria-hidden="true" />
-        </StepButton>
-        <output aria-live="polite" className="text-[15px] font-medium text-fg tabular-nums">
-          {value} {value === 1 ? "traveller" : "travellers"}
-        </output>
-        <StepButton
-          label="Add a traveller"
-          disabled={value >= max}
-          onClick={() => onChange(value + 1)}
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-        </StepButton>
-      </div>
-      <p className="text-[12px] text-fg-muted">Up to {max} travellers on this trip.</p>
-    </fieldset>
-  );
-}
-
-function StepButton({
-  label,
-  disabled,
-  onClick,
-  children,
-}: {
-  readonly label: string;
-  readonly disabled: boolean;
-  readonly onClick: () => void;
-  readonly children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="flex h-9 w-9 items-center justify-center rounded-pill text-fg transition-colors duration-200 hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
-    >
-      {children}
-    </button>
-  );
-}
 
 function PriceBreakdown({ trip, party }: { readonly trip: Trip; readonly party: number }) {
   const rows = [
