@@ -45,6 +45,7 @@ export interface PilotExperienceInput {
   guestNotes: string;
   coverImageKey: string;
   altText: string;
+  googlePlaceId?: string;
 }
 
 export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
@@ -139,6 +140,7 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     guestNotes: "Wear comfortable sneakers. Great for high-energy weekend battles.",
     coverImageKey: "images/hero-positano.jpg",
     altText: "Futuristic laser tag arena with glowing neon barriers and phaser equipment",
+    googlePlaceId: "ChIJK-ADcujBwjsRUMPzaOJk-Ag",
   },
 
   // ── Breweries, Nightlife & Social Drinks ──────────────────────────────────
@@ -229,6 +231,7 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     guestNotes: "Clubwear dress code enforced on Friday and Saturday evenings.",
     coverImageKey: "images/rajasthan.jpg",
     altText: "Neon-lit modern bidding bar counter with cocktails and energetic ambiance",
+    googlePlaceId: "ChIJP7UgGIrBwjsRctP6x1rsK0A",
   },
   {
     slug: "indimex-urban-lounge-seasons",
@@ -259,6 +262,7 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
       "Legal drinking age required for alcoholic beverages; soft beverage served otherwise. Walk-in friendly; reservations hold a table at peak hours.",
     coverImageKey: "images/amalfi-coast.jpg",
     altText: "Chilled draught beer pints and gastropub plates on a lounge bar counter",
+    googlePlaceId: "ChIJ5cCaZWfBwjsRMAUUWgwykxc",
   },
 
   // ── Artisanal Cafes, Workspaces & Slow Living ─────────────────────────────
@@ -345,6 +349,7 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
       "Casual and walk-in friendly. Great for quick afternoon cravings and conversations.",
     coverImageKey: "images/kyoto.jpg",
     altText: "Bowl of authentic ramen with chopsticks and colorful Korean dessert bowl",
+    googlePlaceId: "ChIJw0hU30bBwjsR1bHVfcyuxes",
   },
 
   // ── Fine Dining, Rooftops & Celebrations ──────────────────────────────────
@@ -376,6 +381,7 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     guestNotes: "Come with an empty stomach! Table is held for 15 minutes past booking time.",
     coverImageKey: "images/rajasthan.jpg",
     altText: "Sizzling skewers on live tabletop charcoal barbecue grill with fresh dips",
+    googlePlaceId: "ChIJD6X2XYnBwjsRY-eKCXMEW80",
   },
   {
     slug: "spice-factory-rooftop-cocktails-hadapsar",
@@ -435,6 +441,7 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
       "Movie showtime selection confirmed 24 hours prior upon weekly theatrical schedule release.",
     coverImageKey: "images/amalfi-villa.jpg",
     altText: "Luxury cinema auditorium with plush leather recliners and ambient lighting",
+    googlePlaceId: "ChIJn_7AjRPBwjsRJ_imfXvNkqs",
   },
 
   // ── Wellness, Nature & Mindful Experiences ────────────────────────────────

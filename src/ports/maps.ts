@@ -50,4 +50,34 @@ export interface MapsPort {
 
   /** Resolve a suggestion to a point. Throws `NotFoundError` if it resolves to nothing. */
   geocode(providerPlaceId: string): Promise<Coordinates>;
+
+  findPlaceId?(input: FindPlaceIdInput): Promise<PlaceMatch | null>;
+
+  getPhoto?(placeId: string, maxWidthPx?: number): Promise<PlacePhoto>;
+}
+
+export interface FindPlaceIdInput {
+  readonly query: string;
+  readonly latitude: number;
+  readonly longitude: number;
+}
+
+export type FindPlaceInput = FindPlaceIdInput;
+
+export interface PlaceMatch {
+  readonly id: string;
+  readonly name: string;
+  readonly address: string;
+}
+
+export interface PhotoAuthorAttribution {
+  readonly displayName: string;
+  readonly uri?: string;
+  readonly photoUri?: string;
+}
+
+export interface PlacePhoto {
+  readonly bytes: Uint8Array;
+  readonly contentType: string;
+  readonly authorAttributions: readonly PhotoAuthorAttribution[];
 }

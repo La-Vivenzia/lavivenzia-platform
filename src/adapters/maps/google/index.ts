@@ -1,5 +1,14 @@
 import type { Logger } from "pino";
-import type { Coordinates, MapsPort, PlaceSuggestion } from "@/ports/maps";
+import type {
+  Coordinates,
+  FindPlaceIdInput,
+  FindPlaceInput,
+  MapsPort,
+  PhotoAuthorAttribution,
+  PlaceMatch,
+  PlacePhoto,
+  PlaceSuggestion,
+} from "@/ports/maps";
 import { isValidLatitude, isValidLongitude } from "@/modules/discovery/geo";
 import {
   InternalError,
@@ -7,6 +16,14 @@ import {
   ProviderTimeoutError,
   ProviderUnavailableError,
 } from "@/lib/errors";
+
+export type {
+  FindPlaceIdInput,
+  FindPlaceInput,
+  PhotoAuthorAttribution,
+  PlaceMatch,
+  PlacePhoto,
+};
 
 /**
  * Google Places adapter (FR-03).
@@ -22,6 +39,7 @@ import {
 
 const AUTOCOMPLETE_URL = "https://places.googleapis.com/v1/places:autocomplete";
 const PLACE_DETAILS_BASE = "https://places.googleapis.com/v1/places";
+const SEARCH_TEXT_URL = "https://places.googleapis.com/v1/places:searchText";
 
 /**
  * Network budget.
@@ -32,6 +50,7 @@ const PLACE_DETAILS_BASE = "https://places.googleapis.com/v1/places";
  * traveller's patience.
  */
 const REQUEST_TIMEOUT_MS = 2_000;
+const PHOTO_REQUEST_TIMEOUT_MS = 5_000;
 
 /**
  * Restrict suggestions to India.
@@ -52,6 +71,8 @@ const REGION_CODES = ["in"] as const;
 const FIELD_MASKS = {
   autocomplete: "suggestions.placePrediction.placeId,suggestions.placePrediction.text",
   details: "location",
+  searchText: "places.id,places.displayName,places.formattedAddress",
+  photos: "photos",
 } as const;
 
 export interface GoogleMapsConfig {
@@ -65,6 +86,7 @@ export interface GoogleMapsDeps {
   readonly logger: () => Logger;
   /** Injected in tests, so the adapter is exercised without a network or a key. */
   readonly fetch?: typeof globalThis.fetch;
+  readonly requestTimeoutMs?: number;
 }
 
 /** The slices of the Places responses this adapter reads. */
@@ -79,6 +101,27 @@ interface AutocompleteResponse {
 
 interface PlaceDetailsResponse {
   readonly location?: { readonly latitude?: number; readonly longitude?: number };
+}
+
+interface SearchTextResponse {
+  readonly places?: readonly {
+    readonly id?: string;
+    readonly displayName?: { readonly text?: string } | string;
+    readonly formattedAddress?: string;
+  }[];
+}
+
+interface PlacePhotosResponse {
+  readonly photos?: readonly {
+    readonly name?: string;
+    readonly widthPx?: number;
+    readonly heightPx?: number;
+    readonly authorAttributions?: readonly {
+      readonly displayName?: string;
+      readonly uri?: string;
+      readonly photoUri?: string;
+    }[];
+  }[];
 }
 
 /**
@@ -147,6 +190,7 @@ export class GoogleMapsAdapter implements MapsPort {
   readonly #config: GoogleMapsConfig;
   readonly #logger: () => Logger;
   readonly #fetch: typeof globalThis.fetch;
+  readonly #requestTimeoutMs: number;
 
   constructor(config: GoogleMapsConfig, deps: GoogleMapsDeps) {
     // Assert configuration at construction: a missing key must fail at wiring
@@ -158,6 +202,7 @@ export class GoogleMapsAdapter implements MapsPort {
     this.#config = config;
     this.#logger = deps.logger;
     this.#fetch = deps.fetch ?? globalThis.fetch;
+    this.#requestTimeoutMs = deps.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
   }
 
   async autocomplete(query: string, limit: number): Promise<readonly PlaceSuggestion[]> {
@@ -227,6 +272,114 @@ export class GoogleMapsAdapter implements MapsPort {
     return { latitude, longitude };
   }
 
+  async findPlaceId(input: FindPlaceIdInput): Promise<PlaceMatch | null> {
+    const textQuery = input.query.trim();
+    if (textQuery.length === 0) return null;
+
+    if (!isValidLatitude(input.latitude) || !isValidLongitude(input.longitude)) {
+      return null;
+    }
+
+    const body = await this.#call<SearchTextResponse>(
+      SEARCH_TEXT_URL,
+      {
+        method: "POST",
+        headers: this.#headers(FIELD_MASKS.searchText),
+        body: JSON.stringify({
+          textQuery,
+          regionCode: "in",
+          locationBias: {
+            circle: {
+              center: {
+                latitude: input.latitude,
+                longitude: input.longitude,
+              },
+              radius: 500.0,
+            },
+          },
+          ...(this.#config.languageCode ? { languageCode: this.#config.languageCode } : {}),
+        }),
+      },
+      "findPlaceId",
+    );
+
+    const top = body.places?.[0];
+    if (!top || typeof top.id !== "string" || top.id === "") {
+      return null;
+    }
+
+    const name =
+      typeof top.displayName === "object" && top.displayName !== null
+        ? (top.displayName.text ?? "")
+        : typeof top.displayName === "string"
+          ? top.displayName
+          : "";
+
+    const address = typeof top.formattedAddress === "string" ? top.formattedAddress : "";
+
+    return {
+      id: top.id,
+      name,
+      address,
+    };
+  }
+
+  async getPhoto(placeId: string, maxWidthPx: number = 1200): Promise<PlacePhoto> {
+    const id = placeId.trim();
+    if (id === "") throw new NotFoundError("That place could not be found.");
+
+    const body = await this.#call<PlacePhotosResponse>(
+      `${PLACE_DETAILS_BASE}/${encodeURIComponent(id)}`,
+      { method: "GET", headers: this.#headers(FIELD_MASKS.photos) },
+      "getPhoto",
+      PHOTO_REQUEST_TIMEOUT_MS,
+    );
+
+    const firstPhoto = body.photos?.[0];
+    if (!firstPhoto || typeof firstPhoto.name !== "string" || firstPhoto.name === "") {
+      throw new NotFoundError("That place has no photos.");
+    }
+
+    const photoResource = firstPhoto.name.startsWith("places/")
+      ? firstPhoto.name
+      : `places/${encodeURIComponent(id)}/photos/${firstPhoto.name}`;
+
+    const mediaBase = `https://places.googleapis.com/v1/${photoResource}/media`;
+    const resolvedMaxWidth =
+      typeof maxWidthPx === "number" && maxWidthPx > 0 ? maxWidthPx : 1200;
+    const mediaUrl = `${mediaBase}?maxWidthPx=${encodeURIComponent(resolvedMaxWidth)}`;
+
+    const mediaResponse = await this.#callRaw(
+      mediaUrl,
+      {
+        method: "GET",
+        headers: {
+          "X-Goog-Api-Key": this.#config.apiKey,
+        },
+      },
+      "getPhoto",
+      PHOTO_REQUEST_TIMEOUT_MS,
+    );
+
+    const contentType = mediaResponse.headers.get("content-type") ?? "image/jpeg";
+    const arrayBuffer = await mediaResponse.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+
+    const authorAttributions: PhotoAuthorAttribution[] = (
+      firstPhoto.authorAttributions ?? []
+    ).map((attr) => ({
+      displayName: typeof attr.displayName === "string" ? attr.displayName : "",
+      ...(typeof attr.uri === "string" ? { uri: attr.uri } : {}),
+      ...(typeof attr.photoUri === "string" ? { photoUri: attr.photoUri } : {}),
+    }));
+
+    return {
+      bytes,
+      contentType,
+      authorAttributions,
+    };
+  }
+
   /**
    * The key travels in a header, never in the query string.
    *
@@ -248,12 +401,35 @@ export class GoogleMapsAdapter implements MapsPort {
    * is a request we built wrongly or a key that is not authorised, and repeating
    * it burns the budget while delaying the alarm that should fire instead.
    */
-  async #call<T>(url: string, init: RequestInit, operation: string): Promise<T> {
+  async #call<T>(
+    url: string,
+    init: RequestInit,
+    operation: string,
+    timeoutMs: number = this.#requestTimeoutMs,
+  ): Promise<T> {
+    const response = await this.#callRaw(url, init, operation, timeoutMs);
+
+    try {
+      return (await response.json()) as T;
+    } catch {
+      throw new ProviderUnavailableError("The location service returned an unreadable response.", {
+        provider: this.provider,
+        operation,
+      });
+    }
+  }
+
+  async #callRaw(
+    url: string,
+    init: RequestInit,
+    operation: string,
+    timeoutMs: number = this.#requestTimeoutMs,
+  ): Promise<Response> {
     const startedAt = Date.now();
     const controller = new AbortController();
     const timer = setTimeout(() => {
       controller.abort();
-    }, REQUEST_TIMEOUT_MS);
+    }, timeoutMs);
 
     let response: Response;
     try {
@@ -298,13 +474,6 @@ export class GoogleMapsAdapter implements MapsPort {
       });
     }
 
-    try {
-      return (await response.json()) as T;
-    } catch {
-      throw new ProviderUnavailableError("The location service returned an unreadable response.", {
-        provider: this.provider,
-        operation,
-      });
-    }
+    return response;
   }
 }

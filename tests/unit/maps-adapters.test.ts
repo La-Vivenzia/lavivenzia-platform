@@ -512,3 +512,343 @@ describe("FallbackMapsAdapter", () => {
     expect(adapter.provider).toBe("google+local");
   });
 });
+
+describe("GoogleMapsAdapter findPlaceId", () => {
+  it("sends the key in a header and never in the URL", async () => {
+    const { fetch, calls } = fakeFetch(() => jsonResponse({ places: [] }));
+    const adapter = new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch });
+
+    await adapter.findPlaceId({ query: "Smaaash Arena", latitude: 18.518012, longitude: 73.934521 });
+
+    expect(calls[0]!.url).not.toContain(CONFIG.apiKey);
+    expect(calls[0]!.url).toBe("https://places.googleapis.com/v1/places:searchText");
+    expect((calls[0]!.init.headers as Record<string, string>)["X-Goog-Api-Key"]).toBe(
+      CONFIG.apiKey,
+    );
+  });
+
+  it("sends field mask places.id,places.displayName,places.formattedAddress", async () => {
+    const { fetch, calls } = fakeFetch(() => jsonResponse({ places: [] }));
+    const adapter = new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch });
+
+    await adapter.findPlaceId({ query: "Smaaash Arena", latitude: 18.518012, longitude: 73.934521 });
+
+    expect((calls[0]!.init.headers as Record<string, string>)["X-Goog-FieldMask"]).toBe(
+      "places.id,places.displayName,places.formattedAddress",
+    );
+  });
+
+  it("sends regionCode 'in' and locationBias circle 500m at the coordinates", async () => {
+    const { fetch, calls } = fakeFetch(() => jsonResponse({ places: [] }));
+    const adapter = new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch });
+
+    await adapter.findPlaceId({ query: "Smaaash Arena", latitude: 18.518012, longitude: 73.934521 });
+
+    const body = JSON.parse(calls[0]!.init.body as string) as {
+      textQuery: string;
+      regionCode: string;
+      locationBias: { circle: { center: { latitude: number; longitude: number }; radius: number } };
+    };
+
+    expect(body.textQuery).toBe("Smaaash Arena");
+    expect(body.regionCode).toBe("in");
+    expect(body.locationBias).toEqual({
+      circle: {
+        center: { latitude: 18.518012, longitude: 73.934521 },
+        radius: 500,
+      },
+    });
+  });
+
+  it("returns the top match with id, name, and address", async () => {
+    const { fetch } = fakeFetch(() =>
+      jsonResponse({
+        places: [
+          {
+            id: "place_smaaash",
+            displayName: { text: "Smaaash Arena", languageCode: "en" },
+            formattedAddress: "Amanora Mall, Hadapsar, Pune",
+          },
+          {
+            id: "place_other",
+            displayName: { text: "Other Place" },
+            formattedAddress: "Other Address",
+          },
+        ],
+      }),
+    );
+    const adapter = new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch });
+
+    const result = await adapter.findPlaceId({
+      query: "Smaaash Arena",
+      latitude: 18.518012,
+      longitude: 73.934521,
+    });
+
+    expect(result).toEqual({
+      id: "place_smaaash",
+      name: "Smaaash Arena",
+      address: "Amanora Mall, Hadapsar, Pune",
+    });
+  });
+
+  it("returns null when no places match", async () => {
+    const { fetch } = fakeFetch(() => jsonResponse({ places: [] }));
+    const adapter = new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch });
+
+    const result = await adapter.findPlaceId({
+      query: "Nonexistent Place",
+      latitude: 18.518012,
+      longitude: 73.934521,
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null when query is blank without making a network request", async () => {
+    const { fetch, calls } = fakeFetch(() => jsonResponse({ places: [] }));
+    const adapter = new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch });
+
+    const result = await adapter.findPlaceId({
+      query: "   ",
+      latitude: 18.518012,
+      longitude: 73.934521,
+    });
+
+    expect(result).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+
+  it("returns null when coordinates are invalid without calling provider", async () => {
+    const { fetch, calls } = fakeFetch(() => jsonResponse({ places: [] }));
+    const adapter = new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch });
+
+    const result = await adapter.findPlaceId({
+      query: "Smaaash",
+      latitude: 999,
+      longitude: 73.934521,
+    });
+
+    expect(result).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+
+  it("reuses failure classification when findPlaceId fails", async () => {
+    const { fetch } = fakeFetch(() =>
+      jsonResponse(
+        {
+          error: {
+            code: 403,
+            status: "PERMISSION_DENIED",
+            details: [{ reason: "API_KEY_SERVICE_BLOCKED" }],
+          },
+        },
+        403,
+      ),
+    );
+    const adapter = new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch });
+
+    const caught = await adapter
+      .findPlaceId({ query: "Smaaash", latitude: 18.518012, longitude: 73.934521 })
+      .catch((err: unknown) => err);
+
+    expect(caught).toBeInstanceOf(ProviderUnavailableError);
+    const error = caught as ProviderUnavailableError;
+    expect(error.context).toMatchObject({
+      status: 403,
+      failure: "access",
+      reason: "API_KEY_SERVICE_BLOCKED",
+      accessDenied: true,
+    });
+  });
+
+  it("treats an aborted findPlaceId request as a timeout", async () => {
+    const { fetch } = fakeFetch(() => {
+      const error = new Error("aborted");
+      error.name = "AbortError";
+      throw error;
+    });
+    const adapter = new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch });
+
+    await expect(
+      adapter.findPlaceId({ query: "Smaaash", latitude: 18.518012, longitude: 73.934521 }),
+    ).rejects.toThrow(ProviderTimeoutError);
+  });
+});
+
+describe("GoogleMapsAdapter getPhoto", () => {
+  it("requests photos field mask, takes the first photo, and calls /media with key only in header", async () => {
+    const photoBytes = new Uint8Array([137, 80, 78, 71]);
+    const { fetch, calls } = fakeFetch((url) => {
+      if (url.includes("/media")) {
+        return new Response(photoBytes, {
+          status: 200,
+          headers: { "Content-Type": "image/jpeg" },
+        });
+      }
+      return jsonResponse({
+        photos: [
+          {
+            name: "places/ChIJ123/photos/AU3C456",
+            widthPx: 1600,
+            heightPx: 1200,
+            authorAttributions: [
+              {
+                displayName: "Pune Guide",
+                uri: "https://maps.google.com/contrib/123",
+                photoUri: "https://lh3.googleusercontent.com/123",
+              },
+            ],
+          },
+          {
+            name: "places/ChIJ123/photos/AU3C789",
+            widthPx: 800,
+            heightPx: 600,
+          },
+        ],
+      });
+    });
+
+    const adapter = new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch });
+    const result = await adapter.getPhoto("ChIJ123", 800);
+
+    expect(calls).toHaveLength(2);
+
+    // 1. Details call
+    expect(calls[0]!.url).toBe("https://places.googleapis.com/v1/places/ChIJ123");
+    expect(calls[0]!.url).not.toContain(CONFIG.apiKey);
+    expect((calls[0]!.init.headers as Record<string, string>)["X-Goog-FieldMask"]).toBe("photos");
+    expect((calls[0]!.init.headers as Record<string, string>)["X-Goog-Api-Key"]).toBe(
+      CONFIG.apiKey,
+    );
+
+    // 2. Media call
+    expect(calls[1]!.url).toBe(
+      "https://places.googleapis.com/v1/places/ChIJ123/photos/AU3C456/media?maxWidthPx=800",
+    );
+    expect(calls[1]!.url).not.toContain(CONFIG.apiKey);
+    expect((calls[1]!.init.headers as Record<string, string>)["X-Goog-Api-Key"]).toBe(
+      CONFIG.apiKey,
+    );
+
+    // Result
+    expect(result.contentType).toBe("image/jpeg");
+    expect(result.bytes).toEqual(photoBytes);
+    expect(result.authorAttributions).toEqual([
+      {
+        displayName: "Pune Guide",
+        uri: "https://maps.google.com/contrib/123",
+        photoUri: "https://lh3.googleusercontent.com/123",
+      },
+    ]);
+  });
+
+  it("handles photo resource names that do not start with places/", async () => {
+    const photoBytes = new Uint8Array([1, 2, 3]);
+    const { fetch, calls } = fakeFetch((url) => {
+      if (url.includes("/media")) {
+        return new Response(photoBytes, {
+          status: 200,
+          headers: { "Content-Type": "image/webp" },
+        });
+      }
+      return jsonResponse({
+        photos: [{ name: "photo_reference_simple" }],
+      });
+    });
+
+    const adapter = new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch });
+    const result = await adapter.getPhoto("place_xyz");
+
+    expect(calls[1]!.url).toBe(
+      "https://places.googleapis.com/v1/places/place_xyz/photos/photo_reference_simple/media?maxWidthPx=1200",
+    );
+    expect(result.contentType).toBe("image/webp");
+    expect(result.bytes).toEqual(photoBytes);
+    expect(result.authorAttributions).toEqual([]);
+  });
+
+  it("throws NotFoundError when place id is blank", async () => {
+    const { fetch, calls } = fakeFetch(() => jsonResponse({}));
+    const adapter = new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch });
+
+    await expect(adapter.getPhoto("   ")).rejects.toThrow(NotFoundError);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("throws NotFoundError when place details has no photos", async () => {
+    const { fetch } = fakeFetch(() => jsonResponse({ photos: [] }));
+    const adapter = new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch });
+
+    await expect(adapter.getPhoto("place_without_photos")).rejects.toThrow(NotFoundError);
+  });
+
+  it("reuses error classification when details call fails", async () => {
+    const { fetch } = fakeFetch(() =>
+      jsonResponse(
+        {
+          error: {
+            code: 403,
+            status: "PERMISSION_DENIED",
+            details: [{ reason: "API_KEY_SERVICE_BLOCKED" }],
+          },
+        },
+        403,
+      ),
+    );
+    const adapter = new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch });
+
+    const caught = await adapter.getPhoto("place_123").catch((err: unknown) => err);
+
+    expect(caught).toBeInstanceOf(ProviderUnavailableError);
+    const error = caught as ProviderUnavailableError;
+    expect(error.context).toMatchObject({
+      status: 403,
+      failure: "access",
+      reason: "API_KEY_SERVICE_BLOCKED",
+      accessDenied: true,
+    });
+  });
+
+  it("reuses error classification when media call fails", async () => {
+    const { fetch } = fakeFetch((url) => {
+      if (url.includes("/media")) {
+        return jsonResponse(
+          {
+            error: {
+              code: 503,
+              status: "UNAVAILABLE",
+            },
+          },
+          503,
+        );
+      }
+      return jsonResponse({
+        photos: [{ name: "places/p1/photos/photo1" }],
+      });
+    });
+
+    const adapter = new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch });
+
+    const caught = await adapter.getPhoto("p1").catch((err: unknown) => err);
+
+    expect(caught).toBeInstanceOf(ProviderUnavailableError);
+    const error = caught as ProviderUnavailableError;
+    expect(error.context).toMatchObject({
+      status: 503,
+      failure: "availability",
+      isTerminal: false,
+    });
+  });
+
+  it("treats an aborted photo call as a timeout", async () => {
+    const { fetch } = fakeFetch(() => {
+      const error = new Error("aborted");
+      error.name = "AbortError";
+      throw error;
+    });
+    const adapter = new GoogleMapsAdapter(CONFIG, { logger: silentLogger, fetch });
+
+    await expect(adapter.getPhoto("place_123")).rejects.toThrow(ProviderTimeoutError);
+  });
+});
