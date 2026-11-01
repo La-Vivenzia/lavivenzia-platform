@@ -4,9 +4,7 @@ import { Radar } from "lucide-react";
 import { LiveMapTrigger } from "@/components/copilot/CopilotProvider";
 import { Logo } from "@/components/Logo";
 import { LiveDot } from "@/components/map/LiveDot";
-import { PaletteToggle } from "@/components/PaletteToggle";
 import { NotificationButton, ProfileButton } from "@/components/ProfileButton";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function MobileHeader({
   signedIn,
@@ -33,8 +31,6 @@ export function MobileHeader({
             <Radar className="h-[18px] w-[18px]" strokeWidth={1.8} aria-hidden="true" />
             <LiveDot className="absolute top-1 right-1 ring-2 ring-bg xs:top-1.5 xs:right-1.5" />
           </LiveMapTrigger>
-          <ThemeToggle />
-          <PaletteToggle />
           <NotificationButton signedIn={signedIn} accountHref={accountHref} />
           <ProfileButton signedIn={signedIn} accountHref={accountHref} initials={initials} />
         </div>
