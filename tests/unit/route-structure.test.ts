@@ -2,6 +2,8 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import nextConfig from "../../next.config";
+
 /**
  * Guards a defect that shipped once and was invisible in review.
  *
@@ -182,5 +184,30 @@ describe("route structure", () => {
     const shortcuts = readFileSync(join(process.cwd(), "src", "lib", "home-content.ts"), "utf8");
     expect(nav).toContain("/categories");
     expect(shortcuts).toContain("/categories");
+  });
+
+  it("keeps host onboarding out of the traveller navigation", () => {
+    // Hosts are served by the dedicated host portal. The traveller header,
+    // footer and home shortcuts draw from the first two; the sitemap is what
+    // search engines are told to index.
+    const nav = readFileSync(join(process.cwd(), "src", "data", "content.ts"), "utf8");
+    const shortcuts = readFileSync(join(process.cwd(), "src", "lib", "home-content.ts"), "utf8");
+    const sitemap = readFileSync(join(APP, "sitemap.ts"), "utf8");
+
+    for (const source of [nav, shortcuts, sitemap]) {
+      expect(source).not.toContain("/become-a-host");
+    }
+  });
+
+  it("forwards the old host routes to the host portal, but not the host API", async () => {
+    const redirects = (await nextConfig.redirects?.()) ?? [];
+    const sources = redirects.map((r) => r.source);
+
+    expect(sources).toEqual(expect.arrayContaining(["/become-a-host", "/host/:path*"]));
+    for (const redirect of redirects) {
+      expect(redirect.destination).toMatch(/^https:\/\/host\.lavivenzia\.com/);
+      // Read APIs and slot availability stay on this app.
+      expect(redirect.source.startsWith("/api")).toBe(false);
+    }
   });
 });

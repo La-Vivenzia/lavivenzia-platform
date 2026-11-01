@@ -135,7 +135,7 @@ export function toQuickAccess(categories: readonly CategorySummary[]): readonly 
           icon: "bed" as const,
           href: `/categories/${encodeURIComponent(topCategory.key)}`,
         }
-      : { id: "host", label: "Host with us", icon: "bed" as const, href: "/become-a-host" },
+      : { id: "concierge", label: "Concierge", icon: "genie" as const, href: "/concierge" },
   ];
 }
 

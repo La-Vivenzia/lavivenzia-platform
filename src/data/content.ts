@@ -239,12 +239,14 @@ export const liveTracking = {
  * there is no accommodation entity, AI planning is a later phase, and there is
  * no editorial content — a nav item that scrolls to invented copy is worse than
  * one fewer nav item.
+ *
+ * No host link: host onboarding and the host console moved to the dedicated
+ * host portal, and `next.config.ts` redirects the old host routes there.
  */
 export const desktopNav = [
   { label: "Experiences", href: "/experiences" },
   { label: "Destinations", href: "/destinations" },
   { label: "Collections", href: "/categories" },
-  { label: "Host with us", href: "/become-a-host" },
 ];
 
 export const bottomNav = [

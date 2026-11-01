@@ -35,6 +35,16 @@ if (mediaBaseUrl) {
   }
 }
 
+/**
+ * The host portal. Host onboarding and the host console moved out of the
+ * traveller product; the old routes forward there so bookmarks and emailed
+ * links keep working. The host API under `/api/v1/host` is not redirected.
+ *
+ * Temporary (307) while the portal settles, so browsers and search engines do
+ * not cache a destination that may still change.
+ */
+const HOST_PORTAL_URL = "https://host.lavivenzia.com";
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
@@ -53,6 +63,14 @@ const nextConfig: NextConfig = {
 
   // Do not leak framework details to clients.
   poweredByHeader: false,
+
+  async redirects() {
+    return [
+      { source: "/become-a-host", destination: HOST_PORTAL_URL, permanent: false },
+      // `:path*` matches zero or more segments, so this covers `/host` itself.
+      { source: "/host/:path*", destination: HOST_PORTAL_URL, permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;
