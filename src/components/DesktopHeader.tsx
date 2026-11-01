@@ -6,12 +6,10 @@ import { useEffect, useState } from "react";
 
 import { Radar } from "lucide-react";
 
-import { CopilotTrigger, LiveMapTrigger } from "@/components/copilot/CopilotProvider";
+import { LiveMapTrigger } from "@/components/copilot/CopilotProvider";
 import { Logo } from "@/components/Logo";
 import { LiveDot } from "@/components/map/LiveDot";
-import { PaletteToggle } from "@/components/PaletteToggle";
 import { NotificationButton, ProfileButton } from "@/components/ProfileButton";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { desktopNav } from "@/data/content";
 import { cn } from "@/lib/cn";
 
@@ -106,19 +104,8 @@ export function DesktopHeader({
               Live Map
             </span>
           </LiveMapTrigger>
-          <CopilotTrigger
-            className={cn(
-              "hidden rounded-pill bg-cta px-5 py-2.5 text-[13.5px] font-medium whitespace-nowrap text-cta-fg xl:inline-block",
-              "transition-[background-color,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-              "hover:bg-cta-hover hover:-translate-y-px active:translate-y-0",
-            )}
-          >
-            Plan My Journey
-          </CopilotTrigger>
           <NotificationButton signedIn={signedIn} accountHref={accountHref} />
           <ProfileButton signedIn={signedIn} accountHref={accountHref} initials={initials} />
-          <ThemeToggle className="ml-1" />
-          <PaletteToggle />
         </div>
       </div>
     </header>
