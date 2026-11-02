@@ -10,6 +10,7 @@ import { LiveMapTrigger } from "@/components/copilot/CopilotProvider";
 import { Logo } from "@/components/Logo";
 import { LiveDot } from "@/components/map/LiveDot";
 import { NotificationButton, ProfileButton } from "@/components/ProfileButton";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { desktopNav } from "@/data/content";
 import { cn } from "@/lib/cn";
 
@@ -106,6 +107,7 @@ export function DesktopHeader({
           </LiveMapTrigger>
           <NotificationButton signedIn={signedIn} accountHref={accountHref} />
           <ProfileButton signedIn={signedIn} accountHref={accountHref} initials={initials} />
+          <ThemeToggle className="ml-1" />
         </div>
       </div>
     </header>
