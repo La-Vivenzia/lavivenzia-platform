@@ -149,7 +149,9 @@ describe("LocalStorageAdapter", () => {
   it("serves static photography and brand assets from public/, not the upload root", () => {
     expect(adapter.publicUrl("images/amalfi-coast.jpg")).toBe("/images/amalfi-coast.jpg");
     expect(adapter.publicUrl("brand/mark.png")).toBe("/brand/mark.png");
-    expect(adapter.publicUrl("experiences/abc/cover.jpg")).toBe("/uploads/experiences/abc/cover.jpg");
+    expect(adapter.publicUrl("experiences/abc/cover.jpg")).toBe(
+      "/uploads/experiences/abc/cover.jpg",
+    );
   });
 
   it("refuses to build a URL for an unsafe key", () => {
