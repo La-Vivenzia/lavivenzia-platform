@@ -10,17 +10,12 @@ import {
   type ReactNode,
 } from "react";
 
-import { Radar } from "lucide-react";
-
 import {
   LiveTravelCopilot,
   type CopilotPreset,
   type TrackRequest,
 } from "@/components/copilot/LiveTravelCopilot";
 import { parseTrackHash, trackHash, type TrackTarget } from "@/components/copilot/track-target";
-import { GenieSparkle } from "@/components/icons";
-import { LiveDot } from "@/components/map/LiveDot";
-import { cn } from "@/lib/cn";
 import type { CopilotMood } from "@/modules/copilot/types";
 
 /**
@@ -96,39 +91,6 @@ export function CopilotProvider({ children }: { readonly children: ReactNode }) 
   return (
     <CopilotContext.Provider value={value}>
       {children}
-
-      {/*
-       * Floating launcher: above the mobile tab bar, bottom-right on desktop.
-       * The radar badge and second line say live tracking lives behind it too.
-       */}
-      <button
-        type="button"
-        onClick={() => open()}
-        aria-haspopup="dialog"
-        aria-expanded={isOpen}
-        className={cn(
-          "fixed right-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 lg:right-8 lg:bottom-8",
-          "inline-flex h-14 items-center gap-2.5 rounded-pill bg-cta pr-5 pl-2 text-left text-cta-fg shadow-editorial",
-          "transition-[background-color,transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-          "hover:-translate-y-px hover:bg-cta-hover active:translate-y-0",
-          isOpen && "pointer-events-none opacity-0",
-        )}
-      >
-        <span aria-hidden="true" className="relative grid h-10 w-10 place-items-center">
-          <span className="absolute inset-0 rounded-full bg-cta-fg/10" />
-          <GenieSparkle className="relative h-[18px] w-[18px] text-accent" />
-          <span className="absolute -top-0.5 -right-0.5 grid h-[18px] w-[18px] place-items-center rounded-full bg-accent text-accent-fg ring-2 ring-cta">
-            <Radar className="h-[11px] w-[11px]" strokeWidth={2.2} />
-          </span>
-        </span>
-        <span className="flex flex-col leading-tight">
-          <span className="text-[13.5px] font-medium">Live Travel Copilot</span>
-          <span className="mt-0.5 flex items-center gap-1.5 text-[11px] font-light text-cta-fg/75">
-            <LiveDot />
-            Live map tracking
-          </span>
-        </span>
-      </button>
 
       <LiveTravelCopilot
         open={isOpen}
