@@ -2,7 +2,6 @@ import { AIGenieSection } from "@/components/AIGenieSection";
 import { TasteArchetypeFinder } from "@/components/archetypes/TasteArchetypeFinder";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { CategoryNavigation } from "@/components/CategoryNavigation";
-import { ConciergeChatBar } from "@/components/concierge/ConciergeChatBar";
 import { CuratedSection } from "@/components/CuratedSection";
 import { ExperiencesSection } from "@/components/ExperiencesSection";
 import { Hero } from "@/components/Hero";
@@ -42,6 +41,32 @@ export function MobileHome(props: HomeData) {
     trips,
   } = props;
 
+  const mobileQuickAccess = quickAccess.map((item): QuickAccessItem => {
+    const resolved: QuickAccessItem =
+      item.id === "collections"
+        ? { id: "ai-genie", label: "AI Genie", icon: "genie", href: "#copilot" }
+        : item;
+
+    if (
+      resolved.id === "experiences" ||
+      resolved.id === "destinations" ||
+      resolved.id === "ai-genie"
+    ) {
+      return resolved;
+    }
+
+    const ampersandIndex = resolved.label.indexOf(" &");
+    const label =
+      ampersandIndex === -1 ? resolved.label : resolved.label.slice(0, ampersandIndex).trim();
+
+    return { ...resolved, label };
+  });
+
+  const mobileCurated = curated.map((item) => {
+    const colonIndex = item.name.indexOf(":");
+    return colonIndex === -1 ? item : { ...item, name: item.name.slice(0, colonIndex).trim() };
+  });
+
   return (
     <div className="lg:hidden">
       <MobileHeader signedIn={signedIn} accountHref={accountHref} initials={initials} />
@@ -54,19 +79,17 @@ export function MobileHome(props: HomeData) {
           <SearchBar className="sm:max-w-[560px]" />
         </div>
 
-        <section id="m-concierge" aria-label="Ask the Concierge" className="scroll-mt-20 px-5 pt-7">
-          <Reveal delay={40}>
-            <ConciergeChatBar id="lv-concierge" className="sm:max-w-[560px]" />
-          </Reveal>
-        </section>
-
         <Reveal className="px-5 pt-7" delay={60}>
-          <CategoryNavigation items={quickAccess} />
+          <CategoryNavigation items={mobileQuickAccess} />
         </Reveal>
 
-        <CuratedTripsSection trips={trips} variant="mobile" id="m-trips" className="px-5 pt-10" />
+        <CuratedSection items={mobileCurated} />
 
-        <CuratedSection items={curated} />
+        <AIGenieSection />
+
+        <PopularDestinations items={popular} />
+
+        <CuratedTripsSection trips={trips} variant="mobile" id="m-trips" className="px-5 pt-10" />
 
         {journeys.length > 0 ? (
           <>
@@ -100,9 +123,9 @@ export function MobileHome(props: HomeData) {
             </section>
           </>
         ) : null}
-        <AIGenieSection />
+
         <LiveTrackingSection />
-        <PopularDestinations items={popular} />
+
         <ExperiencesSection items={stories} />
 
         <Reveal className="px-5 pt-12">
