@@ -127,8 +127,8 @@ export function createPilotDiscoveryRepository(urlFor: UrlResolver): DiscoveryRe
 
   function matchesTerm(detail: ExperienceDetail, term: string): boolean {
     const needle = term.toLowerCase();
-    return [detail.title, detail.summary, detail.city, detail.hostName].some((field) =>
-      field?.toLowerCase().includes(needle),
+    return [detail.title, detail.summary, detail.city, detail.addressLine, detail.hostName].some(
+      (field) => field?.toLowerCase().includes(needle),
     );
   }
 

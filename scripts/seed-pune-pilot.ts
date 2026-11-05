@@ -191,7 +191,15 @@ function istToday(now: Date): { year: number; month: number; day: number } {
 async function seedSlotsForExperience(experienceId: string): Promise<number> {
   const now = new Date();
   const today = istToday(now);
-  let ensured = 0;
+  const slotsToCreate: Array<{
+    experienceId: string;
+    startsAt: Date;
+    endsAt: Date;
+    capacity: number;
+    reservedCount: number;
+    bookingCutoffMinutes: number;
+    status: "OPEN";
+  }> = [];
 
   for (let dayOffset = 0; dayOffset < SLOT_DAYS; dayOffset += 1) {
     for (const slot of DAILY_SLOTS) {
@@ -209,24 +217,27 @@ async function seedSlotsForExperience(experienceId: string): Promise<number> {
         now,
       );
 
-      await prisma.experienceSlot.upsert({
-        where: { experienceId_startsAt: { experienceId, startsAt } },
-        create: {
-          experienceId,
-          startsAt,
-          endsAt,
-          capacity: SLOT_CAPACITY,
-          reservedCount: 0,
-          bookingCutoffMinutes: SLOT_BOOKING_CUTOFF_MINUTES,
-          status: "OPEN",
-        },
-        update: {},
+      slotsToCreate.push({
+        experienceId,
+        startsAt,
+        endsAt,
+        capacity: SLOT_CAPACITY,
+        reservedCount: 0,
+        bookingCutoffMinutes: SLOT_BOOKING_CUTOFF_MINUTES,
+        status: "OPEN",
       });
-      ensured += 1;
     }
   }
 
-  return ensured;
+  if (slotsToCreate.length > 0) {
+    const result = await prisma.experienceSlot.createMany({
+      data: slotsToCreate,
+      skipDuplicates: true,
+    });
+    return result.count;
+  }
+
+  return 0;
 }
 
 async function main(): Promise<void> {

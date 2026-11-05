@@ -530,9 +530,9 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
   // ── Viman Nagar Corridor ──────────────────────────────────────────────────
   {
     slug: "hyatt-regency-brunch-wellness-viman-nagar",
-    title: "Hyatt Regency: Artisanal Weekend Brunch & Poolside Wellness Retreat",
+    title: "Hyatt Regency: Artisanal Weekend Brunch & Poolside Retreat (Viman Nagar)",
     summary:
-      "Luxury weekend culinary escape featuring multi-cuisine gourmet spreads, live grill stations, and serene poolside relaxation.",
+      "Luxury weekend culinary escape in Viman Nagar featuring multi-cuisine gourmet spreads, live grill stations, and serene poolside relaxation.",
     description:
       "Escape the urban rush at the Hyatt Regency in Viman Nagar. Indulge in an expansive gourmet weekend brunch spanning Mediterranean mezze, Asian street delicacies, artisanal pastas, and handcrafted Indian desserts. Complete your afternoon with complimentary access to the temperature-controlled outdoor pool and tranquil landscaped gardens.",
     categoryKey: "culinary",
@@ -562,9 +562,9 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
   },
   {
     slug: "shizusan-dimsum-sushi-tasting-phoenix-marketcity",
-    title: "Shizusan Asian Shophouse: Craft Dim Sum Flight & Sushi Tasting Masterclass",
+    title: "Shizusan Asian Shophouse: Craft Dim Sum & Sushi Masterclass (Phoenix Marketcity)",
     summary:
-      "Intimate Pan-Asian culinary journey showcasing handcrafted dim sums, flame-seared nigiri, and Tokyo-inspired cocktails.",
+      "Intimate Pan-Asian culinary journey at Phoenix Marketcity, Viman Nagar showcasing handcrafted dim sums, flame-seared nigiri, and Tokyo-inspired cocktails.",
     description:
       "Step into the vibrant 1920s shophouse ambiance of Shizusan at Phoenix Marketcity, Viman Nagar. Discover the delicate craft of Pan-Asian gastronomy with an exclusive 6-course tasting menu featuring crystal prawn dumplings, edamame truffle dim sums, torched salmon aburi sushi, and matcha chiffon gateau.",
     categoryKey: "culinary",
@@ -595,9 +595,9 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
   },
   {
     slug: "toit-brewery-craft-beer-tasting-kalyani-viman",
-    title: "Toit Brewery: Craft Beer Tasting Flight & Wood-Fired Pizza Pairing",
+    title: "Toit Brewery: Craft Beer Tasting Flight & Wood-Fired Pizza (Viman / Kalyani)",
     summary:
-      "Celebrated microbrewery experience featuring six flagship craft ales, brewmaster storytelling, and sourdough wood-fired pizzas.",
+      "Celebrated microbrewery experience in Viman Nagar / Kalyani Nagar featuring six flagship craft ales, brewmaster storytelling, and sourdough wood-fired pizzas.",
     description:
       "Immerse yourself in Pune's craft brewing culture at Toit, bordering Viman Nagar and Kalyani Nagar. Enjoy an exclusive guided flight of six artisanal craft beers—from the signature Tint-In-Wit Belgian ale to the robust Colonial Toit IPA—paired with hot, blistered sourdough pizzas from the brick wood-fire oven.",
     categoryKey: "culinary",
