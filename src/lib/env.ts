@@ -148,6 +148,17 @@ const providerSchema = z.object({
    */
   RESEND_API_KEY: z.string().optional(),
 
+  /**
+   * Shared secret for `/api/v1/ops/metering` (FinOps metering), presented as
+   * `x-metering-secret` or a bearer token by internal services that report
+   * usage. Unset outside production leaves the endpoint open for local work;
+   * unset in production closes it.
+   */
+  METERING_SECRET_KEY: z
+    .string()
+    .min(32, "METERING_SECRET_KEY must be at least 32 characters")
+    .optional(),
+
   SENTRY_DSN: z.string().optional(),
   POSTHOG_KEY: z.string().optional(),
 });

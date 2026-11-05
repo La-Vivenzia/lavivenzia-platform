@@ -7,6 +7,14 @@ import {
   REVIEW_NOTE_LIMITS,
 } from "@/modules/operations/review";
 import { MAX_PAGE_SIZE } from "@/modules/operations/ports";
+import { DEFAULT_METERING_CAPACITY } from "@/modules/metering/service";
+import {
+  API_OPERATIONS,
+  API_PROVIDERS,
+  OPERATION_PROVIDER,
+  SUMMARY_PERIODS,
+  USAGE_STATUSES,
+} from "@/modules/metering/types";
 
 /**
  * Request schemas for the operations surface.
@@ -82,4 +90,44 @@ export const experienceDecisionSchema = z
 
 export const hostDecisionSchema = z
   .object({ decision: z.enum(HOST_DECISIONS), note: noteSchema })
+  .strict();
+
+/**
+ * A usage event reported by an internal service (FinOps metering).
+ *
+ * Cost, id and timestamp are absent on purpose: the reporter states what it
+ * used, and the price list decides what that cost. A caller has no field in
+ * which to claim a price.
+ */
+const METADATA_MAX_KEYS = 20;
+const METADATA_MAX_BYTES = 2_048;
+
+export const meteringEventSchema = z
+  .object({
+    provider: z.enum(API_PROVIDERS),
+    operation: z.enum(API_OPERATIONS),
+    units: z.number().int().min(0).max(1_000_000_000_000),
+    latencyMs: z.number().min(0).max(3_600_000).default(0),
+    status: z.enum(USAGE_STATUSES).default("SUCCESS"),
+    metadata: z
+      .record(z.string().max(64), z.unknown())
+      .refine((value) => Object.keys(value).length <= METADATA_MAX_KEYS, {
+        message: `At most ${METADATA_MAX_KEYS} metadata keys.`,
+      })
+      .refine((value) => JSON.stringify(value).length <= METADATA_MAX_BYTES, {
+        message: `Metadata must serialise to at most ${METADATA_MAX_BYTES} bytes.`,
+      })
+      .optional(),
+  })
+  .strict()
+  .refine((event) => OPERATION_PROVIDER[event.operation] === event.provider, {
+    message: "Operation does not belong to that provider.",
+    path: ["operation"],
+  });
+
+export const meteringQuerySchema = z
+  .object({
+    period: z.enum(SUMMARY_PERIODS).optional(),
+    limit: z.coerce.number().int().min(0).max(DEFAULT_METERING_CAPACITY).optional(),
+  })
   .strict();
