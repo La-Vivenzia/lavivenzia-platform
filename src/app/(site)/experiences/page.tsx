@@ -2,15 +2,14 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CatalogueGrid } from "@/components/CatalogueGrid";
+import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/feedback";
 import { PageBody, PageHeader } from "@/components/PageHeader";
 import { ResultsSkeleton } from "@/components/site/results-skeleton";
-import { LocationField } from "@/components/site/location-field";
-import { RADIUS_CHOICES_KM, RADIUS_METRES } from "@/modules/discovery/geo";
 import { getDiscoveryService } from "@/lib/container";
 import { toDestinationCard } from "@/lib/home-content";
-import { parseFilters, resolveSort, type RawFilters } from "@/modules/discovery/service";
-import { SORT_OPTIONS, type SortOption } from "@/modules/discovery/ports";
+import { cn } from "@/lib/cn";
+import { parseFilters, type RawFilters } from "@/modules/discovery/service";
 
 export const metadata: Metadata = {
   title: "Experiences",
@@ -20,40 +19,15 @@ export const metadata: Metadata = {
 /**
  * Experience discovery (FR-01, FR-02).
  *
- * Filters live in the URL and are applied in PostgreSQL. A plain GET form
- * rather than a client component: the filter state is shareable and
- * bookmarkable, the page works without JavaScript, and there is no client store
- * to disagree with what the server returned.
+ * Browsing is a category pill bar over the grid; describing a moment in words
+ * is VivenIQ's job (`/viveniq`). The filters still live in the URL and are
+ * still applied in PostgreSQL, so an older shared link carrying `search`,
+ * price or location parameters keeps working — it just has no controls here.
  *
  * Every value is parsed by `parseFilters` in the domain — malformed input is
  * dropped rather than rejected, because a traveller arriving on a mangled link
  * should see experiences, not an error page.
  */
-
-const SORT_LABELS: Readonly<Record<SortOption, string>> = {
-  relevance: "Best match",
-  recent: "Most recent",
-  distance: "Nearest first",
-  price_asc: "Price, low to high",
-  price_desc: "Price, high to low",
-  duration_asc: "Shortest first",
-};
-
-/**
- * Sort orders that need something the query may not carry.
- *
- * Offering "Nearest first" with no location selected is offering a control that
- * silently does nothing, so each is shown only once its input exists. The
- * domain enforces the same rule in `resolveSort` — this is the UI agreeing with
- * it, not the place it is decided.
- */
-const CONDITIONAL_SORTS: Readonly<Record<string, "search" | "location">> = {
-  relevance: "search",
-  distance: "location",
-};
-
-/** Shown as the unlabelled default in the radius select. Mirrors the domain default. */
-const DEFAULT_RADIUS_KM = RADIUS_METRES.default / 1000;
 
 function readParam(params: Record<string, string | string[] | undefined>, key: string): string {
   const value = params[key];
@@ -86,22 +60,13 @@ export default async function ExperiencesPage({
 
   const filters = parseFilters(raw);
 
-  // The filter options are small and needed to render the form, so they are
-  // awaited here. The results are the slow part and stream separately below.
-  const [categories, destinations] = await Promise.all([
-    discovery.categories(),
-    discovery.destinations(),
-  ]);
+  // The pills are small and needed to render the bar, so they are awaited
+  // here. The results are the slow part and stream separately below.
+  const categories = await discovery.categories();
+  const activeCategory = readParam(params, "category");
 
   // A location counts as one filter, not as three query parameters.
   const hasLocation = filters.near !== undefined;
-  const hasSearch = filters.search !== undefined;
-
-  // What the empty option in the sort control actually does. Labelling it
-  // "Best match" while a location-only query is ordered nearest-first would
-  // describe the control incorrectly — `resolveSort` in the domain decides
-  // this, so the label asks it rather than restating the rule.
-  const impliedSort = resolveSort(undefined, { hasSearch, hasLocation });
 
   const active =
     [raw.search, raw.category, raw.destination, raw.minPrice, raw.maxPrice, raw.maxDuration].filter(
@@ -133,148 +98,36 @@ export default async function ExperiencesPage({
           description="Every listing is led by a verified host and reviewed by our team before it appears."
         />
 
-        {/* ── Filters ───────────────────────────────────────────────── */}
-        <form
-          method="get"
-          action="/experiences"
-          className="border-line bg-surface shadow-card rounded-card flex flex-col gap-5 border p-5 sm:p-6"
+        {/* ── Categories ────────────────────────────────────────────── */}
+        <nav
+          aria-label="Categories"
+          className="border-line flex flex-wrap items-center justify-between gap-4 border-b pb-6"
         >
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="Search">
-              <Control
-                type="search"
-                name="search"
-                defaultValue={readParam(params, "search")}
-                placeholder="Title, place or host"
-              />
-            </Field>
+          <ul className="flex flex-wrap items-center gap-2">
+            <li>
+              <CategoryPill href="/experiences" active={activeCategory === ""}>
+                All
+              </CategoryPill>
+            </li>
+            {categories.map((category) => (
+              <li key={category.key}>
+                <CategoryPill
+                  href={`/experiences?${new URLSearchParams({ category: category.key }).toString()}`}
+                  active={activeCategory === category.key}
+                >
+                  {category.name}
+                </CategoryPill>
+              </li>
+            ))}
+          </ul>
 
-            <Field label="Category">
-              <Select
-                name="category"
-                defaultValue={readParam(params, "category")}
-                anyLabel="Any category"
-              >
-                {categories.map((category) => (
-                  <option key={category.key} value={category.key}>
-                    {category.name} ({category.experienceCount})
-                  </option>
-                ))}
-              </Select>
-            </Field>
-
-            <Field label="Destination">
-              <Select
-                name="destination"
-                defaultValue={readParam(params, "destination")}
-                anyLabel="Anywhere"
-              >
-                {destinations.map((destination) => (
-                  <option key={destination.slug} value={destination.slug}>
-                    {destination.city} ({destination.experienceCount})
-                  </option>
-                ))}
-              </Select>
-            </Field>
-
-            <Field label="Sort by">
-              <Select
-                name="sort"
-                defaultValue={readParam(params, "sort")}
-                anyLabel={SORT_LABELS[impliedSort]}
-              >
-                {SORT_OPTIONS.filter((option) => {
-                  const needs = CONDITIONAL_SORTS[option];
-                  if (needs === "search") return hasSearch;
-                  if (needs === "location") return hasLocation;
-                  // "Most recent" is the unlabelled default when nothing is
-                  // searched, so it only earns a row once something else is.
-                  return option !== "recent" || hasSearch || hasLocation;
-                }).map((option) => (
-                  <option key={option} value={option}>
-                    {SORT_LABELS[option]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
-
-          <div className="grid gap-5 sm:grid-cols-2">
-            {/*
-             * Location search (FR-03). A client component for the suggestion
-             * list and the device-location button only — the coordinates it
-             * writes are hidden inputs in this same GET form, so a shared URL
-             * carries the location and pagination keeps it.
-             */}
-            <LocationField
-              defaultLabel={readParam(params, "place")}
-              defaultLat={readParam(params, "lat")}
-              defaultLng={readParam(params, "lng")}
-              controlClassName={CONTROL}
-            />
-
-            <Field label="Within">
-              <Select
-                name="radiusKm"
-                defaultValue={readParam(params, "radiusKm")}
-                anyLabel={`${DEFAULT_RADIUS_KM} km`}
-              >
-                {RADIUS_CHOICES_KM.filter((km) => km !== DEFAULT_RADIUS_KM).map((km) => (
-                  <option key={km} value={km}>
-                    {km} km
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
-
-          <div className="grid gap-5 sm:grid-cols-3">
-            <Field label="Min price">
-              <Control
-                type="number"
-                name="minPrice"
-                min={0}
-                defaultValue={readParam(params, "minPrice")}
-                placeholder="Any"
-              />
-            </Field>
-            <Field label="Max price">
-              <Control
-                type="number"
-                name="maxPrice"
-                min={0}
-                defaultValue={readParam(params, "maxPrice")}
-                placeholder="Any"
-              />
-            </Field>
-            <Field label="Max duration (minutes)">
-              <Control
-                type="number"
-                name="maxDuration"
-                min={0}
-                defaultValue={readParam(params, "maxDuration")}
-                placeholder="Any"
-              />
-            </Field>
-          </div>
-
-          <div className="border-line flex flex-wrap items-center gap-4 border-t pt-4">
-            <button
-              type="submit"
-              className="bg-cta text-cta-fg hover:bg-cta-hover inline-flex h-10 items-center rounded-pill px-6 text-[11px] font-medium tracking-[0.1em] uppercase transition-colors"
-            >
-              Apply
-            </button>
-            {active > 0 ? (
-              <Link
-                href="/experiences"
-                className="text-fg-muted hover:text-heading text-[12px] underline underline-offset-4"
-              >
-                Clear {active} filter{active === 1 ? "" : "s"}
-              </Link>
-            ) : null}
-          </div>
-        </form>
+          <Link
+            href="/viveniq"
+            className="bg-cta text-cta-fg hover:bg-cta-hover focus-visible:outline-primary inline-flex h-10 items-center gap-2 rounded-pill px-5 text-[11px] font-medium tracking-[0.1em] uppercase transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            Ask VivenIQ
+          </Link>
+        </nav>
 
         {/*
          * Streamed. The boundary is here rather than in a segment-level
@@ -311,8 +164,15 @@ async function Results({
         title={active > 0 ? "Nothing matches those filters" : "No experiences are published yet"}
         description={
           active > 0
-            ? "Try widening the search, or clear the filters to see everything available."
+            ? "See everything available, or describe the moment to VivenIQ instead."
             : "Every listing is reviewed by our team before it appears. The first ones are on their way."
+        }
+        action={
+          active > 0 ? (
+            <ButtonLink href="/experiences" variant="secondary" size="sm">
+              See all experiences
+            </ButtonLink>
+          ) : undefined
         }
       />
     );
@@ -339,57 +199,34 @@ async function Results({
   );
 }
 
-// The filter controls reuse the token layer directly rather than the console's
-// form components: those carry console-specific labelling, and the public site
-// should not inherit changes made for an operator screen.
-/*
- * Filter controls, in the approved language: a filled pill on the sunken
- * surface rather than an underlined field. The browse screen is the one place
- * a traveller meets many inputs at once, and underlines at that density read as
- * a form rather than as a set of choices.
+/**
+ * One category pill. The active one is filled in the primary green with a gold
+ * hairline — the same pairing the approved references use for a selected
+ * navigation item — so the current choice reads without a second colour.
  */
-const CONTROL =
-  "h-10 w-full rounded-pill border border-line bg-surface-2 px-4 text-[14px] " +
-  "transition-[border-color,background-color] hover:border-line-strong " +
-  "focus:border-line-strong focus:outline-none";
-
-function Field({
-  label,
+function CategoryPill({
+  href,
+  active,
   children,
 }: {
-  readonly label: string;
+  readonly href: string;
+  readonly active: boolean;
   readonly children: React.ReactNode;
 }) {
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-fg-subtle text-[10px] font-medium tracking-[0.16em] uppercase">
-        {label}
-      </span>
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "inline-flex h-10 items-center rounded-pill border px-5 text-[13px] transition-colors",
+        "focus-visible:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2",
+        active
+          ? "border-accent bg-primary text-text-inverse"
+          : "border-line bg-surface text-fg hover:border-line-strong",
+      )}
+    >
       {children}
-    </label>
-  );
-}
-
-function Control(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={CONTROL} />;
-}
-
-function Select({
-  name,
-  defaultValue,
-  anyLabel,
-  children,
-}: {
-  readonly name: string;
-  readonly defaultValue: string;
-  readonly anyLabel: string;
-  readonly children: React.ReactNode;
-}) {
-  return (
-    <select name={name} defaultValue={defaultValue} className={`${CONTROL} appearance-none`}>
-      <option value="">{anyLabel}</option>
-      {children}
-    </select>
+    </Link>
   );
 }
 

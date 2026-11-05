@@ -9,6 +9,7 @@ import { AvailabilityService } from "@/modules/availability/service";
 import { OperationsService } from "@/modules/operations/service";
 import { DiscoveryService } from "@/modules/discovery/service";
 import { CopilotService } from "@/modules/copilot/service";
+import { VivenIQService } from "@/modules/viveniq/service";
 import { CheckoutService, resolveCheckoutMode } from "@/modules/booking/checkout";
 import { getLogger } from "@/lib/logger";
 import { AnthropicLlmAdapter } from "@/adapters/llm/anthropic";
@@ -221,6 +222,18 @@ export function getCopilotService(): CopilotService {
   });
 
   return copilotService;
+}
+
+let vivenIQService: VivenIQService | undefined;
+
+/**
+ * VivenIQ conversational search. Deterministic: it reads discovery and writes
+ * its reply from what discovery returned, so it needs no model to be correct.
+ */
+export function getVivenIQService(): VivenIQService {
+  vivenIQService ??= new VivenIQService(getDiscoveryService());
+
+  return vivenIQService;
 }
 
 let checkoutService: CheckoutService | undefined;

@@ -10,15 +10,15 @@ import { cn } from "@/lib/cn";
  * The destination search. `floating` is the mobile treatment that overlaps the
  * hero photograph; `inline` is the wider desktop field.
  *
- * A real GET form submitting to `/experiences`. The demo this was ported from
+ * A real GET form submitting to `/viveniq`. The demo this was ported from
  * called `preventDefault()` and went nowhere, which was right for a visual
  * mock and wrong here — the query belongs in the URL so the result is
  * shareable, bookmarkable and survives a reload, and the browser does the
  * navigation rather than a client router.
  *
- * `name="search"` is not arbitrary: it is the parameter `parseFilters` reads,
- * so this field feeds the same keyword path as the browse screen's own filter
- * form and the public API.
+ * `name="q"` is the parameter the VivenIQ page reads and opens the
+ * conversation with. Keyword browsing with `?search=` still works on
+ * `/experiences` for links that carry it.
  */
 export function SearchBar({
   variant = "floating",
@@ -32,12 +32,7 @@ export function SearchBar({
   const isInline = variant === "inline";
 
   return (
-    <form
-      role="search"
-      method="get"
-      action="/experiences"
-      className={cn("relative w-full", className)}
-    >
+    <form role="search" method="get" action="/viveniq" className={cn("relative w-full", className)}>
       <label htmlFor={`lv-search-${variant}`} className="sr-only">
         Search destinations
       </label>
@@ -65,7 +60,7 @@ export function SearchBar({
         <input
           id={`lv-search-${variant}`}
           type="search"
-          name="search"
+          name="q"
           autoComplete="off"
           value={value}
           onChange={(event) => setValue(event.target.value)}

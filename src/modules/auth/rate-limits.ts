@@ -82,6 +82,15 @@ export const RATE_LIMITS = {
   copilotPerIp: { limit: 60, windowMs: 15 * MINUTE },
 
   /**
+   * VivenIQ conversational search per client.
+   *
+   * Each turn fans out to up to four keyword scans plus a category read, so it
+   * is several times the cost of one discovery search. Generous for a
+   * traveller refining a moment; a ceiling on a script.
+   */
+  viveniqPerIp: { limit: 60, windowMs: 15 * MINUTE },
+
+  /**
    * Itinerary generation and swap per client.
    *
    * No model and no database read, but each request is an exhaustive search

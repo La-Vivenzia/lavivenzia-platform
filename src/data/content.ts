@@ -20,7 +20,7 @@ export const brand = {
   eyebrow: "Experiences Beyond Destinations",
   headline: ["Journeys", "Designed", "Around You."],
   supporting: "Curated stays, unique experiences and intelligent planning — all in one place.",
-  searchPlaceholder: "Where would you like to go?",
+  searchPlaceholder: "Describe the moment (e.g. poolside brunch, sunset craft brews)...",
 } as const;
 
 export const heroImage = {
