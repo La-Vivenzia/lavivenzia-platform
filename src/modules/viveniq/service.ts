@@ -1,8 +1,11 @@
+import { z } from "zod";
+
 import { formatDuration, formatGuestRange, formatMoneyMinor } from "@/lib/format";
 import { parseFilters } from "@/modules/discovery/service";
 import type { CategorySummary, ExperienceSummary } from "@/modules/discovery/ports";
 import type { DiscoveryService } from "@/modules/discovery/service";
 import { VIVENIQ_LIMITS, type VivenIQPick, type VivenIQReply } from "@/modules/viveniq/options";
+import type { LlmPort } from "@/ports/llm";
 
 export {
   VIVENIQ_LIMITS,
@@ -25,8 +28,10 @@ export {
  * pointing at the experience page, where slots are read from PostgreSQL.
  *
  * What this module owns is interpretation and ranking, which CLAUDE.md §7 says
- * AI may do. There is no model call here today; if one is added, it may
- * rephrase the reply but must not add facts to it.
+ * AI may do. When a model is configured it may *rephrase* the reply around
+ * the picks already chosen — it never chooses them, and it is shown nothing
+ * but their verified facts. Output that fails validation, states a number or
+ * currency, or arrives late is dropped for the deterministic reply.
  */
 
 /* ---------------------------------------------------------- interpretation */
@@ -60,6 +65,17 @@ const STOPWORDS = new Set([
   "there",
   "this",
   "that",
+  "who",
+  "whom",
+  "which",
+  "tell",
+  "me",
+  "kya",
+  "kaun",
+  "tum",
+  "aap",
+  "hai",
+  "batao",
   "what",
   "where",
   "when",
@@ -248,17 +264,106 @@ interface Candidate {
   inCategory: boolean;
 }
 
-export class VivenIQService {
-  readonly #discovery: Pick<DiscoveryService, "browse" | "featured" | "categories">;
+export interface VivenIQServiceDeps {
+  readonly discovery: Pick<DiscoveryService, "browse" | "featured" | "categories">;
+  /** Optional. Absent means every reply is deterministic. */
+  readonly llm?: LlmPort | undefined;
+  /** Observability hook for a failed or rejected model reply. Never throws. */
+  readonly onLlmFailure?: ((reason: string) => void) | undefined;
+}
 
-  constructor(discovery: Pick<DiscoveryService, "browse" | "featured" | "categories">) {
-    this.#discovery = discovery;
+export const VIVENIQ_LLM = {
+  /** Search-path budget: the traveller is watching the bubble. */
+  timeoutMs: 1_500,
+  maxOutputTokens: 300,
+  replyMaxLength: 600,
+} as const;
+
+/** The deterministic note that answers any question about a time or a table. */
+const TIME_NOTE =
+  "Times and tables are confirmed live on each experience page — I’d rather you see the real slots than take my word for one.";
+
+export const IDENTITY_QUERY =
+  /\b(who|what) are you\b|\b(who|what) made you\b|\bare you (gemini|google|chatgpt|openai|claude|an ai|ai|a bot|a robot|a language model)\b|\bwho (created|built|designed) you\b|\b(your name|tell me about yourself)\b|\b(kaun ho|kya ho tum|tum kaun|aap kaun|kon ho)\b/i;
+
+export const OFF_TOPIC_QUERY =
+  /\b(python|javascript|typescript|golang|java|c\+\+|rust|html|css|sql|react|node|algorithm|leetcode|quicksort|binary search|homework|solve this|write code|code for|debug|calculator)\b/i;
+
+export const IDENTITY_REPLY =
+  "I am VivenIQ, your private concierge at La Vivenzia. I curate intimate culinary journeys, private tastings, serene retreats, and bespoke escapes across our handpicked collection. Describe the moment you're dreaming of, and I'll find the setting.";
+
+export const DEFLECTION_REPLY =
+  "I exist exclusively to choreograph your journeys and private escapes at La Vivenzia. Shall I curate an evening of craft tastings or a serene poolside retreat for you instead?";
+
+export const VIVENIQ_SYSTEM_PROMPT = [
+  "You are VivenIQ, the sovereign private travel intelligence and bespoke concierge of La Vivenzia.",
+  "You speak in an evocative, polished luxury editorial tone (warm, cultured, unhurried, concise).",
+  "RULE 1 - IDENTITY: You are VivenIQ, never an AI language model, never Gemini, never Google. If asked who or what you are, state: 'I am VivenIQ, your private concierge at La Vivenzia.'",
+  "RULE 2 - STRICT DOMAIN: You exclusively assist with experiential journeys, dining, tastings, wellness, and curated escapes at La Vivenzia. If the user asks for code, programming, homework, technical tasks, or unrelated trivia, politely deflect back to La Vivenzia: 'I exist exclusively to choreograph your journeys and private escapes at La Vivenzia. Shall I curate an evening of craft tastings or a serene poolside retreat for you instead?'",
+  "RULE 3 - ZERO HALLUCINATIONS: Speak only about the verified candidate experiences provided in this prompt. Never invent venues, prices, or slots.",
+  "RULE 4 - CONCISE OUTPUT: Keep your response to 2-3 engaging sentences directly addressing the traveller's craving, followed by introducing the handpicked selections.",
+  "Never state prices, currency, numbers, times or availability: the experience cards show the verified values beside your words.",
+  'Respond as JSON: {"reply":"<your words>"}.',
+].join("\n");
+
+const LlmReply = z.object({ reply: z.string() });
+
+/**
+ * Anything that reads as a price, count or time. The cards render the real
+ * values beside the reply, so prose that restates them can only disagree.
+ */
+const FACTUAL_CLAIM = /[0-9₹$€£]|\b(rs|inr|rupees?)\b/i;
+
+/** The model's reply if it is usable, or null for the deterministic one. */
+export function acceptReply(raw: unknown): string | null {
+  const parsed = LlmReply.safeParse(raw);
+  if (!parsed.success) return null;
+  const reply = parsed.data.reply.trim().replace(/\s+/g, " ");
+  if (reply.length === 0 || reply.length > VIVENIQ_LLM.replyMaxLength) return null;
+  if (FACTUAL_CLAIM.test(reply)) return null;
+  return reply;
+}
+
+export class VivenIQService {
+  readonly #discovery: VivenIQServiceDeps["discovery"];
+  readonly #llm: LlmPort | undefined;
+  readonly #onLlmFailure: VivenIQServiceDeps["onLlmFailure"];
+
+  constructor(deps: VivenIQServiceDeps) {
+    this.#discovery = deps.discovery;
+    this.#llm = deps.llm;
+    this.#onLlmFailure = deps.onLlmFailure;
   }
 
   async respond(request: VivenIQRequest): Promise<VivenIQReply> {
     const message = request.message.trim().slice(0, VIVENIQ_LIMITS.message.max);
     const history = (request.history ?? []).slice(-VIVENIQ_LIMITS.history.max);
     const seen = new Set((request.seen ?? []).slice(-VIVENIQ_LIMITS.seen.max));
+
+    const normalised = normalise(message);
+    if (IDENTITY_QUERY.test(normalised)) {
+      const featured = (await this.#discovery.featured(VIVENIQ_LIMITS.picks.max)).map(
+        (experience) => toPick(experience, "A signature experience from our collection"),
+      );
+      const categories = await this.#discovery.categories();
+      return {
+        reply: IDENTITY_REPLY,
+        picks: featured,
+        followUps: categories.slice(0, 3).map((entry) => `Something in ${entry.name}`),
+      };
+    }
+
+    if (OFF_TOPIC_QUERY.test(normalised)) {
+      const featured = (await this.#discovery.featured(VIVENIQ_LIMITS.picks.max)).map(
+        (experience) => toPick(experience, "A signature experience from our collection"),
+      );
+      const categories = await this.#discovery.categories();
+      return {
+        reply: DEFLECTION_REPLY,
+        picks: featured,
+        followUps: categories.slice(0, 3).map((entry) => `Something in ${entry.name}`),
+      };
+    }
 
     const latest = extractTerms(message);
     const latestSet = new Set(latest);
@@ -341,8 +446,14 @@ export class VivenIQService {
     });
 
     if (picks.length > 0) {
+      const phrased = await this.#phrase({ message, history, picks, party });
+      // The time note stays deterministic: a model must never be the one to
+      // speak about slots.
+      const reply = phrased
+        ? [phrased, askedTime ? TIME_NOTE : null].filter(Boolean).join(" ")
+        : composeReply({ message, picks, party, askedTime, wantsMore });
       return {
-        reply: composeReply({ message, picks, party, askedTime, wantsMore }),
+        reply,
         picks,
         followUps: followUpsFor({ picks, party, categories, category }),
       };
@@ -366,6 +477,77 @@ export class VivenIQService {
       picks: featured,
       followUps: categories.slice(0, 3).map((entry) => `Something in ${entry.name}`),
     };
+  }
+
+  /**
+   * A model-written reply around the chosen picks, or null for the
+   * deterministic one. Never throws: no model failure reaches the traveller.
+   */
+  async #phrase(input: {
+    readonly message: string;
+    readonly history: readonly string[];
+    readonly picks: readonly VivenIQPick[];
+    readonly party: number | null;
+  }): Promise<string | null> {
+    const llm = this.#llm;
+    if (!llm) return null;
+
+    const prompt = JSON.stringify({
+      traveller: {
+        message: input.message,
+        earlierMessages: input.history,
+        partySize: input.party,
+      },
+      experiences: input.picks.map((pick) => ({
+        title: pick.title,
+        slug: pick.slug,
+        place: pick.place,
+        category: pick.categoryName,
+        price: pick.priceLabel,
+        duration: pick.durationLabel,
+        matchReasons: pick.reason,
+      })),
+    });
+
+    // The adapter has its own abort; this guard holds the budget even for an
+    // implementation that ignores `timeoutMs`.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const raw = await Promise.race([
+        llm.generateStructured<unknown>({
+          system: VIVENIQ_SYSTEM_PROMPT,
+          prompt,
+          schemaName: "viveniq_reply",
+          options: {
+            maxOutputTokens: VIVENIQ_LLM.maxOutputTokens,
+            timeoutMs: VIVENIQ_LLM.timeoutMs,
+          },
+        }),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("viveniq reply timed out")),
+            VIVENIQ_LLM.timeoutMs,
+          );
+        }),
+      ]);
+
+      const accepted = acceptReply(raw);
+      if (!accepted) this.#reportFailure("model output rejected: invalid shape or factual claim");
+      return accepted;
+    } catch (caught) {
+      this.#reportFailure(caught instanceof Error ? caught.message : "unknown error");
+      return null;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  #reportFailure(reason: string): void {
+    try {
+      this.#onLlmFailure?.(reason);
+    } catch {
+      // Observability must never break a reply.
+    }
   }
 }
 
@@ -403,11 +585,7 @@ function composeReply(input: {
     );
   }
 
-  if (input.askedTime) {
-    sentences.push(
-      "Times and tables are confirmed live on each experience page — I’d rather you see the real slots than take my word for one.",
-    );
-  }
+  if (input.askedTime) sentences.push(TIME_NOTE);
 
   return sentences.join(" ");
 }

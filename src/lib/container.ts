@@ -13,6 +13,7 @@ import { VivenIQService } from "@/modules/viveniq/service";
 import { CheckoutService, resolveCheckoutMode } from "@/modules/booking/checkout";
 import { getLogger } from "@/lib/logger";
 import { AnthropicLlmAdapter } from "@/adapters/llm/anthropic";
+import { GeminiLlmAdapter, resolveGeminiApiKey } from "@/adapters/llm/gemini";
 import { RazorpayAdapter } from "@/adapters/payments/razorpay";
 import type { EmailPort } from "@/ports/email";
 import type { StoragePort } from "@/ports/storage";
@@ -229,9 +230,19 @@ let vivenIQService: VivenIQService | undefined;
 /**
  * VivenIQ conversational search. Deterministic: it reads discovery and writes
  * its reply from what discovery returned, so it needs no model to be correct.
+ * With a Gemini key configured the model may rephrase that reply; any failure
+ * or late answer falls back to the deterministic one.
  */
 export function getVivenIQService(): VivenIQService {
-  vivenIQService ??= new VivenIQService(getDiscoveryService());
+  if (!vivenIQService) {
+    const geminiKey = resolveGeminiApiKey(env);
+    vivenIQService = new VivenIQService({
+      discovery: getDiscoveryService(),
+      llm: geminiKey ? new GeminiLlmAdapter({ apiKey: geminiKey }) : undefined,
+      onLlmFailure: (reason) =>
+        getLogger().warn({ reason }, "viveniq model reply failed; using deterministic reply"),
+    });
+  }
 
   return vivenIQService;
 }

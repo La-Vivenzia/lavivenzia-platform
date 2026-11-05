@@ -131,7 +131,7 @@ describe("VivenIQService.respond", () => {
 
   it("returns the listing's own facts and the reason it was picked", async () => {
     const { discovery } = fakeDiscovery([brunch, pizza]);
-    const result = await new VivenIQService(discovery).respond({ message: "poolside brunch" });
+    const result = await new VivenIQService({ discovery }).respond({ message: "poolside brunch" });
 
     expect(result.picks.map((pick) => pick.slug)).toEqual(["poolside-brunch"]);
     expect(result.picks[0]!.priceLabel).toMatch(/3,000 \/ person$/);
@@ -141,7 +141,7 @@ describe("VivenIQService.respond", () => {
 
   it("carries the earlier moment into a refinement and filters by party", async () => {
     const { discovery } = fakeDiscovery([brunch, pizza]);
-    const result = await new VivenIQService(discovery).respond({
+    const result = await new VivenIQService({ discovery }).respond({
       message: "Table for 2 around 7 PM?",
       history: ["pizza or brunch"],
     });
@@ -154,7 +154,7 @@ describe("VivenIQService.respond", () => {
 
   it("hides what was shown when asked for something different", async () => {
     const { discovery } = fakeDiscovery([brunch, pizza]);
-    const result = await new VivenIQService(discovery).respond({
+    const result = await new VivenIQService({ discovery }).respond({
       message: "Show me something different",
       history: ["brunch"],
       seen: ["poolside-brunch"],
@@ -168,7 +168,7 @@ describe("VivenIQService.respond", () => {
       { key: "wellness", name: "Wellness", experienceCount: 1 } as CategorySummary,
     ];
     const { discovery } = fakeDiscovery([brunch, spa], categories);
-    const result = await new VivenIQService(discovery).respond({
+    const result = await new VivenIQService({ discovery }).respond({
       message: "Something in Wellness",
     });
 
@@ -178,7 +178,7 @@ describe("VivenIQService.respond", () => {
 
   it("says so plainly when nothing matches, and labels highlights as highlights", async () => {
     const { discovery } = fakeDiscovery([brunch]);
-    const result = await new VivenIQService(discovery).respond({ message: "glacier trekking" });
+    const result = await new VivenIQService({ discovery }).respond({ message: "glacier trekking" });
 
     expect(result.reply).toMatch(/couldn’t find anything/);
     expect(result.picks.every((pick) => pick.reason === "A current highlight from our hosts")).toBe(
@@ -188,10 +188,32 @@ describe("VivenIQService.respond", () => {
 
   it("bounds the number of keyword scans", async () => {
     const { discovery, searched } = fakeDiscovery([brunch]);
-    await new VivenIQService(discovery).respond({
+    await new VivenIQService({ discovery }).respond({
       message: "poolside sunday brunch viman nagar cocktails jazz garden",
     });
 
     expect(searched.filter((filters) => filters.search !== undefined)).toHaveLength(4);
+  });
+
+  it("strictly enforces sovereign identity when asked who or what it is", async () => {
+    const { discovery } = fakeDiscovery([brunch]);
+    const whoResult = await new VivenIQService({ discovery }).respond({ message: "Who are you?" });
+    expect(whoResult.reply).toContain("I am VivenIQ, your private concierge at La Vivenzia");
+    expect(whoResult.reply).not.toContain("Gemini");
+    expect(whoResult.reply).not.toContain("Google");
+
+    const geminiResult = await new VivenIQService({ discovery }).respond({
+      message: "Are you Gemini AI?",
+    });
+    expect(geminiResult.reply).toContain("I am VivenIQ, your private concierge at La Vivenzia");
+  });
+
+  it("politely deflects off-topic coding and homework queries to curated escapes", async () => {
+    const { discovery } = fakeDiscovery([brunch]);
+    const result = await new VivenIQService({ discovery }).respond({
+      message: "Write python code to reverse a string",
+    });
+    expect(result.reply).toContain("I exist exclusively to choreograph your journeys");
+    expect(result.reply).not.toContain("def reverse");
   });
 });
