@@ -159,6 +159,12 @@ const providerSchema = z.object({
     .min(32, "METERING_SECRET_KEY must be at least 32 characters")
     .optional(),
 
+  /**
+   * Google Gemini API key. Secret: used by Gemini LLM adapters and Concierge.
+   */
+  GEMINI_API_KEY: z.string().optional(),
+  GOOGLE_GEMINI_API_KEY: z.string().optional(),
+
   SENTRY_DSN: z.string().optional(),
   POSTHOG_KEY: z.string().optional(),
 });
