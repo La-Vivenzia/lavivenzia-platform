@@ -2,6 +2,7 @@ import { AIGenieSection } from "@/components/AIGenieSection";
 import { TasteArchetypeFinder } from "@/components/archetypes/TasteArchetypeFinder";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { CategoryNavigation } from "@/components/CategoryNavigation";
+import { ConciergeChatBar } from "@/components/concierge/ConciergeChatBar";
 import { CuratedSection } from "@/components/CuratedSection";
 import { ExperiencesSection } from "@/components/ExperiencesSection";
 import { Hero } from "@/components/Hero";
@@ -78,6 +79,12 @@ export function MobileHome(props: HomeData) {
         <div className="relative z-20 -mt-7 px-5">
           <SearchBar className="sm:max-w-[560px]" />
         </div>
+
+        <section id="m-concierge" aria-label="Ask the Concierge" className="scroll-mt-20 px-5 pt-7">
+          <Reveal delay={40}>
+            <ConciergeChatBar id="lv-concierge" className="sm:max-w-[560px]" />
+          </Reveal>
+        </section>
 
         <Reveal className="px-5 pt-7" delay={60}>
           <CategoryNavigation items={mobileQuickAccess} />
