@@ -26,14 +26,18 @@ export function CuratedSection({ items }: { readonly items: readonly LinkedDesti
       </Reveal>
 
       <Reveal delay={80}>
-        <ul className="rail mt-5 gap-3 px-5 pb-2">
+        <ul className="rail mt-5 items-stretch gap-3 px-5 pb-2">
           {items.map((destination, index) => (
-            <li key={destination.id} className="rail-item xs:w-[164px] w-[156px] sm:w-[188px]">
+            <li
+              key={destination.id}
+              className="rail-item flex h-full w-[156px] xs:w-[164px] sm:w-[188px]"
+            >
               <DestinationCard
                 destination={destination}
                 href={destination.href}
                 sizes="(max-width: 640px) 60vw, 200px"
                 priority={index === 0}
+                className="h-full w-full"
               />
             </li>
           ))}
