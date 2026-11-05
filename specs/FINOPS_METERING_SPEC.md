@@ -40,6 +40,7 @@ You are building the institutional-grade API Metering, Observability, and FinOps
 ## 2. File Architecture & Modules to Create
 
 ### `src/modules/metering/types.ts`
+
 - `ApiProvider`: `'GOOGLE_PLACES' | 'GOOGLE_GEMINI' | 'ANTHROPIC' | 'META_WHATSAPP' | 'RESEND' | 'RAZORPAY'`
 - `ApiOperation`:
   - Places: `'places.autocomplete' | 'places.searchText' | 'places.details' | 'places.photos'`
@@ -70,7 +71,9 @@ You are building the institutional-grade API Metering, Observability, and FinOps
   - `budgetAlert: { triggered: boolean; monthlyBudgetCapInr: number; currentSpendInr: number; percentageUsed: number }`
 
 ### `src/modules/metering/rates.ts`
+
 Pricing constants and calculation functions:
+
 - Google Places API (New):
   - `places.autocomplete`: $2.83 / 1,000 calls = 2,830 micro-dollars/call
   - `places.searchText`: $32.00 / 1,000 calls = 32,000 micro-dollars/call
@@ -92,6 +95,7 @@ Pricing constants and calculation functions:
 - Pure function: `calculateApiCost(provider: ApiProvider, operation: ApiOperation, units: number): { costMinorInr: number; costMicroUsd: number }`
 
 ### `src/modules/metering/service.ts`
+
 - Singleton `MeteringService` class:
   - Circular buffer / memory array capped at 10,000 entries.
   - `record(event: Omit<ApiUsageEvent, 'id' | 'costMinorInr' | 'costMicroUsd' | 'timestamp'>): ApiUsageEvent` (calculates cost, inserts into buffer, non-blocking).
@@ -101,21 +105,26 @@ Pricing constants and calculation functions:
   - Export `getMeteringService()` singleton factory.
 
 ### `src/adapters/maps/google/index.ts`
+
 - Instrument Google Places calls (`autocomplete`, `details`, etc.) with `getMeteringService().record(...)`.
 
 ### `src/adapters/email/resend/`
+
 - Instrument email sending calls with `email.transactional_send`.
 
 ### `src/adapters/llm/anthropic/index.ts`
+
 - Instrument LLM token usage with Anthropic pricing.
 
 ### `src/app/api/v1/ops/metering/route.ts`
+
 - `GET`: Return `{ success: true, summary: FinOpsCostSummary, recentEvents: ApiUsageEvent[] }`.
 - `POST`: Ingest usage event payload from external services (CRM, WhatsApp worker) with validation.
 
 ---
 
 ## 3. Test Requirements (`tests/unit/metering.test.ts`)
+
 - Unit tests covering:
   1. Rate calculations for each provider and operation (exact integer paise and micro-dollars).
   2. Ring buffer storage, trimming at capacity, and timestamp filtering.
@@ -128,4 +137,5 @@ Pricing constants and calculation functions:
 ---
 
 ## 4. Execution Directive
+
 Please implement all files, wire the instrumentation into existing adapters, write comprehensive tests, ensure `npm test` and `npm run typecheck` succeed 100%, and summarize all deliverables.
