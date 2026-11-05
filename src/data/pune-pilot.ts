@@ -1,5 +1,5 @@
 /**
- * The Pune pilot catalogue (Amanora, Seasons Mall, Magarpatta, Hadapsar).
+ * The Pune pilot catalogue (Amanora, Seasons Mall, Magarpatta, Hadapsar, Viman Nagar).
  *
  * One definition, two readers. `scripts/seed-pune-pilot.ts` writes it into
  * PostgreSQL, which is where travellers and the copilot normally read it from.
@@ -526,5 +526,102 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
       "Wear clothes that can get a little messy (aprons provided). Cut nails recommended for wheel throwing.",
     coverImageKey: "images/kyoto.jpg",
     altText: "Potter hands actively shaping wet clay bowl on spinning pottery wheel",
+  },
+  // ── Viman Nagar Corridor ──────────────────────────────────────────────────
+  {
+    slug: "hyatt-regency-brunch-wellness-viman-nagar",
+    title: "Hyatt Regency: Artisanal Weekend Brunch & Poolside Wellness Retreat",
+    summary:
+      "Luxury weekend culinary escape featuring multi-cuisine gourmet spreads, live grill stations, and serene poolside relaxation.",
+    description:
+      "Escape the urban rush at the Hyatt Regency in Viman Nagar. Indulge in an expansive gourmet weekend brunch spanning Mediterranean mezze, Asian street delicacies, artisanal pastas, and handcrafted Indian desserts. Complete your afternoon with complimentary access to the temperature-controlled outdoor pool and tranquil landscaped gardens.",
+    categoryKey: "culinary",
+    addressLine: "Weikfield IT Park, Pune-Nagar Road, Viman Nagar",
+    city: "Pune",
+    region: "Maharashtra",
+    postalCode: "411014",
+    latitude: 18.5594209,
+    longitude: 73.9120476,
+    durationMinutes: 180,
+    minGuests: 1,
+    maxGuests: 8,
+    basePriceMinor: 249900,
+    pricingUnit: "PER_PERSON",
+    inclusions: [
+      "Full buffet brunch spread with live cooking counters",
+      "Unlimited craft mocktails and artisanal iced teas",
+      "Complimentary access to outdoor heated swimming pool",
+      "Reserved lounge cabana seating",
+      "Valet parking assistance",
+    ],
+    exclusions: ["Alcoholic beverages (available à la carte)", "Spa treatments at Arogya Spa"],
+    guestNotes: "Smart casual dress code. Pool access requires proper swimwear.",
+    coverImageKey: "images/amalfi-villa.jpg",
+    altText:
+      "Sunlit luxury poolside dining setup with artisanal brunch platters at Hyatt Regency Pune",
+  },
+  {
+    slug: "shizusan-dimsum-sushi-tasting-phoenix-marketcity",
+    title: "Shizusan Asian Shophouse: Craft Dim Sum Flight & Sushi Tasting Masterclass",
+    summary:
+      "Intimate Pan-Asian culinary journey showcasing handcrafted dim sums, flame-seared nigiri, and Tokyo-inspired cocktails.",
+    description:
+      "Step into the vibrant 1920s shophouse ambiance of Shizusan at Phoenix Marketcity, Viman Nagar. Discover the delicate craft of Pan-Asian gastronomy with an exclusive 6-course tasting menu featuring crystal prawn dumplings, edamame truffle dim sums, torched salmon aburi sushi, and matcha chiffon gateau.",
+    categoryKey: "culinary",
+    addressLine: "Upper Ground Floor, Phoenix Marketcity, Viman Nagar",
+    city: "Pune",
+    region: "Maharashtra",
+    postalCode: "411014",
+    latitude: 18.5623075,
+    longitude: 73.9166721,
+    durationMinutes: 120,
+    minGuests: 2,
+    maxGuests: 6,
+    basePriceMinor: 189900,
+    pricingUnit: "PER_PERSON",
+    inclusions: [
+      "6-course chef-curated Pan-Asian tasting menu",
+      "Flight of 4 dim sums per person",
+      "Chef demonstration of sushi rolling technique",
+      "Signature welcoming mocktail or jasmine tea",
+      "Reserved premium booth seating",
+    ],
+    exclusions: ["Hard liquor and wine bottles", "Mall parking fees"],
+    guestNotes:
+      "Please notify 24h in advance for Jain, gluten-free or seafood allergy preferences.",
+    coverImageKey: "images/bali.jpg",
+    altText:
+      "Bamboo steamer baskets filled with crystal dim sums and artisanal sushi platter at Shizusan",
+  },
+  {
+    slug: "toit-brewery-craft-beer-tasting-kalyani-viman",
+    title: "Toit Brewery: Craft Beer Tasting Flight & Wood-Fired Pizza Pairing",
+    summary:
+      "Celebrated microbrewery experience featuring six flagship craft ales, brewmaster storytelling, and sourdough wood-fired pizzas.",
+    description:
+      "Immerse yourself in Pune's craft brewing culture at Toit, bordering Viman Nagar and Kalyani Nagar. Enjoy an exclusive guided flight of six artisanal craft beers—from the signature Tint-In-Wit Belgian ale to the robust Colonial Toit IPA—paired with hot, blistered sourdough pizzas from the brick wood-fire oven.",
+    categoryKey: "culinary",
+    addressLine: "Metro Station Road, near Aga Khan Palace, Kalyani Nagar / Viman Nagar Corridor",
+    city: "Pune",
+    region: "Maharashtra",
+    postalCode: "411006",
+    latitude: 18.553466,
+    longitude: 73.905882,
+    durationMinutes: 150,
+    minGuests: 2,
+    maxGuests: 10,
+    basePriceMinor: 149900,
+    pricingUnit: "PER_PERSON",
+    inclusions: [
+      "Guided flight of 6 fresh craft beer tasters (100ml each)",
+      "Choice of 1 signature 11-inch sourdough wood-fired pizza per 2 guests",
+      "Brewery cellar tour with brewmaster explanation",
+      "Brewery souvenir beer glass",
+    ],
+    exclusions: ["Additional beer pints beyond tasting flight", "Desserts"],
+    guestNotes:
+      "Valid government ID required for guests consuming alcohol (legal drinking age 21+).",
+    coverImageKey: "images/swiss-alps.jpg",
+    altText: "Six-glass flight of amber craft beer with artisan wood-fired pizza at Toit Brewery",
   },
 ];

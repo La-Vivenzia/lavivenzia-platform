@@ -10,7 +10,7 @@
 
 import { formatMoneyMinor } from "@/lib/format";
 
-export type HotspotId = "seasons" | "amanora" | "magarpatta";
+export type HotspotId = "seasons" | "amanora" | "magarpatta" | "viman_nagar";
 
 export interface Hotspot {
   readonly id: HotspotId;
@@ -54,6 +54,15 @@ export const HOTSPOTS: readonly Hotspot[] = [
     aliases: ["magarpatta", "magarpatta city"],
     addressMarkers: ["North Court", "Destination Centre Courtyard"],
     withinRadiusMetres: 300,
+  },
+  {
+    id: "viman_nagar",
+    label: "Viman Nagar",
+    latitude: 18.5594,
+    longitude: 73.912,
+    aliases: ["viman", "viman nagar", "phoenix", "phoenix marketcity"],
+    addressMarkers: ["Viman Nagar", "Phoenix Marketcity", "Weikfield"],
+    withinRadiusMetres: 1200,
   },
 ];
 

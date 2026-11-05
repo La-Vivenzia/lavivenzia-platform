@@ -18,8 +18,8 @@ import {
  * No model is involved anywhere in this file. Ranking reuses the copilot's
  * mood vocabulary and word matcher; money is `quoteBooking` via the concierge's
  * `partyCost`; distances are arithmetic over stored coordinates. The search is
- * exhaustive over ordered selections — sixteen listings and at most four stops
- * is about forty-four thousand sequences, each pruned as soon as it breaks a
+ * exhaustive over ordered selections — nineteen listings and at most four stops
+ * is about ninety-three thousand sequences, each pruned as soon as it breaks a
  * time or budget rule — so the answer is the best plan, not a greedy one, and
  * the same preferences always produce the same plan.
  */
@@ -68,6 +68,12 @@ export const SLOT_FIT: Readonly<Record<string, readonly SlotWindow[]>> = {
   "o2-spa-aromatherapy-and-reflexology-seasons": [{ earliest: at(10), latest: at(20, 30) }],
   "amanora-lake-sunset-walk-and-mindfulness": [{ earliest: at(17), latest: at(18) }],
   "pottery-and-clay-wheel-workshop-magarpatta": [{ earliest: at(10), latest: at(17) }],
+  "hyatt-regency-brunch-wellness-viman-nagar": [{ earliest: at(11, 30), latest: at(13, 30) }],
+  "shizusan-dimsum-sushi-tasting-phoenix-marketcity": [
+    { earliest: at(12), latest: at(14, 30) },
+    { earliest: at(19), latest: at(21, 30) },
+  ],
+  "toit-brewery-craft-beer-tasting-kalyani-viman": [{ earliest: at(17), latest: at(21) }],
 };
 
 export const ITINERARY_RULES = {
