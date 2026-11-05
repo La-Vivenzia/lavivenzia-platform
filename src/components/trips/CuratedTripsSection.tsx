@@ -95,13 +95,20 @@ export function CuratedTripsSection({
                 />
                 {trip.stay.title} · 2 days
               </p>
-              <div className="mt-auto flex items-end justify-between gap-3 pt-5">
+              <div
+                className={cn(
+                  "mt-auto flex gap-3 pt-5",
+                  desktop
+                    ? "items-end justify-between"
+                    : "flex-col items-start gap-2 sm:flex-row sm:items-end sm:justify-between",
+                )}
+              >
                 <CuratorScore score={trip.minCuratorScore} verified={trip.fullyVerified} />
-                <span className="flex items-center gap-1 text-[13px] text-heading">
+                <span className="inline-flex max-w-full items-center gap-1 whitespace-nowrap text-[13px] text-heading">
                   {formatMoneyMinor(trip.perPersonPriceMinor, trip.currency)}
                   <span className="text-[11px] text-fg-muted">per person</span>
                   <ArrowUpRight
-                    className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                    className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                     strokeWidth={1.6}
                     aria-hidden="true"
                   />
