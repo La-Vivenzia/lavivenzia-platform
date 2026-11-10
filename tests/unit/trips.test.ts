@@ -349,9 +349,9 @@ describe("trips API routes", () => {
   it("POST simulate-book rejects bad input and unknown trips", async () => {
     const { POST } = await import("@/app/api/v1/trips/simulate-book/route");
 
-    expect((await POST(post({ tripId: listTrips()[0]!.id, partySize: 99 }), undefined)).status).toBe(
-      400,
-    );
+    expect(
+      (await POST(post({ tripId: listTrips()[0]!.id, partySize: 99 }), undefined)).status,
+    ).toBe(400);
     expect((await POST(post({ partySize: 2 }), undefined)).status).toBe(400);
     expect((await POST(post({ tripId: "nowhere", partySize: 2 }), undefined)).status).toBe(404);
   });

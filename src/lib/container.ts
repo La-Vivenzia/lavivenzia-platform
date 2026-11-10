@@ -10,6 +10,7 @@ import { OperationsService } from "@/modules/operations/service";
 import { DiscoveryService } from "@/modules/discovery/service";
 import { CopilotService } from "@/modules/copilot/service";
 import { CheckoutService, resolveCheckoutMode } from "@/modules/booking/checkout";
+import { BookingCapacityEngine } from "@/modules/booking/capacity-engine";
 import { getLogger } from "@/lib/logger";
 import { AnthropicLlmAdapter } from "@/adapters/llm/anthropic";
 import { RazorpayAdapter } from "@/adapters/payments/razorpay";
@@ -32,6 +33,7 @@ import {
   createExperienceRepository,
 } from "@/adapters/persistence/prisma/experience-repositories";
 import { PrismaSlotRepository } from "@/adapters/persistence/prisma/availability-repositories";
+import { PrismaBookingCapacityRepository } from "@/adapters/persistence/prisma/booking-capacity-repositories";
 import { createOperationsRepository } from "@/adapters/persistence/prisma/operations-repositories";
 import { createDiscoveryRepository } from "@/adapters/persistence/prisma/discovery-repositories";
 
@@ -285,6 +287,22 @@ export function getCheckoutService(): CheckoutService {
   });
 
   return checkoutService;
+}
+
+let bookingCapacityEngine: BookingCapacityEngine | undefined;
+
+/**
+ * Booking Capacity Engine (LA-12 Phase 2 Sprint 2).
+ *
+ * Provides atomic, transaction-safe 5-minute hold reservations and pessimistic
+ * row-level locking on experience slot inventory.
+ */
+export function getBookingCapacityEngine(): BookingCapacityEngine {
+  bookingCapacityEngine ??= new BookingCapacityEngine({
+    repository: new PrismaBookingCapacityRepository(prisma),
+  });
+
+  return bookingCapacityEngine;
 }
 
 let mapsPort: MapsPort | undefined;
