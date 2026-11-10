@@ -40,6 +40,15 @@ export const RATE_LIMITS = {
   mfaVerifyPerUser: { limit: 10, windowMs: 15 * MINUTE },
 
   /**
+   * Password change per user.
+   *
+   * The endpoint verifies the current password, so without a ceiling a stolen
+   * session becomes an unthrottled oracle for it — and the login limit does
+   * not apply, because the caller is already signed in.
+   */
+  passwordChangePerUser: { limit: 5, windowMs: 15 * MINUTE },
+
+  /**
    * Draft creation per host.
    *
    * The service also caps how many unarchived listings a host may hold, but

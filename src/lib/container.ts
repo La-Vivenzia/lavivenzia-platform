@@ -4,6 +4,7 @@ import { env, isProduction } from "@/lib/env";
 import { AuthService } from "@/modules/auth/service";
 import { OTP_TTL_MS } from "@/modules/auth/otp";
 import { HostService } from "@/modules/hosts/service";
+import { UserProfileService } from "@/modules/user-profile/service";
 import { ExperienceService } from "@/modules/experiences/service";
 import { AvailabilityService } from "@/modules/availability/service";
 import { OperationsService } from "@/modules/operations/service";
@@ -29,6 +30,10 @@ import {
   createUserRepository,
 } from "@/adapters/persistence/prisma/auth-repositories";
 import { createHostRepository } from "@/adapters/persistence/prisma/host-repositories";
+import {
+  createAccountSessionRepository,
+  createUserProfileRepository,
+} from "@/adapters/persistence/prisma/user-profile-repositories";
 import {
   createCategoryRepository,
   createExperienceRepository,
@@ -96,6 +101,21 @@ export function getAuthService(): AuthService {
   });
 
   return authService;
+}
+
+let userProfileService: UserProfileService | undefined;
+
+/** Account settings: profile, password and sessions. */
+export function getUserProfileService(): UserProfileService {
+  userProfileService ??= new UserProfileService({
+    profiles: createUserProfileRepository(prisma),
+    sessions: createAccountSessionRepository(prisma),
+    audit: createAuditRepository(prisma),
+    rateLimiter: createRateLimiter(prisma),
+    now: () => new Date(),
+  });
+
+  return userProfileService;
 }
 
 // ── Hosts and inventory ────────────────────────────────────────────────────

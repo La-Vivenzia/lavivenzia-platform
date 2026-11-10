@@ -20,6 +20,6 @@ const OPERATIONS_ROLES: readonly RoleKey[] = [
 export function destinationForRoles(roles: readonly RoleKey[]): string {
   if (roles.some((role) => OPERATIONS_ROLES.includes(role))) return "/ops";
   if (roles.includes("host")) return "/host";
-  // Travellers have no console yet. The landing page is honest about that.
-  return "/";
+  // Travellers land on their account profile and settings.
+  return "/profile";
 }
