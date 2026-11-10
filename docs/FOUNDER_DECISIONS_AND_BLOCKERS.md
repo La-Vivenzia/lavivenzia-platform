@@ -1,254 +1,365 @@
 # Founder Decisions & External Blockers
 
-**Date:** 2026-10-20
-**Companion to:** `docs/ROADMAP_IMPLEMENTATION_AUDIT.md`
-**Type:** Audit only. Nothing changed, staged, committed or deployed.
+**Date:** 2026-11-05
+**Supersedes:** the 2026-10-20 edition of this document
+**Companion to:** `docs/ROADMAP_IMPLEMENTATION_AUDIT.md` (same date)
+**Scope:** what stands between the current `main` (HEAD `c01ac89`) and a
+**Pune pilot that takes real bookings** at Amanora, Seasons Mall, Magarpatta
+Cybercity, Hadapsar and Viman Nagar.
+**Type:** Audit only. No code changed.
 
 ---
 
 ## Summary
 
-Eight items. **Only two genuinely block engineering today**, and both are
-external waits rather than decisions — which means they should start now and
-finish while code is written. Four more block _completion_ of Phase 6 but not
-its start. Two block nothing.
+Engineering has moved fast since 20 October: availability, a full booking
+panel, Razorpay test checkout, itinerary engine, trips, concierge and cost
+metering are built, and **953 unit tests pass**. What remains is a mix of
+**one large engineering block** (the persisted booking aggregate) and
+**external items with lead times** that should start now so they finish
+alongside the code.
 
-> **Standing instruction (Tejas, 2026-08-19, recorded in `PROJECT_STATE.md`):**
-> pending business decisions must not block development. Assumptions made in
-> their place are registered in `docs/ASSUMPTIONS.md`. This document applies
-> that rule rather than re-opening it.
+> **Standing instruction (Tejas, 2026-08-19, `PROJECT_STATE.md`):** pending
+> business decisions must not block development. Assumptions stand in for them
+> (`docs/ASSUMPTIONS.md`). This document applies that rule.
 
-| #   | Item                               | Priority | Blocks now?                      | Lead time                 |
-| --- | ---------------------------------- | -------- | -------------------------------- | ------------------------- |
-| 1   | GST / TCS (A-005)                  | **P0**   | No — blocks Phase 6 _completion_ | **Longest in project**    |
-| 2   | AWS email account                  | **P0**   | **Yes — blocks real users**      | Support request + waiting |
-| 3   | Platform fee (A-003)               | P1       | No                               | None once decided         |
-| 4   | Cancellation / refund (A-004)      | P1       | No                               | None once decided         |
-| 5   | Google Maps spend                  | P2       | No                               | Account setup             |
-| 6   | Error-monitoring spend             | P2       | No — blocks production           | Account setup             |
-| 7   | Editing published listings (A-009) | P2       | No — default in place            | None                      |
-| 8   | Admin 2FA recovery (A-012)         | P2       | No                               | None                      |
+### Risk scale
 
----
+- **CRITICAL** — the pilot cannot take a real booking without it.
+- **HIGH** — the pilot can launch but carries legal, financial or security
+  exposure.
+- **MEDIUM** — degrades the pilot experience or operations.
+- **LOW** — post-pilot or cosmetic.
 
-## 1. GST / TCS treatment (A-005) — P0
+### Blocker register
 
-**Why it matters.** It decides the _column structure_ of every record holding
-money. A wrong guess is not a settings change — it is migrating live financial
-data.
+| #   | Blocker                                   | Type             | Risk         | Lead time (estimate)                         | Owner             | Changed since 10-20               |
+| --- | ----------------------------------------- | ---------------- | ------------ | -------------------------------------------- | ----------------- | --------------------------------- |
+| B1  | GST / TCS treatment (A-005)               | Founder + CA     | **CRITICAL** | 2–4 weeks (CA engagement + opinion)          | Tejas             | Unchanged — still not started     |
+| B2  | Razorpay live merchant account + KYC      | External         | **CRITICAL** | 1–3 weeks (KYC, website review)              | Tejas             | New focus — test checkout built   |
+| B3  | Booking / Payment aggregate               | Engineering      | **CRITICAL** | ~2 weeks                                     | Engineering       | New — the largest remaining build |
+| B4  | Venue agreements for 16 pilot listings    | Founder / BD     | **CRITICAL** | 2–6 weeks (per-venue)                        | Founders          | **New**                           |
+| B5  | Pilot availability slots                  | Data + Eng       | **CRITICAL** | 2–3 days once B4 gives hours/capacity        | Engineering + ops | **New**                           |
+| B6  | Platform fee / margin model (A-003)       | Founder          | **CRITICAL** | Days once decided                            | Tejas             | Reframed for hostless model       |
+| B7  | Cancellation & refund policy (A-004)      | Founder          | **HIGH**     | Days once decided                            | Tejas             | Unchanged                         |
+| B8  | Voucher redemption at venue (QR scanner)  | Engineering + BD | **HIGH**     | ~1 week eng; venue training separate         | Engineering       | **New**                           |
+| B9  | Real email delivery proven (Resend)       | External         | **HIGH**     | 1–2 days (domain DNS + test send)            | Tejas             | Provider changed SES → Resend     |
+| B10 | Database TLS verification disabled        | Engineering      | **HIGH**     | < 1 day                                      | Engineering       | **New**                           |
+| B11 | Error monitoring (Sentry)                 | Founder spend    | **HIGH**     | 1 day                                        | Tejas → Eng       | Unchanged                         |
+| B12 | Production deploy target + config in repo | Founder + Eng    | **HIGH**     | 2–3 days                                     | Engineering       | Unchanged                         |
+| B13 | Viman Nagar coverage                      | Founder / BD     | **MEDIUM**   | Depends on B4                                | Founders          | **New**                           |
+| B14 | Static catalogue in AI surfaces           | Engineering      | **MEDIUM**   | 3–4 days                                     | Engineering       | **New**                           |
+| B15 | Meta WhatsApp Cloud API                   | External         | **MEDIUM**   | 1–4 weeks (business verification, templates) | Tejas             | **New**                           |
+| B16 | Twenty CRM event sync                     | Engineering      | **LOW**      | ~1 week                                      | Engineering       | **New**                           |
+| B17 | CI red on formatting                      | Engineering      | **LOW**      | Minutes                                      | Engineering       | **New**                           |
+| B18 | Editing published listings (A-009)        | Founder          | **LOW**      | None                                         | Tejas             | Less urgent — hostless pilot      |
+| B19 | Admin 2FA recovery (A-012)                | Founder          | **LOW**      | None                                         | Tejas             | Unchanged                         |
+| B20 | WCAG AA contrast on two tokens            | Founder sign-off | **LOW**      | < 1 day                                      | Tejas → Eng       | Unchanged                         |
 
-**Blocks.** Phase 6 completion: invoice foundation, commission, payout ledger,
-reconciliation. **Does not block Phase 6 starting.**
+Lead times are estimates for planning, based on typical provider processes;
+they are not quotes from any provider.
 
-**Evidence.** `docs/ASSUMPTIONS.md` A-005 = DEFERRED, "needs a chartered
-accountant", reversal cost **Very high**. `PROJECT_STATE.md`: _"longest external
-lead time in the project and has still not been started."_ No `Invoice` model
-exists; **no financial arithmetic exists anywhere** —
-`experiences.base_price_minor` holds the host list price only.
-
-**Genuinely blocking?** Not today. But it is the **critical path to launch**:
-every week of delay lands at the _end_ of Phase 6, not the beginning.
-
-**Action.** Engage a chartered accountant. Needed: GST rate and place-of-supply
-treatment for experiences, whether La Vivenzia is a TCS-liable e-commerce
-operator, and invoicing responsibility (platform vs host).
-
----
-
-## 2. AWS email-sending account — P0, the only true hard blocker
-
-**Why it matters.** Login codes are delivered by email. Without a sending
-account **no real customer can sign in.**
-
-**Blocks.** Any real user, any pilot, any production launch. Phase 12.
-
-**Evidence.** `src/adapters/email/ses/index.ts` — 257 lines, retry/backoff,
-throttle handling, config guards. **58 mock tests pass.** `EMAIL_TRANSPORT`,
-`EMAIL_FROM`, `SES_CONFIGURATION_SET` unset locally; `AWS_REGION` set. No
-delivery evidence anywhere in the repository. Checklist: `docs/EMAIL.md`.
-
-> **Caveat:** missing local config is **not proof no AWS account exists**. This
-> audit can only say the repository shows no configured provider and no
-> delivered message. **Please confirm whether an account already exists** —
-> if it does, this drops to a configuration task.
-
-**Genuinely blocking?** **Yes**, for real users. No, for continued development
-(the console transport works locally).
-
-**Action.** Confirm whether an AWS account exists. If not, create one, verify
-the sending domain (DKIM, SPF, DMARC), and **file the production-access request
-to leave the SES sandbox** — that request has a waiting period, so it should be
-filed before it is needed.
+**Critical path:** B4 (venue agreements) → B5 (slots) and B1/B6 (money model) →
+B3 (booking aggregate, final money columns) → B2 (live keys) → launch. B1 and B4
+have the longest external lead times and **should start this week**.
 
 ---
 
-## 3. Platform fee / commission (A-003) — P1
+## CRITICAL
 
-**Why it matters.** Determines what the platform earns and what the host is
-owed. Sits in the same money columns as GST.
+### B1. GST / TCS treatment (A-005)
 
-**Blocks.** Commission calculation, payout ledger, final checkout totals.
+**Why it matters more now.** Under the hostless model La Vivenzia is likely the
+**seller of record** for every pilot booking, not a marketplace facilitating a
+host's sale. That changes the GST answer (output tax on the full ticket vs. on a
+commission) and possibly TCS applicability under Section 52. Every money column
+in the booking aggregate depends on it.
 
-**Evidence.** A-003 = DEFERRED, reversal cost **High if guessed**. No
-`Commission` model. ADR-0010 records payments as a deliberate boundary.
+**Evidence.** `docs/ASSUMPTIONS.md` A-005 = DEFERRED, reversal cost Very high,
+last touched 2026-10-21. No invoice model; `quoteBooking` returns a single line
+with no tax (`src/modules/booking/pricing.ts`).
 
-**Genuinely blocking?** No. Availability, cart structure and the booking state
-machine can all be built first. It blocks the moment an _amount_ is computed.
+**Needed from the CA:**
 
-**Action.** Decide the percentage (or tiers) and **the base it applies to** —
-host price only, or price including add-ons. The base matters as much as the
-number.
+1. GST rate and SAC code for each pilot category (gaming, dining/F&B, brewery
+   tasting, cinema, spa, workshops, guided walks) — they may differ.
+2. Whether La Vivenzia is principal or agent for hostless listings.
+3. Place-of-supply treatment (all pilot venues are in Maharashtra).
+4. TCS liability as an e-commerce operator, and for which model.
+5. Invoice issuer and format (B2C invoice per booking?).
 
----
+**Unblocks:** final pricing lines, invoice table, payout/settlement ledger.
 
-## 4. Cancellation & refund policy (A-004) — P1
+### B2. Razorpay live merchant account
 
-**Why it matters.** Determines refund records, payment state transitions and
-what a traveller is promised at checkout.
+**Evidence.** `RazorpayAdapter` implements `createOrder`,
+`verifyCheckoutSignature` and `verifyWebhook`. **No `RAZORPAY_*` variables are
+set locally** — not even test keys — so test-mode checkout has not been
+exercised on this machine. Live keys are **refused in code**
+(`resolveCheckoutMode`, `src/modules/booking/checkout.ts`) until B3 exists, by
+design (ADR-0016).
 
-**Blocks.** Refund flow, cancellation, rescheduling, payment state machine.
+**Actions:**
 
-**Evidence.** A-004 = DEFERRED, reversal cost **High if guessed**. No `Refund`
-model.
+1. Confirm whether a Razorpay account exists and its KYC status.
+2. If not, start onboarding now: business PAN, GST registration (links to B1),
+   bank account, and a live website showing pricing, terms, refund policy (B7)
+   and contact details — Razorpay reviews the site.
+3. Issue **test keys** to engineering immediately so `razorpay_test` mode can
+   be exercised end-to-end.
+4. Configure a webhook secret once the webhook route exists (B3).
 
-**Genuinely blocking?** No — a booking can be created and paid before a
-cancellation policy exists, though it should not ship to customers that way.
+### B3. Booking / Payment aggregate (engineering)
 
-**Action.** Define the windows and proportions (e.g. free >7 days, 50% 2–7 days,
-none <48h), who absorbs the payment-gateway fee, and whether hosts may set their
-own policy within platform bounds.
+**Evidence.** 14 Prisma models; none is `Booking`, `Payment`, `Voucher` or
+`Ledger`. `ExperienceSlot.reservedCount` has no writer. Checkout confirmation
+lives only in the browser. ADR-0016: "two people can 'confirm' the last seat."
 
----
+**Scope (buildable now except money columns):** pending booking + seat hold in
+one transaction against the existing CHECK constraint; hold expiry job
+(pg-boss); idempotent Razorpay webhook as the authoritative confirmation path;
+stored voucher with a signed code; confirmation email; ops booking list; audit
+entries. Tax/fee columns land after B1/B6.
 
-## 5. Google Maps spend — P2
+**Founder input needed:** none to _start_. B1/B6/B7 to _finish_.
 
-**Why it matters.** Location search, geocoding and autocomplete work **today**
-through the catalogue fallback. A key adds a real provider and an embedded map.
+### B4. Venue agreements for the pilot catalogue
 
-**Blocks.** Embedded interactive map only. Not search, not location.
+**Why it matters.** All 16 pilot listings name real third-party businesses —
+Smaaash, Mystery Rooms, Timezone, Effingut, The Beer Café, Agent Jack's,
+Indimex, Third Wave Coffee, The Flour Works, Café Peter, Absolute Barbecues,
+Spice Factory, Cinépolis VIP, O2 Spa, plus a lake walk and a pottery studio —
+published under "La Vivenzia Pune Curations" (`src/data/pune-pilot.ts`). The
+repository holds **no evidence of any agreement**, of venue sign-off on the
+listed prices, durations and capacities, or of image rights for the cover
+photos.
 
-**Evidence.** `src/adapters/maps/google/index.ts` — 243 lines, real
-implementation, no stubs. `src/adapters/maps/fallback.ts` serves when Google is
-absent, throttled or down. `GOOGLE_MAPS_API_KEY` **unset**, so the Google path
-has never been exercised against the live API here.
+**Exposure if sold without it:** a traveller pays La Vivenzia for something
+the venue has not agreed to honour; use of venue names and imagery without
+permission.
 
-**Genuinely blocking?** **No.** The fallback is what has actually been tested.
+**Needed per venue:** agreement (rate, inventory, cancellation terms),
+confirmed price/duration/capacity, operating hours (feeds B5), redemption
+process (feeds B8), settlement terms (feeds B6), image licence.
 
-**Action.** Approve a Google Cloud account with billing, or confirm the
-catalogue fallback is acceptable for launch. Note the embedded map needs a
-_browser-published_ key, which is a separate security consideration.
+### B5. Pilot availability slots
 
----
+**Evidence.** `scripts/seed-pune-pilot.ts` creates the host and 16 published
+listings but **no `ExperienceSlot` rows**. Host UI routes now 307-redirect to
+`https://host.lavivenzia.com` (`next.config.ts`), which is outside this
+repository. There is no ops-side slot tool. In a freshly seeded database **no
+pilot listing can be booked**, even in demo mode.
 
-## 6. Error-monitoring spend — P2, blocks production not development
+**Action.** Founders/ops supply hours and per-slot capacity per venue (from
+B4). Engineering adds either a slot seed or an ops slot tool. Confirm whether
+the host portal can manage slots for the pilot host account.
 
-**Why it matters.** Without it, a production failure is discovered by a customer
-rather than by a tool.
+### B6. Platform fee / margin model (A-003)
 
-**Blocks.** Phase 11 completion and responsible production launch.
+**Reframed.** A-003 was written for a commission marketplace. For hostless
+pilot listings the question becomes: **is the listed price the venue's price
+plus a La Vivenzia markup, or the venue's price with a commission settled back
+from the venue?** That choice interacts directly with B1.
 
-**Evidence.** PostHog adapter is an **11-line stub**; `SENTRY_DSN` and
-`POSTHOG_KEY` unset. Structured logging with correlation IDs exists (pino) but
-nothing collects it outside a terminal.
-
-**Genuinely blocking?** No for development. **Yes for go-live.**
-
-**Action.** Approve Sentry (errors) at minimum. Analytics can follow.
-
----
-
-## 7. Editing a published listing (A-009) — P2, increasingly urgent
-
-**Why it matters.** Listings are now traveller-visible, so a host edit changes
-what a customer sees.
-
-**Blocks.** Nothing. A conservative default is already in place.
-
-**Evidence.** A-009 = ASSUMED, "conservative default", reversal cost
-**Trivial**. Published listings are currently **not editable**.
-`PROJECT_STATE.md` flags it as _"now urgent rather than merely answerable."_
-
-**Genuinely blocking?** No. But the cost of changing it rises as hosts
-accumulate live listings.
-
-**Action.** Confirm the default, or choose: allow the edit and return the
-listing to review.
-
----
-
-## 8. Admin two-factor recovery (A-012) — P2
-
-**Why it matters.** An operator who loses their phone cannot sign in. The only
-recovery today is editing the database by hand.
-
-**Blocks.** Nothing technically. It is an operational risk that grows with team
-size.
-
-**Evidence.** `PROJECT_STATE.md` open items: _"There is no supported path; the
-only recovery is a direct database update. Fine with one operator, not fine with
-a team."_ TOTP is implemented and tested (`password-totp`, `totp-qr`).
-
-**Genuinely blocking?** No.
-
-**Action.** Decide the policy — recovery codes issued at enrolment, or
-super-admin reset with an audit entry. Related engineering item, no decision
-needed: **TOTP replay prevention must land before the first money-moving
-endpoint ships.**
+**Also decide:** who absorbs the Razorpay fee (metered at 2.36 % in
+`src/modules/metering/rates.ts`), and whether a convenience fee is shown to the
+traveller.
 
 ---
 
-## What engineering can proceed with in parallel
+## HIGH
 
-**Needs no decision at all:**
+### B7. Cancellation & refund policy (A-004)
 
-| Work                                                | Why it is unblocked                                                            |
-| --------------------------------------------------- | ------------------------------------------------------------------------------ |
-| **Availability & slots (FR-08)**                    | Stores _when_ an experience runs, not what it costs. Also closes a Phase 4 gap |
-| Cart and booking state machine **structure**        | Shape can be built before amounts exist                                        |
-| TOTP replay prevention                              | Pure engineering; required before any payment endpoint                         |
-| Commit and push the 120 uncommitted paths           | Ten minutes; lets CI validate eight weeks of work                              |
-| Browser verification of the identity                | Never done; four milestones' defects were found only this way                  |
-| Visual regression + contrast tooling                | No automated design guard exists beyond `button-variants`                      |
-| WCAG AA fix for `--lv-accent-ink`, `--lv-fg-subtle` | Defect correction; values proposed in `VISUAL_IDENTITY_DECISION.md` §7.1       |
-| Traveller profile / wishlist (Phase 3 gap)          | No pending decision                                                            |
+Unchanged since October and still DEFERRED. Now also a **Razorpay onboarding
+prerequisite** (a public refund policy page). Needs: windows and proportions,
+who absorbs the gateway fee on refund, no-show treatment, and how it aligns
+with each venue's own policy (B4).
 
-**Must wait for decisions:** anything that computes or stores an amount —
-commission (A-003), refunds (A-004), invoices and tax (A-005), payouts.
+### B8. Voucher redemption at the venue
+
+**Evidence.** The booking voucher is on-screen and printable only
+(`src/components/site/booking-panel.tsx`). The trip voucher QR is explicitly a
+non-credential (`src/modules/trips/simulate.ts`). No redemption endpoint, no
+venue-staff role, no scanner.
+
+**Decision needed:** how venue staff verify a booking for the pilot —
+
+- (a) **web scanner page** behind a venue-staff login (camera QR, works on any
+  phone, no app store), or
+- (b) **reference lookup** — staff type the booking code into a page, or
+- (c) **manual list** emailed/WhatsApped to the venue each day.
+
+Recommendation: (b) for launch, (a) shortly after. It needs no app-store review
+and works with the stored voucher from B3.
+
+### B9. Real email delivery
+
+**Evidence.** The plan changed from AWS SES to Resend: `.env.local` now sets
+`EMAIL_TRANSPORT=resend`, `RESEND_API_KEY` and `EMAIL_FROM` (names checked,
+values not read). **The repository still contains no evidence of a delivered
+email**, and `PROJECT_STATE.md` still says none has been sent. Sign-in is
+OTP-by-email, so without delivery **no real user can log in**.
+
+**Action.** Confirm the sending domain is verified in Resend (SPF, DKIM,
+DMARC), send one real OTP to a founder inbox, and record the message id in
+`docs/EMAIL.md`. Update `PROJECT_STATE.md` either way.
+
+### B10. Database TLS verification disabled
+
+**Evidence.** `src/lib/db.ts:23` sets `rejectUnauthorized: false` for every
+`supabase.co` connection — **this is the production runtime path**.
+`prisma/seed.ts`, `scripts/seed-pune-pilot.ts` and `scripts/verify-database.ts`
+set `NODE_TLS_REJECT_UNAUTHORIZED = "0"` globally, and `.env.local` sets it
+too, so `next build` and `next dev` run with certificate checks off for **all**
+outbound HTTPS (Razorpay, Google, Resend).
+
+**Decision needed:** none — engineering defect. Listed here because it must be
+fixed before a payment touches the system. Fix: pin Supabase's published CA.
+
+### B11. Error monitoring
+
+Unchanged: no Sentry SDK, PostHog adapter is an 11-line stub,
+`SENTRY_DSN`/`POSTHOG_KEY` unset. **Approve Sentry** (free tier suffices for a
+pilot). Analytics can follow.
+
+### B12. Production deploy target
+
+**Evidence.** No app Dockerfile, `vercel.json`, Railway/Fly/Render config or
+IaC in the repository. Supabase is evidently the database. CI exists but does
+not deploy.
+
+**Decision needed:** where the app runs (Vercel, Railway, a container on AWS
+Mumbai). Constraints from the code: a long-running worker (`npm run worker`,
+pg-boss) is required alongside the web process, and the FinOps meter is
+in-process memory — it under-reports on serverless or multi-instance hosts.
 
 ---
 
-## Required before booking & payments can be **completed**
+## MEDIUM
 
-1. **A-005 GST/TCS** — invoice and tax columns
-2. **A-003 platform fee** — commission and totals
-3. **A-004 cancellation/refund** — refund records and payment states
-4. **Razorpay credentials** — `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`,
-   `RAZORPAY_WEBHOOK_SECRET` all unset (names only; no values inspected)
+### B13. Viman Nagar coverage
 
-Phase 6 can **start** without any of them.
+**Evidence.** 0 listings, 0 concierge hotspots, 0 mentions anywhere in `src/`.
+The four other pilot locations are covered (Amanora 6, Seasons Mall 6,
+Magarpatta 2 standalone, Hadapsar 2 standalone).
+
+**Decision:** sign Viman Nagar venues for launch (Phoenix Marketcity area), or
+formally drop Viman Nagar from the pilot scope and the marketing copy.
+
+### B14. AI surfaces read a static catalogue
+
+**Evidence.** Itinerary, concierge, trips and journeys import
+`PILOT_EXPERIENCES` from source rather than reading PostgreSQL. An ops
+suspension or price change in the database is invisible to them, and they
+cannot see availability.
+
+**Decision:** none — engineering. Must land before real bookings, or a
+suspended venue keeps being recommended.
+
+### B15. Meta WhatsApp Cloud API (Live Travel Companion)
+
+**Evidence.** Only a `api.whatsapp.com/send?text=…` share link exists
+(`TripArchitectView.tsx:506`). No adapter, no env variables, no webhook
+verification route, no templates. Metering rates are ready.
+
+**Actions if it is a launch criterion:** Meta Business verification, a
+dedicated WhatsApp Business number, display-name approval, utility templates
+(booking confirmation, reminder) submitted for review. These steps carry most
+of the lead time. **Recommendation:** post-pilot; use the share link plus a
+human-staffed WhatsApp Business number for the pilot.
 
 ---
 
-## Action items
+## LOW
 
-| #   | Action                                                                      | Owner       | Urgency                              |
-| --- | --------------------------------------------------------------------------- | ----------- | ------------------------------------ |
-| 1   | Engage a chartered accountant on GST/TCS                                    | Tejas       | **This week** — critical path        |
-| 2   | Confirm whether an AWS account exists; if not, create and file sandbox exit | Tejas       | **This week** — has a waiting period |
-| 3   | Decide platform fee and its base                                            | Tejas       | Before amounts are computed          |
-| 4   | Decide cancellation/refund windows                                          | Tejas       | Before checkout ships                |
-| 5   | Approve Sentry; decide on Google Maps                                       | Tejas       | Before production                    |
-| 6   | Confirm A-009 default and A-012 policy                                      | Tejas       | One line each                        |
-| 7   | Build availability & slots (FR-08)                                          | Engineering | **Start now — unblocked**            |
-| 8   | Commit/push 120 paths; verify in browser                                    | Engineering | Now — no approval needed             |
+### B16. Twenty CRM event sync
+
+0 references in `src/`. Recommend post-pilot; until then ops can use the
+booking list from B3.
+
+### B17. CI fails on formatting
+
+`specs/FINOPS_METERING_SPEC.md` (committed) is not Prettier-formatted, so CI's
+first job fails at `format:check` before tests run. `npx prettier --write
+specs/` fixes it.
+
+### B18. Editing published listings (A-009)
+
+Less urgent than in October: pilot listings are owned by La Vivenzia and
+edited by engineering via seed. Becomes urgent again when external hosts list
+through the host portal.
+
+### B19. Admin 2FA recovery (A-012)
+
+Unchanged. Decide recovery codes vs. super-admin reset. TOTP replay prevention
+should land before the live payment path.
+
+### B20. WCAG AA contrast
+
+`--lv-accent-ink` and `--lv-fg-subtle` still fail AA in both light palettes. A
+fix is proposed in `docs/VISUAL_IDENTITY_DECISION.md` §7.1 and awaits founder
+sign-off. Per `CLAUDE.md`, not to be changed ad hoc.
+
+---
+
+## Resolved or reduced since 2026-10-20
+
+| Item (Oct)                   | Now                                                                                                |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| 120 uncommitted paths        | ✅ Committed and pushed; `main` level with `origin/main`                                           |
+| Availability & slots (FR-08) | ✅ Built — `ExperienceSlot` + DB capacity constraints + host API                                   |
+| Google Maps spend            | ✅ Reduced — Places (New) adapter built and metered; key present locally; map embed is keyless OSM |
+| Razorpay adapter             | ✅ Order creation + signature verification built (test keys only)                                  |
+| AWS SES account              | ↪ Superseded by Resend — see B9                                                                    |
+| A-009 urgency                | ↓ Reduced by the hostless pilot model                                                              |
+
+---
+
+## What engineering can do now, with no founder input
+
+| Work                                                     | Blocker it clears |
+| -------------------------------------------------------- | ----------------- |
+| Format `specs/` so CI is green                           | B17               |
+| Pin Supabase CA; remove TLS overrides                    | B10               |
+| Booking aggregate structure, seat hold, webhook, voucher | B3 (structure)    |
+| Voucher reference-lookup page + venue-staff role         | B8 (option b)     |
+| Slot seed tooling (data to follow from B4)               | B5                |
+| Route AI surfaces through the discovery port             | B14               |
+| Integration tests for slots and checkout                 | —                 |
+| Browser pass on booking panel, itinerary, trips          | —                 |
+
+**Must wait:** tax and fee lines (B1, B6), refund flow (B7), live mode (B2),
+any listing beyond the current 16 (B4, B13).
+
+---
+
+## Action items for the founders
+
+| #   | Action                                                                        | Clears      | Urgency                                |
+| --- | ----------------------------------------------------------------------------- | ----------- | -------------------------------------- |
+| 1   | Engage a CA on GST/TCS for the hostless model                                 | B1          | **This week** — critical path          |
+| 2   | Start venue agreements; collect hours, capacity, price sign-off, image rights | B4, B5, B13 | **This week** — critical path          |
+| 3   | Start or confirm Razorpay KYC; send test keys to engineering now              | B2          | **This week**                          |
+| 4   | Decide markup vs. commission and who absorbs the gateway fee                  | B6          | Before booking aggregate money columns |
+| 5   | Decide cancellation/refund windows                                            | B7          | Before Razorpay website review         |
+| 6   | Choose voucher redemption method (recommend reference lookup)                 | B8          | Next 1–2 weeks                         |
+| 7   | Send one real OTP email; confirm domain verification                          | B9          | This week                              |
+| 8   | Approve Sentry; choose a deploy target                                        | B11, B12    | Before production                      |
+| 9   | Viman Nagar: sign venues or drop from scope                                   | B13         | Before marketing copy                  |
+| 10  | Decide whether WhatsApp Cloud API is a launch criterion                       | B15         | Before pilot date is fixed             |
 
 ---
 
 ## Evidence index
 
-`docs/ASSUMPTIONS.md` (A-001…A-016) · `PROJECT_STATE.md` (blockers, open items)
-· `docs/EMAIL.md` · `docs/adr/0010-payments-boundary-deferred.md` ·
-`docs/adr/0007-llm-and-embeddings.md` · `src/adapters/payments/razorpay/index.ts`
-· `src/adapters/email/ses/index.ts` · `src/adapters/maps/google/index.ts` ·
-`src/adapters/maps/fallback.ts` · `prisma/schema.prisma` · `.env.example`
-(variable **names** only — no values were read or printed)
+`src/modules/booking/checkout.ts` · `src/modules/booking/pricing.ts` ·
+`src/adapters/payments/razorpay/index.ts` · `src/modules/metering/rates.ts` ·
+`src/modules/metering/service.ts` · `src/data/pune-pilot.ts` ·
+`scripts/seed-pune-pilot.ts` · `src/lib/db.ts` · `prisma/schema.prisma` ·
+`prisma/migrations/20261020191332_experience_availability_slots` ·
+`src/modules/trips/simulate.ts` · `src/components/site/booking-panel.tsx` ·
+`src/components/trips/TripArchitectView.tsx` · `next.config.ts` ·
+`src/modules/concierge/options.ts` · `docs/adr/0016-booking-flow-demo-and-test-checkout.md`
+· `docs/ASSUMPTIONS.md` · `PROJECT_STATE.md` · `.env.example` and `.env.local`
+(variable **names** only — no values read or printed)

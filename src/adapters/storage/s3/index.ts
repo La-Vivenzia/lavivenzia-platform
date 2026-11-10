@@ -6,6 +6,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
+  isExternalUrl,
   isStaticAssetKey,
   type SignedUpload,
   type StoragePort,
@@ -234,6 +235,8 @@ export class S3StorageAdapter implements StoragePort {
    * not error on objects it already removed.
    */
   async remove(key: string): Promise<void> {
+    // Externally hosted media is not in the bucket; there is nothing to remove.
+    if (isExternalUrl(key)) return;
     assertSafeKey(key);
 
     const command = new DeleteObjectCommand({ Bucket: this.#config.bucket, Key: key });
@@ -254,8 +257,10 @@ export class S3StorageAdapter implements StoragePort {
    *
    * Static assets (seed photography, brand marks) ship in `public/` and are
    * never uploaded to the bucket, so they resolve against the app's origin.
+   * Externally hosted media is already a URL and is returned unchanged.
    */
   publicUrl(key: string): string {
+    if (isExternalUrl(key)) return key;
     assertSafeKey(key);
     if (isStaticAssetKey(key)) {
       return `/${key}`;

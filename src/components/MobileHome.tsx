@@ -2,7 +2,6 @@ import { AIGenieSection } from "@/components/AIGenieSection";
 import { TasteArchetypeFinder } from "@/components/archetypes/TasteArchetypeFinder";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { CategoryNavigation } from "@/components/CategoryNavigation";
-import { ConciergeChatBar } from "@/components/concierge/ConciergeChatBar";
 import { CuratedSection } from "@/components/CuratedSection";
 import { ExperiencesSection } from "@/components/ExperiencesSection";
 import { Hero } from "@/components/Hero";
@@ -42,6 +41,46 @@ export function MobileHome(props: HomeData) {
     trips,
   } = props;
 
+  const staysItem = quickAccess.find(
+    (item) =>
+      item.icon === "bed" ||
+      (item.id !== "experiences" && item.id !== "destinations" && item.id !== "collections"),
+  );
+  const experiencesItem = quickAccess.find((item) => item.id === "experiences");
+  const destinationsItem = quickAccess.find((item) => item.id === "destinations");
+
+  const mobileQuickAccess: readonly QuickAccessItem[] = [
+    {
+      id: staysItem?.id ?? "stays",
+      label: "Stays",
+      icon: "bed",
+      href: staysItem?.href ?? "/categories",
+    },
+    experiencesItem ?? {
+      id: "experiences",
+      label: "Experiences",
+      icon: "compass",
+      href: "/experiences",
+    },
+    {
+      id: "ai-genie",
+      label: "AI Genie",
+      icon: "genie",
+      href: "#copilot",
+    },
+    destinationsItem ?? {
+      id: "destinations",
+      label: "Destinations",
+      icon: "pin",
+      href: "/destinations",
+    },
+  ];
+
+  const mobileCurated = curated.map((item) => {
+    const colonIndex = item.name.indexOf(":");
+    return colonIndex === -1 ? item : { ...item, name: item.name.slice(0, colonIndex).trim() };
+  });
+
   return (
     <div className="lg:hidden">
       <MobileHeader signedIn={signedIn} accountHref={accountHref} initials={initials} />
@@ -54,19 +93,19 @@ export function MobileHome(props: HomeData) {
           <SearchBar className="sm:max-w-[560px]" />
         </div>
 
-        <section id="m-concierge" aria-label="Ask the Concierge" className="scroll-mt-20 px-5 pt-7">
-          <Reveal delay={40}>
-            <ConciergeChatBar id="lv-concierge" className="sm:max-w-[560px]" />
-          </Reveal>
-        </section>
+        {/* <ConciergeChatBar /> section removed on mobile to keep single search bar per reference design */}
 
         <Reveal className="px-5 pt-7" delay={60}>
-          <CategoryNavigation items={quickAccess} />
+          <CategoryNavigation items={mobileQuickAccess} />
         </Reveal>
 
-        <CuratedTripsSection trips={trips} variant="mobile" id="m-trips" className="px-5 pt-10" />
+        <CuratedSection items={mobileCurated} />
 
-        <CuratedSection items={curated} />
+        <AIGenieSection />
+
+        <PopularDestinations items={popular} />
+
+        <CuratedTripsSection trips={trips} variant="mobile" id="m-trips" className="px-5 pt-10" />
 
         {journeys.length > 0 ? (
           <>
@@ -100,9 +139,9 @@ export function MobileHome(props: HomeData) {
             </section>
           </>
         ) : null}
-        <AIGenieSection />
+
         <LiveTrackingSection />
-        <PopularDestinations items={popular} />
+
         <ExperiencesSection items={stories} />
 
         <Reveal className="px-5 pt-12">

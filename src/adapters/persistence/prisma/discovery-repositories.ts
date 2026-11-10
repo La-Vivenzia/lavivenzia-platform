@@ -58,6 +58,7 @@ const PUBLISHED_SQL = Prisma.sql`e.status = 'PUBLISHED'`;
 const RELEVANCE_WEIGHTS = {
   title: 1,
   summary: 0.6,
+  addressLine: 0.5,
   city: 0.5,
   hostName: 0.4,
   /** Added when the term appears verbatim in the title. */
@@ -399,6 +400,7 @@ function createPrismaDiscoveryRepository(
     return Prisma.sql`(
       e.title ILIKE ${pattern}
       OR COALESCE(e.summary, '') ILIKE ${pattern}
+      OR COALESCE(e.address_line, '') ILIKE ${pattern}
       OR COALESCE(e.city, '') ILIKE ${pattern}
       OR h.display_name ILIKE ${pattern}
       OR word_similarity(${term}, e.title) >= ${FUZZY_MATCH_THRESHOLD}::real
@@ -420,6 +422,7 @@ function createPrismaDiscoveryRepository(
       GREATEST(
         word_similarity(${term}, e.title) * ${weights.title}::real,
         word_similarity(${term}, COALESCE(e.summary, '')) * ${weights.summary}::real,
+        word_similarity(${term}, COALESCE(e.address_line, '')) * ${weights.addressLine}::real,
         word_similarity(${term}, COALESCE(e.city, '')) * ${weights.city}::real,
         word_similarity(${term}, h.display_name) * ${weights.hostName}::real
       )

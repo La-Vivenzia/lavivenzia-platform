@@ -20,7 +20,7 @@ export const brand = {
   eyebrow: "Experiences Beyond Destinations",
   headline: ["Journeys", "Designed", "Around You."],
   supporting: "Curated stays, unique experiences and intelligent planning — all in one place.",
-  searchPlaceholder: "Where would you like to go?",
+  searchPlaceholder: "Describe the moment (e.g. poolside brunch, sunset craft brews)...",
 } as const;
 
 export const heroImage = {
@@ -239,12 +239,14 @@ export const liveTracking = {
  * there is no accommodation entity, AI planning is a later phase, and there is
  * no editorial content — a nav item that scrolls to invented copy is worse than
  * one fewer nav item.
+ *
+ * No host link: host onboarding and the host console moved to the dedicated
+ * host portal, and `next.config.ts` redirects the old host routes there.
  */
 export const desktopNav = [
   { label: "Experiences", href: "/experiences" },
   { label: "Destinations", href: "/destinations" },
   { label: "Collections", href: "/categories" },
-  { label: "Host with us", href: "/become-a-host" },
 ];
 
 export const bottomNav = [

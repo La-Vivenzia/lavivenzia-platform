@@ -257,6 +257,27 @@ Use adapter/service boundaries:
 
 Provider-specific code should not spread throughout business modules.
 
+### Cost metering (FinOps)
+
+`src/modules/metering` prices every billable provider call from a fixed price
+list (`rates.ts`) in integer paise and integer micro-dollars (BigInt, one
+half-up rounding, ₹86.00/USD baseline) and keeps the last 10,000 events in an
+in-process ring buffer. Periods (`today`, `this_week`, `this_month`) are IST
+boundaries; a budget alert fires at ₹5,000 for the month.
+
+- The Google Places, Resend and Anthropic adapters report through an injected
+  `UsageRecorder` (default: the process-wide service) via `recordUsageSafely`.
+  Metering never throws into, or awaits inside, the request it observes.
+- Failed calls are stored with zero cost and counted as errors.
+- `GET|POST /api/v1/ops/metering` serves the summary and ingests events from
+  internal services (CRM, WhatsApp worker). Access is a shared secret
+  (`METERING_SECRET_KEY`, as `x-metering-secret` or bearer); open locally when
+  unset, closed in production when unset. Callers report usage; the server sets
+  the price.
+- It is a gauge, not a ledger: memory only, per instance, lost on restart.
+  Provider invoices remain authoritative. Durable aggregation would need a
+  table and a migration.
+
 ## 11. Environments
 
 ```text

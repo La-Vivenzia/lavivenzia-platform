@@ -39,6 +39,17 @@ model User {
 
   status UserStatus @default(ACTIVE)
 
+  /// Self-service profile (FR-04). Every field optional: an account is usable
+  /// the moment the email is verified, and nothing here gates a booking.
+  fullName  String? @map("full_name")
+  phone     String? @map("phone")
+  avatarUrl String? @map("avatar_url")
+  bio       String? @map("bio")
+  /// Traveller taste — dietary needs, preferred vibes, home micro-clusters.
+  /// JSON because it is a bag of tags the traveller curates, not relational
+  /// business data; its shape is enforced by src/modules/user-profile.
+  preferences Json? @default("{}") @map("preferences")
+
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   /// Soft delete: retained for financial and audit traceability.

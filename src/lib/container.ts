@@ -4,15 +4,18 @@ import { env, isProduction } from "@/lib/env";
 import { AuthService } from "@/modules/auth/service";
 import { OTP_TTL_MS } from "@/modules/auth/otp";
 import { HostService } from "@/modules/hosts/service";
+import { UserProfileService } from "@/modules/user-profile/service";
 import { ExperienceService } from "@/modules/experiences/service";
 import { AvailabilityService } from "@/modules/availability/service";
 import { OperationsService } from "@/modules/operations/service";
 import { DiscoveryService } from "@/modules/discovery/service";
 import { CopilotService } from "@/modules/copilot/service";
+import { VivenIQService } from "@/modules/viveniq/service";
 import { CheckoutService, resolveCheckoutMode } from "@/modules/booking/checkout";
 import { BookingCapacityEngine } from "@/modules/booking/capacity-engine";
 import { getLogger } from "@/lib/logger";
 import { AnthropicLlmAdapter } from "@/adapters/llm/anthropic";
+import { GeminiLlmAdapter, resolveGeminiApiKey } from "@/adapters/llm/gemini";
 import { RazorpayAdapter } from "@/adapters/payments/razorpay";
 import type { EmailPort } from "@/ports/email";
 import type { StoragePort } from "@/ports/storage";
@@ -28,6 +31,10 @@ import {
   createUserRepository,
 } from "@/adapters/persistence/prisma/auth-repositories";
 import { createHostRepository } from "@/adapters/persistence/prisma/host-repositories";
+import {
+  createAccountSessionRepository,
+  createUserProfileRepository,
+} from "@/adapters/persistence/prisma/user-profile-repositories";
 import {
   createCategoryRepository,
   createExperienceRepository,
@@ -96,6 +103,21 @@ export function getAuthService(): AuthService {
   });
 
   return authService;
+}
+
+let userProfileService: UserProfileService | undefined;
+
+/** Account settings: profile, password and sessions. */
+export function getUserProfileService(): UserProfileService {
+  userProfileService ??= new UserProfileService({
+    profiles: createUserProfileRepository(prisma),
+    sessions: createAccountSessionRepository(prisma),
+    audit: createAuditRepository(prisma),
+    rateLimiter: createRateLimiter(prisma),
+    now: () => new Date(),
+  });
+
+  return userProfileService;
 }
 
 // ── Hosts and inventory ────────────────────────────────────────────────────
@@ -223,6 +245,28 @@ export function getCopilotService(): CopilotService {
   });
 
   return copilotService;
+}
+
+let vivenIQService: VivenIQService | undefined;
+
+/**
+ * VivenIQ conversational search. Deterministic: it reads discovery and writes
+ * its reply from what discovery returned, so it needs no model to be correct.
+ * With a Gemini key configured the model may rephrase that reply; any failure
+ * or late answer falls back to the deterministic one.
+ */
+export function getVivenIQService(): VivenIQService {
+  if (!vivenIQService) {
+    const geminiKey = resolveGeminiApiKey(env);
+    vivenIQService = new VivenIQService({
+      discovery: getDiscoveryService(),
+      llm: geminiKey ? new GeminiLlmAdapter({ apiKey: geminiKey }) : undefined,
+      onLlmFailure: (reason) =>
+        getLogger().warn({ reason }, "viveniq model reply failed; using deterministic reply"),
+    });
+  }
+
+  return vivenIQService;
 }
 
 let checkoutService: CheckoutService | undefined;

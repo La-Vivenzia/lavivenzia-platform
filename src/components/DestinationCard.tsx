@@ -83,14 +83,14 @@ export function DestinationCard({
   return (
     <article
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-card",
+        "group relative flex h-full flex-col overflow-hidden rounded-card",
         "border border-line bg-surface p-1.5 shadow-card",
         "transition-[transform,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
         "hover:-translate-y-1 hover:border-line-strong hover:shadow-raised",
         className,
       )}
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[calc(var(--radius-card)-0.375rem)]">
+      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-[calc(var(--radius-card)-0.375rem)]">
         <Image
           src={image}
           alt={alt}
@@ -109,19 +109,19 @@ export function DestinationCard({
       </div>
 
       <div className="flex flex-1 flex-col px-2 pt-3 pb-2.5 lg:px-3 lg:pt-4 lg:pb-3.5">
-        <h3 className="line-clamp-2 font-sans text-[15px] leading-snug font-semibold text-heading lg:text-[17px]">
+        <h3 className="line-clamp-2 h-[42px] font-sans text-[15px] leading-snug font-semibold text-heading lg:h-[48px] lg:text-[17px]">
           {/* Stretched link keeps the whole card clickable while leaving the
               favourite button (z-20) on top of it. */}
           <a href={href} className="z-10 after:absolute after:inset-0 after:rounded-card">
             {name}
           </a>
         </h3>
-        <p className="mt-0.5 text-[13px] font-light text-fg-muted lg:mt-1 lg:text-[14px]">
+        <p className="mt-0.5 line-clamp-1 text-[13px] font-light text-fg-muted lg:mt-1 lg:text-[14px]">
           {country}
         </p>
         <span
           className={cn(
-            "mt-3 inline-flex w-fit items-center rounded-lg px-2.5 py-1.5",
+            "mt-auto inline-flex w-fit items-center rounded-lg px-2.5 py-1.5",
             "bg-surface-2 text-[10px] font-medium tracking-[0.14em] text-fg uppercase lg:text-[10.5px]",
             "transition-colors duration-300 group-hover:bg-surface-3",
           )}

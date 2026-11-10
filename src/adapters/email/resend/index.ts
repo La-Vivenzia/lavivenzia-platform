@@ -4,6 +4,11 @@ import type { EmailMessage, EmailPort, SendEmailResult } from "@/ports/email";
 import { EMAIL_SENDER_NAME, renderEmailTemplate } from "@/modules/notifications/email-templates";
 import { InternalError, ProviderTimeoutError, ProviderUnavailableError } from "@/lib/errors";
 import { maskEmail } from "@/lib/mask";
+import {
+  getMeteringService,
+  recordUsageSafely,
+  type UsageRecorder,
+} from "@/modules/metering/service";
 
 /**
  * Resend adapter.
@@ -98,6 +103,8 @@ export interface ResendEmailAdapterDeps {
   readonly logger: () => Logger;
   /** Injected in tests. Built lazily from the config in production. */
   readonly client?: ResendSendClient;
+  /** Where sends are reported. Defaults to the process-wide meter. */
+  readonly metering?: UsageRecorder;
 }
 
 interface ResendErrorShape {
@@ -114,6 +121,7 @@ function formatSender(name: string, address: string): string {
 export class ResendEmailAdapter implements EmailPort {
   readonly #config: ResendEmailConfig;
   readonly #logger: () => Logger;
+  readonly #metering: UsageRecorder;
   #client: ResendSendClient | undefined;
 
   constructor(config: ResendEmailConfig, deps: ResendEmailAdapterDeps) {
@@ -127,6 +135,7 @@ export class ResendEmailAdapter implements EmailPort {
     this.#config = config;
     this.#logger = deps.logger;
     this.#client = deps.client;
+    this.#metering = deps.metering ?? getMeteringService();
   }
 
   /**
@@ -156,6 +165,7 @@ export class ResendEmailAdapter implements EmailPort {
         { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
       );
     } catch (caught) {
+      this.#meter("ERROR", message.template, startedAt);
       throw this.#translate(caught, message.template, recipient, Date.now() - startedAt);
     }
 
@@ -164,12 +174,14 @@ export class ResendEmailAdapter implements EmailPort {
     // a success is the one mistake that would report delivery of a login code
     // that was never sent.
     if (result.error) {
+      this.#meter("ERROR", message.template, startedAt);
       throw this.#translate(result.error, message.template, recipient, Date.now() - startedAt);
     }
 
     const providerMessageId = result.data?.id;
 
     if (!providerMessageId) {
+      this.#meter("ERROR", message.template, startedAt);
       // Without an ID there is nothing to reconcile a bounce against, so treat
       // it as a failed send rather than reporting an untraceable delivery.
       throw new ProviderUnavailableError(
@@ -190,7 +202,21 @@ export class ResendEmailAdapter implements EmailPort {
       "transactional email sent",
     );
 
+    this.#meter("SUCCESS", message.template, startedAt);
+
     return { providerMessageId };
+  }
+
+  /** The template name only — never the recipient, which is personal data. */
+  #meter(status: "SUCCESS" | "ERROR", template: string, startedAt: number): void {
+    recordUsageSafely(this.#metering, {
+      provider: "RESEND",
+      operation: "email.transactional_send",
+      units: 1,
+      latencyMs: Date.now() - startedAt,
+      status,
+      metadata: { template },
+    });
   }
 
   /**

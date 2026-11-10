@@ -1,7 +1,12 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 import { InternalError, NotImplementedError, ValidationError } from "@/lib/errors";
-import { isStaticAssetKey, type StoragePort, type StoredObject } from "@/ports/storage";
+import {
+  isExternalUrl,
+  isStaticAssetKey,
+  type StoragePort,
+  type StoredObject,
+} from "@/ports/storage";
 
 /**
  * Local filesystem storage — development only.
@@ -80,6 +85,8 @@ export class LocalStorageAdapter implements StoragePort {
   }
 
   async remove(key: string): Promise<void> {
+    // Externally hosted media was never written here; there is nothing to remove.
+    if (isExternalUrl(key)) return;
     // `force` makes a missing file a success. Removal is called during
     // reconciliation and on retries, where "already gone" is the desired end
     // state rather than an error.
@@ -87,6 +94,7 @@ export class LocalStorageAdapter implements StoragePort {
   }
 
   publicUrl(key: string): string {
+    if (isExternalUrl(key)) return key;
     assertSafeKey(key);
     // Static photography and brand assets ship in `public/images` and
     // `public/brand`, not under the upload root.

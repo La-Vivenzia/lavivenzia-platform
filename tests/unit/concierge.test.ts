@@ -123,6 +123,12 @@ describe("findHotspotInText", () => {
     expect(seasons.aliases).toContain("hadapsar");
   });
 
+  it("places Viman Nagar and Phoenix Marketcity at the Viman Nagar hotspot", () => {
+    expect(findHotspotInText("Viman Nagar")?.id).toBe("viman_nagar");
+    expect(findHotspotInText("somewhere near viman")?.id).toBe("viman_nagar");
+    expect(findHotspotInText("Phoenix Marketcity")?.id).toBe("viman_nagar");
+  });
+
   it("does not guess at places outside the pilot", () => {
     expect(findHotspotInText("Koregaon Park")).toBeNull();
     expect(findHotspotInText("")).toBeNull();
@@ -188,6 +194,35 @@ describe("budget filtering — the traveller's own number", () => {
       limit: 10,
     });
     for (const match of matches) expect(match.totalMinor).toBeLessThanOrEqual(400_000);
+  });
+
+  it("counts every Viman Nagar listing as within the Viman Nagar hotspot", () => {
+    const { matches } = findVibeMatches({
+      hotspot: "viman_nagar",
+      craving: "dining",
+      partySize: 2,
+      budget: null,
+      limit: 10,
+    });
+    const within = new Set(matches.filter((m) => m.withinHotspot).map((m) => m.slug));
+    for (const slug of [
+      "hyatt-regency-brunch-wellness-viman-nagar",
+      "shizusan-dimsum-sushi-tasting-phoenix-marketcity",
+    ]) {
+      expect(within, slug).toContain(slug);
+    }
+
+    const beer = findVibeMatches({
+      hotspot: "viman_nagar",
+      craving: "beer",
+      partySize: 2,
+      budget: null,
+      limit: 10,
+    });
+    expect(beer.matches[0]).toMatchObject({
+      slug: "toit-brewery-craft-beer-tasting-kalyani-viman",
+      withinHotspot: true,
+    });
   });
 
   it("excludes Effingut (₹1,499) at ₹500 each but keeps it when flexible", () => {

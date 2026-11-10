@@ -26,6 +26,15 @@ export function isStaticAssetKey(key: string): boolean {
   return STATIC_ASSET_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
 
+/**
+ * Keys that are already absolute URLs — media hosted by a third party rather
+ * than in our storage. Adapters pass these through unchanged and never write
+ * to or delete them: the object is not ours to manage.
+ */
+export function isExternalUrl(key: string): boolean {
+  return key.startsWith("http://") || key.startsWith("https://");
+}
+
 export interface SignedUpload {
   readonly url: string;
   readonly fields: Readonly<Record<string, string>>;

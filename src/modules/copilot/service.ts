@@ -240,7 +240,12 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function mentions(text: string, term: string): boolean {
+/**
+ * Whether `text` mentions `term` as a whole word or phrase, allowing a plural.
+ * Exported so the itinerary engine ranks against the same vocabulary the same
+ * way, rather than keeping a second matcher that could drift.
+ */
+export function mentions(text: string, term: string): boolean {
   return new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(term)}(e?s)?([^\\p{L}\\p{N}]|$)`, "iu").test(
     text,
   );

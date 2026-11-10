@@ -154,6 +154,15 @@ describe("LocalStorageAdapter", () => {
     );
   });
 
+  it("passes externally hosted URLs through unchanged", () => {
+    const url = "https://lh3.googleusercontent.com/p/abc=w1600";
+    expect(adapter.publicUrl(url)).toBe(url);
+  });
+
+  it("treats removing externally hosted media as a no-op", async () => {
+    await expect(adapter.remove("https://example.com/a.jpg")).resolves.toBeUndefined();
+  });
+
   it("refuses to build a URL for an unsafe key", () => {
     expect(() => adapter.publicUrl("../escape.jpg")).toThrow(ValidationError);
   });

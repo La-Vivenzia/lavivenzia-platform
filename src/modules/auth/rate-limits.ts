@@ -40,6 +40,15 @@ export const RATE_LIMITS = {
   mfaVerifyPerUser: { limit: 10, windowMs: 15 * MINUTE },
 
   /**
+   * Password change per user.
+   *
+   * The endpoint verifies the current password, so without a ceiling a stolen
+   * session becomes an unthrottled oracle for it — and the login limit does
+   * not apply, because the caller is already signed in.
+   */
+  passwordChangePerUser: { limit: 5, windowMs: 15 * MINUTE },
+
+  /**
    * Draft creation per host.
    *
    * The service also caps how many unarchived listings a host may hold, but
@@ -80,6 +89,24 @@ export const RATE_LIMITS = {
    * mood; a ceiling on a script.
    */
   copilotPerIp: { limit: 60, windowMs: 15 * MINUTE },
+
+  /**
+   * VivenIQ conversational search per client.
+   *
+   * Each turn fans out to up to four keyword scans plus a category read, so it
+   * is several times the cost of one discovery search. Generous for a
+   * traveller refining a moment; a ceiling on a script.
+   */
+  viveniqPerIp: { limit: 60, windowMs: 15 * MINUTE },
+
+  /**
+   * Itinerary generation and swap per client.
+   *
+   * No model and no database read, but each request is an exhaustive search
+   * over tens of thousands of sequences. Generous for a traveller tuning a plan
+   * and swapping stops; a ceiling on a script using it as free compute.
+   */
+  itineraryPerIp: { limit: 90, windowMs: 15 * MINUTE },
 
   /**
    * Booking checkout per client (prepare and confirm share it).

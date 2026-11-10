@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { PageBody, PageHeader } from "@/components/PageHeader";
+import { ItinerarySynthesizer } from "@/components/trips/ItinerarySynthesizer";
 import { TripArchitectView } from "@/components/trips/TripArchitectView";
 import { EmptyState } from "@/components/ui/feedback";
 import { getCheckoutService } from "@/lib/container";
@@ -58,6 +59,7 @@ export default async function TripArchitectPage({
             description="Our curators are planning the next set. In the meantime, the concierge can find something for this evening."
           />
         )}
+        <ItinerarySynthesizer />
       </div>
     </PageBody>
   );

@@ -2,6 +2,12 @@ import type { Logger } from "pino";
 import type { Coordinates, MapsPort, PlaceSuggestion } from "@/ports/maps";
 import { isValidLatitude, isValidLongitude } from "@/modules/discovery/geo";
 import {
+  getMeteringService,
+  recordUsageSafely,
+  type UsageRecorder,
+} from "@/modules/metering/service";
+import type { ApiOperation } from "@/modules/metering/types";
+import {
   InternalError,
   NotFoundError,
   ProviderTimeoutError,
@@ -65,7 +71,20 @@ export interface GoogleMapsDeps {
   readonly logger: () => Logger;
   /** Injected in tests, so the adapter is exercised without a network or a key. */
   readonly fetch?: typeof globalThis.fetch;
+  /** Where billable calls are reported. Defaults to the process-wide meter. */
+  readonly metering?: UsageRecorder;
 }
+
+/**
+ * The Places SKU each adapter operation is billed under. `geocode` is a Place
+ * Details request with a `location` field mask.
+ */
+const METERED_OPERATIONS = {
+  autocomplete: "places.autocomplete",
+  geocode: "places.details",
+} as const satisfies Record<string, ApiOperation>;
+
+type GoogleOperation = keyof typeof METERED_OPERATIONS;
 
 /** The slices of the Places responses this adapter reads. */
 interface AutocompleteResponse {
@@ -147,6 +166,7 @@ export class GoogleMapsAdapter implements MapsPort {
   readonly #config: GoogleMapsConfig;
   readonly #logger: () => Logger;
   readonly #fetch: typeof globalThis.fetch;
+  readonly #metering: UsageRecorder;
 
   constructor(config: GoogleMapsConfig, deps: GoogleMapsDeps) {
     // Assert configuration at construction: a missing key must fail at wiring
@@ -158,6 +178,7 @@ export class GoogleMapsAdapter implements MapsPort {
     this.#config = config;
     this.#logger = deps.logger;
     this.#fetch = deps.fetch ?? globalThis.fetch;
+    this.#metering = deps.metering ?? getMeteringService();
   }
 
   async autocomplete(query: string, limit: number): Promise<readonly PlaceSuggestion[]> {
@@ -248,7 +269,7 @@ export class GoogleMapsAdapter implements MapsPort {
    * is a request we built wrongly or a key that is not authorised, and repeating
    * it burns the budget while delaying the alarm that should fire instead.
    */
-  async #call<T>(url: string, init: RequestInit, operation: string): Promise<T> {
+  async #call<T>(url: string, init: RequestInit, operation: GoogleOperation): Promise<T> {
     const startedAt = Date.now();
     const controller = new AbortController();
     const timer = setTimeout(() => {
@@ -261,6 +282,7 @@ export class GoogleMapsAdapter implements MapsPort {
     } catch (caught) {
       const isAbort = caught instanceof Error && caught.name === "AbortError";
       const detail = { provider: this.provider, operation, durationMs: Date.now() - startedAt };
+      this.#meter(operation, "ERROR", startedAt);
 
       throw isAbort
         ? new ProviderTimeoutError("The location service did not respond in time.", detail)
@@ -268,6 +290,10 @@ export class GoogleMapsAdapter implements MapsPort {
     } finally {
       clearTimeout(timer);
     }
+
+    // Metered at the status line: Google bills a 2xx whether or not the body
+    // turns out to be readable, and does not bill a rejected request.
+    this.#meter(operation, response.ok ? "SUCCESS" : "ERROR", startedAt);
 
     if (!response.ok) {
       const failure = classifyFailure(response.status);
@@ -306,5 +332,15 @@ export class GoogleMapsAdapter implements MapsPort {
         operation,
       });
     }
+  }
+
+  #meter(operation: GoogleOperation, status: "SUCCESS" | "ERROR", startedAt: number): void {
+    recordUsageSafely(this.#metering, {
+      provider: "GOOGLE_PLACES",
+      operation: METERED_OPERATIONS[operation],
+      units: 1,
+      latencyMs: Date.now() - startedAt,
+      status,
+    });
   }
 }

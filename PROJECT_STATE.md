@@ -3,7 +3,7 @@
 Living record of what exists, what is pending, and what is blocked. Updated at
 the end of every task, per `DEVELOPMENT_WORKFLOW.md`.
 
-**Last updated:** 2026-09-01
+**Last updated:** 2026-11-01
 **Current phase:** 5.1 — Alignment, completion and roadmap reconciliation
 **Next phase:** 6 — Booking & Payments
 
@@ -23,7 +23,7 @@ Development Strategy"**, whose phases are:
 | 6     | Booking & Payments                | **Next**                                 |
 | 7     | Admin & Operations                | Built early — the console already exists |
 | 8     | AI Discovery MVP                  | Not started                              |
-| 9     | Itinerary Engine                  | Not started                              |
+| 9     | Itinerary Engine                  | Partly built early — deterministic MVP   |
 | 10    | CRM & Notifications               | Partly built early — transactional email |
 | 11    | Analytics, Security & Hardening   | Partly built early — RBAC, audit, limits |
 | 12    | Integration, QA & Production      | Not started                              |
@@ -163,6 +163,53 @@ the AWS account is being arranged separately, so the SES adapter has never
 spoken to SES. Google OAuth, password reset and email change each still need
 their own flow. Full list in `docs/AUTHENTICATION.md` under Known limitations,
 and `docs/EMAIL.md` for what AWS must supply.
+
+---
+
+## Milestone record — itinerary engine MVP (2026-11-01, official Phase 9, early)
+
+**What exists.** `src/modules/itinerary/` plans an evening across the Pune pilot
+catalogue (FR-18), from a mood, free text, party size, time window, per-person
+budget and stop count, and can swap any single stop.
+
+- `types.ts`: Zod request schemas (`ItineraryPreferences`, `ItinerarySwap`,
+  `ItineraryRequest`) and response types. The body carries preferences and, for
+  a swap, slugs only, never a time or a price.
+- `generator.ts`: deterministic scheduling. A **slot-fit table** (`SLOT_FIT`)
+  says when each listing suits a plan (editorial, not opening hours or
+  availability). An exhaustive, pruned search over ordered selections ranks
+  plans by stop count, mood coverage, relevance, variety, idle time, transfer
+  time, cost, then slug. It uses earliest-start placement on the quarter hour,
+  walk or ride transfer buffers from stored coordinates, and a 120-minute idle
+  cap. Money comes from `quoteBooking` via the concierge's `partyCost`, summed
+  as safe integers. An independent chronology check runs on every plan
+  returned.
+- `service.ts`: `synthesizeItinerary`, `swapItineraryStop` and
+  `handleItineraryRequest`. "Nothing fits" and "not enough fits" are outcomes
+  with a reason (`unfulfillable` / `partial`), not errors. A bad swap (unknown
+  slug, duplicate, stale party) is a `ValidationError`.
+- `POST /api/v1/itinerary/generate`: unauthenticated, rate limited by IP
+  (`itineraryPerIp`, 90 / 15 min).
+- `ItinerarySynthesizer` panel on `/trips/architect`, below the curated trips.
+  `PartyStepper` was extracted from `TripArchitectView` so both share it.
+- Copilot's `mentions` matcher is now exported and reused, with its mood
+  vocabulary, so the two cannot rank differently.
+
+**No model is involved.** Interpretation is keyword-based on the copilot's
+vocabulary. Prose is deterministic, built from the listing summary and the
+matched terms. LLM-written narration (with the copilot's grounding and
+rejection rules) is a possible next step. It is not built.
+
+**Not yet:** saved itineraries (`Itinerary` / `ItineraryItem` in REQUIREMENTS
+§ data model, no migration yet), multi-day plans, stays, live availability.
+The slot-fit table needs venue confirmation before anything beyond a suggested
+running order is promised.
+
+**Verification:** `tests/unit/itinerary.test.ts` (33 tests). Full unit suite,
+lint, typecheck and build pass. The API and page were exercised against
+`next dev`. The panel was **not visually inspected**: no browser tool was
+available, so DESIGN.md §B.12 (both modes, both palettes, breakpoints) remains
+open for this screen.
 
 ---
 
