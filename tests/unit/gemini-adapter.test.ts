@@ -67,7 +67,7 @@ describe("GeminiLlmAdapter", () => {
 
     const [url, init] = fetch.mock.calls[0]!;
     expect(String(url)).toBe(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
     );
     // The key never travels in the URL.
     expect(String(url)).not.toContain("test-key");
@@ -89,7 +89,7 @@ describe("GeminiLlmAdapter", () => {
 
     await adapter.generateStructured({ system: "", prompt: "", schemaName: "x", options: OPTIONS });
 
-    expect(String(fetch.mock.calls[1]![0])).toContain("/gemini-1.5-flash:generateContent");
+    expect(String(fetch.mock.calls[1]![0])).toContain("/gemini-3.5-flash:generateContent");
   });
 
   it("rejects, rather than repairs, output that is not JSON", async () => {
@@ -151,7 +151,7 @@ describe("GeminiLlmAdapter", () => {
       { provider: "GOOGLE_GEMINI", operation: "gemini.flash_input", units: 120, status: "SUCCESS" },
       { provider: "GOOGLE_GEMINI", operation: "gemini.flash_output", units: 40, status: "SUCCESS" },
     ]);
-    expect(metering.events[0]!.metadata).toEqual({ model: "gemini-2.5-flash" });
+    expect(metering.events[0]!.metadata).toEqual({ model: "gemini-3.5-flash-lite" });
   });
 
   it("records a failed call as an error and survives a throwing meter", async () => {
@@ -266,7 +266,7 @@ describe("VivenIQ with a model", () => {
     expect(call!.system).toContain("I am VivenIQ, your private concierge at La Vivenzia.");
     expect(call!.options).toEqual({
       maxOutputTokens: VIVENIQ_LLM.maxOutputTokens,
-      timeoutMs: 1_500,
+      timeoutMs: 4_500,
     });
 
     const prompt = JSON.parse(call!.prompt) as { experiences: Record<string, unknown>[] };

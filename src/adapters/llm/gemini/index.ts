@@ -20,12 +20,13 @@ import {
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 /**
- * Model ids, in order. The second is tried only when the first is not found
- * (404) — the failure a renamed or retired model id produces. Every other
- * failure is reported straight away: a second request would only spend the
- * caller's budget on the same answer.
+ * Model ids, in order: `gemini-3.5-flash-lite` first for latency on the
+ * traveller-facing path, then `gemini-3.5-flash`. The second is tried only
+ * when the first is not found (404) — the failure a renamed or retired model
+ * id produces. Every other failure is reported straight away: a second
+ * request would only spend the caller's budget on the same answer.
  */
-export const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash"] as const;
+export const GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-3.5-flash"] as const;
 
 export interface GeminiLlmConfig {
   readonly apiKey: string;
