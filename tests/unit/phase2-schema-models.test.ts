@@ -26,9 +26,7 @@ const migrationPath = resolve(
 );
 
 const schemaContent = readFileSync(schemaPath, "utf-8");
-const migrationContent = existsSync(migrationPath)
-  ? readFileSync(migrationPath, "utf-8")
-  : "";
+const migrationContent = existsSync(migrationPath) ? readFileSync(migrationPath, "utf-8") : "";
 
 describe("Phase 2 Prisma Schema Architecture", () => {
   it("exists and is readable", () => {
@@ -125,14 +123,16 @@ describe("Phase 2 Prisma Schema Architecture", () => {
       const body = match![1];
 
       expect(body).toContain("id               String        @id @default(uuid()) @db.Uuid");
-      expect(body).toContain("bookingReference String        @unique @map(\"booking_reference\")");
-      expect(body).toContain("userId           String        @map(\"user_id\") @db.Uuid");
-      expect(body).toContain("experienceId     String        @map(\"experience_id\") @db.Uuid");
-      expect(body).toContain("slotId           String        @map(\"slot_id\") @db.Uuid");
-      expect(body).toContain("guestCount       Int           @map(\"guest_count\")");
+      expect(body).toContain('bookingReference String        @unique @map("booking_reference")');
+      expect(body).toContain('userId           String        @map("user_id") @db.Uuid');
+      expect(body).toContain('experienceId     String        @map("experience_id") @db.Uuid');
+      expect(body).toContain('slotId           String        @map("slot_id") @db.Uuid');
+      expect(body).toContain('guestCount       Int           @map("guest_count")');
       expect(body).toContain("status           BookingStatus @default(DRAFT)");
-      expect(body).toContain("heldUntil        DateTime?     @map(\"held_until\") @db.Timestamptz(3)");
-      expect(body).toContain("totalAmountMinorUnits Int    @map(\"total_amount_minor_units\")");
+      expect(body).toContain(
+        'heldUntil        DateTime?     @map("held_until") @db.Timestamptz(3)',
+      );
+      expect(body).toContain('totalAmountMinorUnits Int    @map("total_amount_minor_units")');
 
       // Relations
       expect(body).toContain("user       User           @relation(");
@@ -152,7 +152,7 @@ describe("Phase 2 Prisma Schema Architecture", () => {
       expect(body).toContain("@@index([status, heldUntil])");
       // bookingReference has @unique so duplicate @@index is removed
       expect(body).not.toContain("@@index([bookingReference])");
-      expect(body).toContain("@@map(\"bookings\")");
+      expect(body).toContain('@@map("bookings")');
     });
 
     it("defines Payment model with Razorpay IDs and demo mode flag", () => {
@@ -160,12 +160,12 @@ describe("Phase 2 Prisma Schema Architecture", () => {
       expect(match).not.toBeNull();
       const body = match![1];
 
-      expect(body).toContain("razorpayOrderId   String? @unique @map(\"razorpay_order_id\")");
-      expect(body).toContain("razorpayPaymentId String? @unique @map(\"razorpay_payment_id\")");
-      expect(body).toContain("amountMinorUnits         Int          @map(\"amount_minor_units\")");
-      expect(body).toContain("isSimulated Boolean @default(false) @map(\"is_simulated\")");
+      expect(body).toContain('razorpayOrderId   String? @unique @map("razorpay_order_id")');
+      expect(body).toContain('razorpayPaymentId String? @unique @map("razorpay_payment_id")');
+      expect(body).toContain('amountMinorUnits         Int          @map("amount_minor_units")');
+      expect(body).toContain('isSimulated Boolean @default(false) @map("is_simulated")');
       expect(body).toContain("refundStatus             RefundStatus @default(NONE)");
-      expect(body).toContain("@@map(\"payments\")");
+      expect(body).toContain('@@map("payments")');
     });
 
     it("defines PaymentEvent model with unique eventId for idempotent webhook handling", () => {
@@ -173,10 +173,10 @@ describe("Phase 2 Prisma Schema Architecture", () => {
       expect(match).not.toBeNull();
       const body = match![1];
 
-      expect(body).toContain("eventId      String             @unique @map(\"event_id\")");
+      expect(body).toContain('eventId      String             @unique @map("event_id")');
       expect(body).toContain("payload      Json");
       expect(body).toContain("status       PaymentEventStatus @default(RECEIVED)");
-      expect(body).toContain("@@map(\"payment_events\")");
+      expect(body).toContain('@@map("payment_events")');
     });
 
     it("defines Voucher model with asymmetric Ed25519 signing attributes", () => {
@@ -184,12 +184,12 @@ describe("Phase 2 Prisma Schema Architecture", () => {
       expect(match).not.toBeNull();
       const body = match![1];
 
-      expect(body).toContain("bookingId String        @unique @map(\"booking_id\") @db.Uuid");
-      expect(body).toContain("keyId     String        @map(\"key_id\")");
-      expect(body).toContain("qrPayload String        @map(\"qr_payload\") @db.Text");
+      expect(body).toContain('bookingId String        @unique @map("booking_id") @db.Uuid');
+      expect(body).toContain('keyId     String        @map("key_id")');
+      expect(body).toContain('qrPayload String        @map("qr_payload") @db.Text');
       expect(body).toContain("signature String");
       expect(body).toContain("status    VoucherStatus @default(ISSUED)");
-      expect(body).toContain("@@map(\"vouchers\")");
+      expect(body).toContain('@@map("vouchers")');
     });
 
     it("defines Attendance as an orthogonal 1-to-1 entity on Booking", () => {
@@ -197,11 +197,13 @@ describe("Phase 2 Prisma Schema Architecture", () => {
       expect(match).not.toBeNull();
       const body = match![1];
 
-      expect(body).toContain("bookingId      String           @unique @map(\"booking_id\") @db.Uuid");
+      expect(body).toContain('bookingId      String           @unique @map("booking_id") @db.Uuid');
       expect(body).toContain("status         AttendanceStatus @default(NOT_ARRIVED)");
-      expect(body).toContain("guestCount     Int              @map(\"guest_count\")");
-      expect(body).toContain("attendedAt     DateTime?        @map(\"attended_at\") @db.Timestamptz(3)");
-      expect(body).toContain("@@map(\"attendances\")");
+      expect(body).toContain('guestCount     Int              @map("guest_count")');
+      expect(body).toContain(
+        'attendedAt     DateTime?        @map("attended_at") @db.Timestamptz(3)',
+      );
+      expect(body).toContain('@@map("attendances")');
     });
 
     it("defines PartnerAccount as 1-to-1 on Host with Door PIN and CRM commission", () => {
@@ -209,13 +211,17 @@ describe("Phase 2 Prisma Schema Architecture", () => {
       expect(match).not.toBeNull();
       const body = match![1];
 
-      expect(body).toContain("hostId       String               @unique @map(\"host_id\") @db.Uuid");
-      expect(body).toContain("commissionBps       Int                 @default(1500) @map(\"commission_bps\")");
-      expect(body).toContain("doorPinHash           String?   @map(\"door_pin_hash\")");
-      expect(body).toContain("doorPinFailedAttempts Int       @default(0) @map(\"door_pin_failed_attempts\")");
-      expect(body).toContain("doorPinLockedUntil    DateTime? @map(\"door_pin_locked_until\")");
-      expect(body).toContain("invitationTokenHash String?   @unique @map(\"invitation_token_hash\")");
-      expect(body).toContain("@@map(\"partner_accounts\")");
+      expect(body).toContain('hostId       String               @unique @map("host_id") @db.Uuid');
+      expect(body).toContain(
+        'commissionBps       Int                 @default(1500) @map("commission_bps")',
+      );
+      expect(body).toContain('doorPinHash           String?   @map("door_pin_hash")');
+      expect(body).toContain(
+        'doorPinFailedAttempts Int       @default(0) @map("door_pin_failed_attempts")',
+      );
+      expect(body).toContain('doorPinLockedUntil    DateTime? @map("door_pin_locked_until")');
+      expect(body).toContain('invitationTokenHash String?   @unique @map("invitation_token_hash")');
+      expect(body).toContain('@@map("partner_accounts")');
     });
 
     it("defines RedemptionLog as an append-only BigInt ledger", () => {
@@ -224,19 +230,30 @@ describe("Phase 2 Prisma Schema Architecture", () => {
       const body = match![1];
 
       expect(body).toContain("id               BigInt        @id @default(autoincrement())");
-      expect(body).toContain("voucherId        String        @map(\"voucher_id\") @db.Uuid");
+      expect(body).toContain('voucherId        String        @map("voucher_id") @db.Uuid');
       expect(body).toContain("isOfflineSync    Boolean       @default(false)");
-      expect(body).toContain("resultStatus     VoucherStatus @map(\"result_status\")");
-      expect(body).toContain("@@map(\"redemption_logs\")");
+      expect(body).toContain('resultStatus     VoucherStatus @map("result_status")');
+      expect(body).toContain('@@map("redemption_logs")');
     });
   });
 
   describe("Existing Schema Regression Guard", () => {
     it("preserves all 14 pre-existing models unchanged", () => {
       const existing = [
-        "User", "Session", "Role", "Permission", "RolePermission", "UserRole",
-        "AuditLog", "OtpChallenge", "RateLimitCounter", "Host", "Experience",
-        "ExperienceMedia", "Category", "ExperienceSlot",
+        "User",
+        "Session",
+        "Role",
+        "Permission",
+        "RolePermission",
+        "UserRole",
+        "AuditLog",
+        "OtpChallenge",
+        "RateLimitCounter",
+        "Host",
+        "Experience",
+        "ExperienceMedia",
+        "Category",
+        "ExperienceSlot",
       ];
 
       for (const m of existing) {
@@ -247,7 +264,7 @@ describe("Phase 2 Prisma Schema Architecture", () => {
     it("preserves ExperienceSlot CHECK constraints and seat ledger semantics", () => {
       expect(schemaContent).toContain("model ExperienceSlot");
       expect(schemaContent).toContain("capacity Int");
-      expect(schemaContent).toContain("reservedCount Int @default(0) @map(\"reserved_count\")");
+      expect(schemaContent).toContain('reservedCount Int @default(0) @map("reserved_count")');
       expect(schemaContent).toContain("bookingCutoffMinutes Int @default(0)");
     });
   });
@@ -261,9 +278,16 @@ describe("Phase 2 SQL Migration DDL", () => {
 
   it("creates all 10 enum types using PostgreSQL snake_case names", () => {
     const enums = [
-      "booking_status", "payment_status", "refund_status", "voucher_status",
-      "attendance_status", "payment_event_status", "refund_task_status",
-      "partner_account_status", "fee_absorption_policy", "payout_method",
+      "booking_status",
+      "payment_status",
+      "refund_status",
+      "voucher_status",
+      "attendance_status",
+      "payment_event_status",
+      "refund_task_status",
+      "partner_account_status",
+      "fee_absorption_policy",
+      "payout_method",
     ];
 
     for (const e of enums) {
@@ -273,8 +297,14 @@ describe("Phase 2 SQL Migration DDL", () => {
 
   it("creates all 9 tables with snake_case mapped names", () => {
     const tables = [
-      "bookings", "booking_items", "payments", "payment_events",
-      "refund_tasks", "vouchers", "attendances", "redemption_logs",
+      "bookings",
+      "booking_items",
+      "payments",
+      "payment_events",
+      "refund_tasks",
+      "vouchers",
+      "attendances",
+      "redemption_logs",
       "partner_accounts",
     ];
 
@@ -291,9 +321,13 @@ describe("Phase 2 SQL Migration DDL", () => {
     expect(migrationContent).toContain('CHECK ("total_amount_minor_units" >= 0)');
 
     expect(migrationContent).toContain('"payments_refunded_within_amount"');
-    expect(migrationContent).toContain('CHECK ("refunded_amount_minor_units" >= 0 AND "refunded_amount_minor_units" <= "amount_minor_units")');
+    expect(migrationContent).toContain(
+      'CHECK ("refunded_amount_minor_units" >= 0 AND "refunded_amount_minor_units" <= "amount_minor_units")',
+    );
 
     expect(migrationContent).toContain('"partner_accounts_commission_bps_valid"');
-    expect(migrationContent).toContain('CHECK ("commission_bps" >= 0 AND "commission_bps" <= 10000)');
+    expect(migrationContent).toContain(
+      'CHECK ("commission_bps" >= 0 AND "commission_bps" <= 10000)',
+    );
   });
 });
