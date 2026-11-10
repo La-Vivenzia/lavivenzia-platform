@@ -77,6 +77,18 @@ describe("S3StorageAdapter — publicUrl", () => {
     expect(adapter.publicUrl("images/amalfi-coast.jpg")).toBe("/images/amalfi-coast.jpg");
     expect(adapter.publicUrl("brand/mark.png")).toBe("/brand/mark.png");
   });
+
+  it("passes externally hosted URLs through unchanged", () => {
+    const { adapter } = makeAdapter();
+    const url = "https://lh3.googleusercontent.com/p/abc=w1600";
+    expect(adapter.publicUrl(url)).toBe(url);
+  });
+
+  it("never sends a delete to the bucket for externally hosted media", async () => {
+    const { adapter, send } = makeAdapter();
+    await adapter.remove("https://lh3.googleusercontent.com/p/abc=w1600");
+    expect(send).not.toHaveBeenCalled();
+  });
 });
 
 describe("S3StorageAdapter — key safety", () => {

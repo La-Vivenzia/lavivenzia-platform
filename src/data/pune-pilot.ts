@@ -77,8 +77,9 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Additional arcade credits", "Hard liquor"],
     guestNotes:
       "Socks mandatory for bowling shoe rental. Weekends experience peak footfall; reservations guarantee lane allocation.",
-    coverImageKey: "images/amalfi-villa.jpg",
-    altText: "Twilight bowling lanes with vibrant neon lighting at Smaaash Amanora",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1538388149542-5e24932d11a8?auto=format&fit=crop&w=1600&q=80",
+    altText: "Vibrant neon twilight bowling alley and arcade gaming lounge at Smaaash Amanora",
   },
   {
     slug: "mystery-rooms-escape-challenge-amanora",
@@ -108,8 +109,10 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Personal video recordings inside game chambers"],
     guestNotes:
       "Arrive 15 minutes prior for mission briefing. Suitable for groups of friends, corporate teams, and double dates.",
-    coverImageKey: "images/cappadocia.jpg",
-    altText: "Atmospheric escape room puzzle chamber with antique locks and clue scrolls",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1600&q=80",
+    altText:
+      "Immersive escape room puzzle chamber with mysterious mechanisms at Mystery Rooms Amanora",
   },
   {
     slug: "timezone-laser-tag-seasons-mall",
@@ -137,8 +140,10 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Merchandise counter prizes without tickets"],
     guestNotes: "Wear comfortable sneakers. Great for high-energy weekend battles.",
-    coverImageKey: "images/hero-positano.jpg",
-    altText: "Futuristic laser tag arena with glowing neon barriers and phaser equipment",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1511882150382-421056c89033?auto=format&fit=crop&w=1600&q=80",
+    altText:
+      "Futuristic neon-lit laser tag arena and interactive arcade games at Timezone Seasons Mall",
   },
 
   // ── Breweries, Nightlife & Social Drinks ──────────────────────────────────
@@ -169,8 +174,10 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Additional beer pints beyond flight", "Imported spirits"],
     guestNotes:
       "Legal drinking age required for alcoholic flights. Live music starts at 8:30 PM on Friday and Saturday.",
-    coverImageKey: "images/amalfi-coast.jpg",
-    altText: "Flight of craft beers in tasting glasses on wooden bar top at Effingut",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=1600&q=80",
+    altText:
+      "Freshly poured craft beer tasting flight and gourmet gastro bites at Effingut Brewhouse",
   },
   {
     slug: "the-beer-cafe-global-taps-amanora",
@@ -198,8 +205,10 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Rare vintage bottled stouts"],
     guestNotes: "Outdoor seating is weather permitting; indoor AC section available.",
-    coverImageKey: "images/santorini.jpg",
-    altText: "Cold draught beer glass with white foam on outdoor cafe table overlooking fountain",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1538488881522-4321453a99e3?auto=format&fit=crop&w=1600&q=80",
+    altText:
+      "Chilled international draught beers on an open-air alfresco patio at The Beer Café Amanora",
   },
   {
     slug: "agent-jacks-interactive-bidding-bar",
@@ -227,8 +236,10 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Additional orders exceeding credit"],
     guestNotes: "Clubwear dress code enforced on Friday and Saturday evenings.",
-    coverImageKey: "images/rajasthan.jpg",
-    altText: "Neon-lit modern bidding bar counter with cocktails and energetic ambiance",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1572116469696-31de0f17cc34?auto=format&fit=crop&w=1600&q=80",
+    altText:
+      "Dynamic neon-lit nightlife bar counter and craft cocktail mixology at Agent Jack's Amanora",
   },
   {
     slug: "indimex-urban-lounge-seasons",
@@ -257,8 +268,10 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Additional pints", "Premium spirits and cocktails"],
     guestNotes:
       "Legal drinking age required for alcoholic beverages; soft beverage served otherwise. Walk-in friendly; reservations hold a table at peak hours.",
-    coverImageKey: "images/amalfi-coast.jpg",
-    altText: "Chilled draught beer pints and gastropub plates on a lounge bar counter",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1600&q=80",
+    altText:
+      "Cozy urban lounge booths with craft burgers and chilled drinks at Indimex Seasons Mall",
   },
 
   // ── Artisanal Cafes, Workspaces & Slow Living ─────────────────────────────
@@ -288,8 +301,10 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Whole bean retail bags"],
     guestNotes: "Outlets available at every table. Quiet work hours observed on weekday mornings.",
-    coverImageKey: "images/kyoto.jpg",
-    altText: "Artisan coffee pour over ceremony with glass carafe and freshly baked pastry",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1600&q=80",
+    altText:
+      "Artisanal manual pour-over coffee brewing and single-origin roast at Third Wave Coffee Amanora",
   },
   {
     slug: "the-flour-works-european-garden-brunch",
@@ -317,8 +332,10 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Custom celebration cakes"],
     guestNotes: "Pet-friendly outdoor terrace. Reservation recommended for Sunday brunch.",
-    coverImageKey: "images/bali.jpg",
-    altText: "Sunlit garden cafe table with artisan sourdough breakfast and fresh coffee",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=80",
+    altText:
+      "Tranquil European garden patio table with artisanal sourdough brunch at The Flour Works Magarpatta",
   },
   {
     slug: "cafe-peter-korean-bingsu-and-ramen-hadapsar",
@@ -343,8 +360,9 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Takeaway merchandise"],
     guestNotes:
       "Casual and walk-in friendly. Great for quick afternoon cravings and conversations.",
-    coverImageKey: "images/kyoto.jpg",
-    altText: "Bowl of authentic ramen with chopsticks and colorful Korean dessert bowl",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=1600&q=80",
+    altText: "Steaming hot Japanese ramen bowl and Korean street desserts at Café Peter Hadapsar",
   },
 
   // ── Fine Dining, Rooftops & Celebrations ──────────────────────────────────
@@ -374,8 +392,10 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Alcoholic beverages"],
     guestNotes: "Come with an empty stomach! Table is held for 15 minutes past booking time.",
-    coverImageKey: "images/rajasthan.jpg",
-    altText: "Sizzling skewers on live tabletop charcoal barbecue grill with fresh dips",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1600&q=80",
+    altText:
+      "Sizzling skewers over live tabletop charcoal grill at Absolute Barbecues Seasons Mall",
   },
   {
     slug: "spice-factory-rooftop-cocktails-hadapsar",
@@ -403,8 +423,10 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Hookah / Shisha"],
     guestNotes: "Smart casual dress code. Rooftop evening temperatures can be cool in winter.",
-    coverImageKey: "images/hero-positano.jpg",
-    altText: "Breezy rooftop dining terrace at dusk with warm fairy lights and cocktail glasses",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=1600&q=80",
+    altText:
+      "Starlit open-air rooftop dining deck with city skyline illumination at Spice Factory Hadapsar",
   },
   {
     slug: "cinepolis-vip-luxury-cinema-seasons",
@@ -433,8 +455,10 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Extra concessions"],
     guestNotes:
       "Movie showtime selection confirmed 24 hours prior upon weekly theatrical schedule release.",
-    coverImageKey: "images/amalfi-villa.jpg",
-    altText: "Luxury cinema auditorium with plush leather recliners and ambient lighting",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1600&q=80",
+    altText:
+      "Ultra-luxury plush cinema recliner theatre and big screen at Cinépolis VIP Seasons Mall",
   },
 
   // ── Wellness, Nature & Mindful Experiences ────────────────────────────────
@@ -465,8 +489,10 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Specialized salon styling services"],
     guestNotes:
       "Please inform therapists of any recent injuries or pressure preferences during intake.",
-    coverImageKey: "images/maldives.jpg",
-    altText: "Tranquil spa massage room with aroma candles and fresh flower decorations",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1600&q=80",
+    altText:
+      "Tranquil luxury aromatherapy spa room with calming candlelight and warm herbal oils at O2 Spa",
   },
   {
     slug: "amanora-lake-sunset-walk-and-mindfulness",
@@ -494,8 +520,10 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Professional camera rental"],
     guestNotes: "Meet at the lakeside amphitheater steps 15 minutes before sunset.",
-    coverImageKey: "images/serengeti.jpg",
-    altText: "Serene lakeside walkway at sunset with golden water reflections and green trees",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80",
+    altText:
+      "Peaceful golden-hour reflections and scenic lakeside walking trail at Amanora Lake Park",
   },
   {
     slug: "pottery-and-clay-wheel-workshop-magarpatta",
@@ -524,8 +552,10 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Courier shipping charges for fired ceramic pieces"],
     guestNotes:
       "Wear clothes that can get a little messy (aprons provided). Cut nails recommended for wheel throwing.",
-    coverImageKey: "images/kyoto.jpg",
-    altText: "Potter hands actively shaping wet clay bowl on spinning pottery wheel",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=1600&q=80",
+    altText:
+      "Artisan hands gently molding wet earthenware clay on a spinning pottery wheel in Magarpatta",
   },
   // ── Viman Nagar Corridor ──────────────────────────────────────────────────
   {
@@ -556,9 +586,10 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Alcoholic beverages (available à la carte)", "Spa treatments at Arogya Spa"],
     guestNotes: "Smart casual dress code. Pool access requires proper swimwear.",
-    coverImageKey: "images/amalfi-villa.jpg",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1540541338287-41700207dee6?auto=format&fit=crop&w=1600&q=80",
     altText:
-      "Sunlit luxury poolside dining setup with artisanal brunch platters at Hyatt Regency Pune",
+      "Sunlit luxury outdoor pool cabana and artisanal brunch buffet at Hyatt Regency Pune Viman Nagar",
   },
   {
     slug: "shizusan-dimsum-sushi-tasting-phoenix-marketcity",
@@ -589,9 +620,10 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Hard liquor and wine bottles", "Mall parking fees"],
     guestNotes:
       "Please notify 24h in advance for Jain, gluten-free or seafood allergy preferences.",
-    coverImageKey: "images/bali.jpg",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=1600&q=80",
     altText:
-      "Bamboo steamer baskets filled with crystal dim sums and artisanal sushi platter at Shizusan",
+      "Handcrafted crystal dim sum basket and flame-seared sushi platter at Shizusan Phoenix Marketcity",
   },
   {
     slug: "toit-brewery-craft-beer-tasting-kalyani-viman",
@@ -621,7 +653,9 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Additional beer pints beyond tasting flight", "Desserts"],
     guestNotes:
       "Valid government ID required for guests consuming alcohol (legal drinking age 21+).",
-    coverImageKey: "images/swiss-alps.jpg",
-    altText: "Six-glass flight of amber craft beer with artisan wood-fired pizza at Toit Brewery",
+    coverImageKey:
+      "https://images.unsplash.com/photo-1575037614876-c38a4d44f5b8?auto=format&fit=crop&w=1600&q=80",
+    altText:
+      "Six-glass craft beer tasting flight with artisan wood-fired pizza at Toit Brewery Kalyani Nagar",
   },
 ];

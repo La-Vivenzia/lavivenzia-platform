@@ -12,6 +12,8 @@ type RemotePattern = Exclude<
 const remotePatterns: RemotePattern[] = [
   { protocol: "https", hostname: "assets.lavivenzia.com" },
   { protocol: "https", hostname: "images.unsplash.com" },
+  // Google-hosted photography (lh3.googleusercontent.com and siblings).
+  { protocol: "https", hostname: "**.googleusercontent.com" },
   // R2 public buckets.
   { protocol: "https", hostname: "**.r2.dev" },
   // Supabase Storage, public buckets only.

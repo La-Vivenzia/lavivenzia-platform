@@ -61,6 +61,7 @@ async function seedPilotExperiences(hostId: string): Promise<string[]> {
   const experienceIds: string[] = [];
   const categories = await prisma.category.findMany();
   const categoryMap = new Map(categories.map((c) => [c.key, c.id]));
+  const uncovered: string[] = [];
 
   for (const exp of PILOT_EXPERIENCES) {
     const categoryId = categoryMap.get(exp.categoryKey) ?? null;
@@ -116,23 +117,45 @@ async function seedPilotExperiences(hostId: string): Promise<string[]> {
       },
     });
 
-    // Ensure cover media exists
-    await prisma.experienceMedia.upsert({
+    // Cover media. `storage_key` is unique across all experiences, so a key
+    // already attached to a different experience cannot be reused — upserting
+    // it would silently update the other row and leave this one with no cover.
+    const owner = await prisma.experienceMedia.findUnique({
       where: { storageKey: exp.coverImageKey },
-      create: {
-        experienceId: experience.id,
-        storageKey: exp.coverImageKey,
-        contentType: "image/jpeg",
-        byteSize: 150000,
-        position: 0,
-        altText: exp.altText,
-      },
-      update: {
-        altText: exp.altText,
-      },
+      select: { experienceId: true },
     });
 
+    if (owner && owner.experienceId !== experience.id) {
+      uncovered.push(exp.slug);
+    } else {
+      // Replace a previous cover rather than stacking a second one at position 0.
+      await prisma.experienceMedia.deleteMany({
+        where: { experienceId: experience.id, position: 0, storageKey: { not: exp.coverImageKey } },
+      });
+      await prisma.experienceMedia.upsert({
+        where: { storageKey: exp.coverImageKey },
+        create: {
+          experienceId: experience.id,
+          storageKey: exp.coverImageKey,
+          contentType: "image/jpeg",
+          byteSize: 150000,
+          position: 0,
+          altText: exp.altText,
+        },
+        update: {
+          position: 0,
+          altText: exp.altText,
+        },
+      });
+    }
+
     experienceIds.push(experience.id);
+  }
+
+  if (uncovered.length > 0) {
+    console.warn(
+      `  ! ${uncovered.length} experience(s) have no cover — their coverImageKey is already used by another experience: ${uncovered.join(", ")}`,
+    );
   }
 
   return experienceIds;
