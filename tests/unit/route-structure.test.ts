@@ -81,10 +81,10 @@ describe("route structure", () => {
     // The traveller header had none: someone who signed in and then browsed the
     // public site could not get out without first navigating into a console.
     // Found by the founder demo walkthrough, not by any test.
-    // The traveller header's sign-out lives in `ProfileButton`, which both the
-    // mobile and desktop headers render — one control, not two copies.
+    // The traveller account sign-out lives in `ProfileView`, which is the
+    // patron's account destination — keeping the public home header uncluttered.
     const shells = [
-      join(process.cwd(), "src", "components", "ProfileButton.tsx"),
+      join(process.cwd(), "src", "components", "profile", "ProfileView.tsx"),
       join(process.cwd(), "src", "components", "host", "shell.tsx"),
       join(process.cwd(), "src", "components", "ops", "shell.tsx"),
     ];

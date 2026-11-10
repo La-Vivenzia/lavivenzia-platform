@@ -82,34 +82,19 @@ export function ProfileButton({ signedIn, accountHref, initials, className }: Ac
   }
 
   return (
-    <div className="flex shrink-0 items-center gap-1">
-      <Link
-        href={accountHref}
-        aria-label="Your account"
-        className={cn(
-          "xs:h-9 xs:w-9 grid h-8 w-8 shrink-0 place-items-center rounded-full",
-          "bg-surface-2 ring-line ring-1",
-          "text-heading text-[13px] font-medium tracking-wide",
-          "transition-[background-color,box-shadow] duration-300",
-          "hover:bg-surface-3 hover:ring-line-strong",
-          className,
-        )}
-      >
-        {initials ?? "·"}
-      </Link>
-
-      {/*
-       * A POST form, because signing out changes state. As a GET it would be
-       * triggerable by any image tag on any page.
-       */}
-      <form action="/sign-out" method="post" className="flex">
-        <button
-          type="submit"
-          className="text-fg-muted hover:text-heading rounded-pill px-2 text-[11px] tracking-[0.08em] uppercase transition-colors"
-        >
-          Sign out
-        </button>
-      </form>
-    </div>
+    <Link
+      href={accountHref}
+      aria-label="Your account"
+      className={cn(
+        "xs:h-9 xs:w-9 grid h-8 w-8 shrink-0 place-items-center rounded-full",
+        "bg-surface-2 ring-line ring-1",
+        "text-heading text-[13px] font-medium tracking-wide",
+        "transition-[background-color,box-shadow] duration-300",
+        "hover:bg-surface-3 hover:ring-line-strong",
+        className,
+      )}
+    >
+      {initials ?? "·"}
+    </Link>
   );
 }

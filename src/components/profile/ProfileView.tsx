@@ -285,6 +285,16 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
                 {r.replace("_", " ")}
               </span>
             ))}
+
+            <form action="/sign-out" method="post" className="inline-flex">
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-3.5 py-1 text-[11px] font-medium tracking-wider uppercase text-text-muted hover:border-danger/40 hover:text-danger hover:bg-danger/10 transition-colors"
+              >
+                <LogOut className="h-3 w-3" />
+                Sign out
+              </button>
+            </form>
           </div>
         </div>
       </div>
