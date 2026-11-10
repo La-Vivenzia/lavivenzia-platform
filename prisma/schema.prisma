@@ -64,6 +64,7 @@ model User {
   /// Review decisions this user made as an operations reviewer.
   hostsReviewed       Host[]       @relation("HostReviewer")
   experiencesReviewed Experience[] @relation("ExperienceReviewer")
+  bookings            Booking[]
 
   @@index([status])
   @@map("users")
@@ -326,11 +327,12 @@ model Host {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  experiences Experience[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experiences    Experience[]
   /// SetNull, not Cascade: a decision outlives the person who made it, and a
   /// host record must not disappear because a reviewer left the company.
-  reviewer    User?        @relation("HostReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  reviewer       User?           @relation("HostReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  partnerAccount PartnerAccount?
 
   @@index([verificationStatus])
   /// Keyword search matches a host's brand name too, so it needs the same
@@ -443,6 +445,7 @@ model Experience {
   category Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   media    ExperienceMedia[]
   slots    ExperienceSlot[]
+  bookings Booking[]
   /// See the note on Host.reviewer.
   reviewer User?             @relation("ExperienceReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
 
@@ -590,6 +593,7 @@ model ExperienceSlot {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   experience Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  bookings   Booking[]
 
   /// Two slots for one experience cannot begin at the same instant. Overlap
   /// beyond that is checked in the domain, where the end time is known.
@@ -597,4 +601,423 @@ model ExperienceSlot {
   @@index([experienceId, startsAt])
   @@index([startsAt])
   @@map("experience_slots")
+}
+
+
+// ---------------------------------------------------------------------------
+// Phase 2: Booking, Payments, Vouchers & Partner Operations (LA-12 / Sprint 1)
+// ---------------------------------------------------------------------------
+
+/// Lifecycle of a commercial inventory reservation (Domain State Machine 1).
+///
+/// INVARIANT: `BookingStatus` NEVER includes `CHECKED_IN`. Physical door arrival
+/// is tracked orthogonally in `AttendanceStatus` and `VoucherStatus`.
+enum BookingStatus {
+  /// Cart session initiated; capacity hold not yet acquired.
+  DRAFT
+  /// Atomic 5-minute mutex capacity hold on the parent ExperienceSlot.
+  HELD
+  /// Successfully authorized and paid. Seat inventory committed. (Terminal confirmed state).
+  CONFIRMED
+  /// Cancelled voluntarily by customer or host before operational cutoff.
+  CANCELLED
+  /// 5-minute hold expired without payment completion; capacity reclaimed dynamically.
+  EXPIRED
+  /// Late payment captured on a slot that sold out after hold expiry; queued for auto-refund.
+  EXPIRED_UNFULFILLED
+
+  @@map("booking_status")
+}
+
+/// Lifecycle of the payment transaction with Razorpay (Domain State Machine 2).
+enum PaymentStatus {
+  /// Payment record initialized in database.
+  CREATED
+  /// Razorpay order created via POST /v1/orders.
+  INITIATED
+  /// Network timeout (>8000ms) or dropped connection during order creation. Blind retry prohibited.
+  INITIATED_UNCERTAIN
+  /// Customer authorized on Razorpay checkout modal; awaiting capture.
+  AUTHORIZED
+  /// Funds successfully captured by Razorpay.
+  CAPTURED
+  /// Payment declined, expired, or failed at gateway.
+  FAILED
+  /// Funds fully refunded to customer source account.
+  REFUNDED
+  /// Orphaned or abandoned order marked expired by background reconciliation worker.
+  RECONCILED_ABANDONED
+
+  @@map("payment_status")
+}
+
+/// Gateway refund processing lifecycle (Domain State Machine 3).
+enum RefundStatus {
+  /// No refund requested.
+  NONE
+  /// Outbox refund task created and queued for worker dispatch.
+  PENDING
+  /// Refund API call in-flight to Razorpay.
+  PROCESSING
+  /// Network timeout (>8000ms) during refund dispatch. Spaced polling required before retry.
+  PROCESSING_UNCERTAIN
+  /// Gateway confirmed refund processed.
+  PROCESSED
+  /// Terminal failure from payment gateway.
+  FAILED
+  /// Multiple uncertain retries exhausted; quarantined for human finance operator review.
+  MANUAL_RECONCILIATION_REQUIRED
+
+  @@map("refund_status")
+}
+
+/// Bearer digital credential lifecycle (Domain State Machine 4).
+enum VoucherStatus {
+  /// Cryptographically signed with server Ed25519 KMS key; ready for admission.
+  ISSUED
+  /// Issued under degraded network; pending server sync acknowledgment.
+  PROVISIONAL
+  /// Admitted at venue door; signed voucher checked and burned.
+  REDEEMED
+  /// Disconnected multi-scanner race condition detected upon post-offline synchronization.
+  CONFLICT
+  /// Tampered signature, wrong venue ID, or invalid key ID.
+  REJECTED
+  /// Experience operational end time passed without redemption.
+  EXPIRED
+  /// Manually revoked prior to slot delivery via Certificate Revocation List (CRL).
+  REVOKED
+
+  @@map("voucher_status")
+}
+
+/// Physical human presence and venue door arrival (Domain State Machine 5).
+enum AttendanceStatus {
+  /// Default state initialized upon booking confirmation; party has not yet arrived.
+  NOT_ARRIVED
+  /// Party physically admitted at venue door following voucher redemption.
+  ATTENDED
+  /// Customer party failed to arrive for scheduled slot.
+  NO_SHOW
+
+  @@map("attendance_status")
+}
+
+/// Ingress status of incoming payment webhooks.
+enum PaymentEventStatus {
+  RECEIVED
+  PROCESSED
+  DUPLICATE_IGNORED
+  FAILED
+
+  @@map("payment_event_status")
+}
+
+/// Processing status of asynchronous outbox refund jobs.
+enum RefundTaskStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  MANUAL_REVIEW
+
+  @@map("refund_task_status")
+}
+
+/// Operational and CRM lifecycle status of a partner venue account.
+enum PartnerAccountStatus {
+  INVITED
+  PENDING_ACTIVATION
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+
+  @@map("partner_account_status")
+}
+
+/// Commercial liability allocation for payment gateway transaction processing fees (ADR A-004).
+enum FeeAbsorptionPolicy {
+  /// Platform absorbs standard ~2% + GST gateway processing fee (Pune Pilot default).
+  PLATFORM_ABSORBS
+  /// Fee deducted from partner payout ledger.
+  PARTNER_DEDUCTED
+
+  @@map("fee_absorption_policy")
+}
+
+/// Settlement disbursement method (ADR A-005).
+enum PayoutMethod {
+  /// Manual weekly CSV banking batch export for corporate NEFT/RTGS disbursements (Pilot default).
+  MANUAL_CSV
+  /// Automated sub-merchant transfer via Razorpay Route (Phase 2.5 expansion).
+  RAZORPAY_ROUTE
+
+  @@map("payout_method")
+}
+
+/// A customer's reservation for an experience slot.
+///
+/// System of record for seat reservations.
+/// `heldUntil` implements the 5-minute mutex capacity hold.
+/// Concurrency safety is enforced by row-locking the parent `ExperienceSlot` (`SELECT ... FOR UPDATE`).
+model Booking {
+  id               String        @id @default(uuid()) @db.Uuid
+  bookingReference String        @unique @map("booking_reference")
+  userId           String        @map("user_id") @db.Uuid
+  experienceId     String        @map("experience_id") @db.Uuid
+  slotId           String        @map("slot_id") @db.Uuid
+  guestCount       Int           @map("guest_count")
+  status           BookingStatus @default(DRAFT)
+  heldUntil        DateTime?     @map("held_until") @db.Timestamptz(3)
+
+  /// Monetary amounts in smallest currency units (paise for INR).
+  totalAmountMinorUnits Int    @map("total_amount_minor_units")
+  currency              String @default("INR")
+
+  customerEmail   String? @map("customer_email") @db.Citext
+  customerPhone   String? @map("customer_phone")
+  specialRequests String? @map("special_requests")
+
+  confirmedAt        DateTime? @map("confirmed_at") @db.Timestamptz(3)
+  cancelledAt        DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason String?   @map("cancellation_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user       User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  experience Experience     @relation(fields: [experienceId], references: [id], onDelete: Restrict)
+  slot       ExperienceSlot @relation(fields: [slotId], references: [id], onDelete: Restrict)
+
+  items      BookingItem[]
+  payments   Payment[]
+  voucher    Voucher?
+  attendance Attendance?
+
+  @@index([userId, status])
+  @@index([slotId, status, heldUntil])
+  @@index([experienceId, status])
+  @@index([status, heldUntil])
+  @@map("bookings")
+}
+
+/// Line items composing a booking (e.g. VIP table tier, per-person entry ticket).
+model BookingItem {
+  id                   String @id @default(uuid()) @db.Uuid
+  bookingId            String @map("booking_id") @db.Uuid
+  title                String
+  quantity             Int    @default(1)
+  unitPriceMinorUnits  Int    @map("unit_price_minor_units")
+  totalPriceMinorUnits Int    @map("total_price_minor_units")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("booking_items")
+}
+
+/// Gateway payment record tracking financial authorization, capture and fee deductions.
+model Payment {
+  id        String  @id @default(uuid()) @db.Uuid
+  bookingId String  @map("booking_id") @db.Uuid
+
+  razorpayOrderId   String? @unique @map("razorpay_order_id")
+  razorpayPaymentId String? @unique @map("razorpay_payment_id")
+  razorpaySignature String? @map("razorpay_signature")
+
+  amountMinorUnits         Int          @map("amount_minor_units")
+  currency                 String       @default("INR")
+  status                   PaymentStatus @default(CREATED)
+  refundStatus             RefundStatus @default(NONE) @map("refund_status")
+  refundedAmountMinorUnits Int          @default(0) @map("refunded_amount_minor_units")
+
+  /// Demo checkout flag (ADR A-006): synthetic bookings created by authenticated admin.
+  isSimulated Boolean @default(false) @map("is_simulated")
+
+  method String?
+  bank   String?
+  wallet String?
+  vpa    String?
+
+  feeMinorUnits Int? @map("fee_minor_units")
+  taxMinorUnits Int? @map("tax_minor_units")
+
+  errorCode        String? @map("error_code")
+  errorDescription String? @map("error_description")
+
+  capturedAt DateTime? @map("captured_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking     Booking      @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  refundTasks RefundTask[]
+
+  @@index([bookingId])
+  @@index([status])
+  @@index([refundStatus])
+  @@map("payments")
+}
+
+/// Ingress ledger for incoming Razorpay webhooks.
+/// `eventId` unique constraint guarantees idempotent delivery handling.
+model PaymentEvent {
+  id           String             @id @default(uuid()) @db.Uuid
+  eventId      String             @unique @map("event_id")
+  eventType    String             @map("event_type")
+  orderId      String?            @map("order_id")
+  paymentId    String?            @map("payment_id")
+  payload      Json
+  status       PaymentEventStatus @default(RECEIVED)
+  errorMessage String?            @map("error_message")
+
+  processedAt DateTime? @map("processed_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([eventType])
+  @@index([status])
+  @@index([orderId])
+  @@index([paymentId])
+  @@map("payment_events")
+}
+
+/// Outbox queue for asynchronous Razorpay refund dispatches.
+/// Handles late payment overbooked reconciliations and cancellations.
+model RefundTask {
+  id        String @id @default(uuid()) @db.Uuid
+  paymentId String @map("payment_id") @db.Uuid
+
+  amountMinorUnits Int              @map("amount_minor_units")
+  currency         String           @default("INR")
+  reason           String
+  status           RefundTaskStatus @default(PENDING)
+
+  attempts      Int       @default(0)
+  maxAttempts   Int       @default(5) @map("max_attempts")
+  nextAttemptAt DateTime? @map("next_attempt_at") @db.Timestamptz(3)
+
+  razorpayRefundId String?   @unique @map("razorpay_refund_id")
+  lastError        String?   @map("last_error")
+  processedAt      DateTime? @map("processed_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([paymentId])
+  @@index([status, nextAttemptAt])
+  @@map("refund_tasks")
+}
+
+/// Cryptographic bearer credential presented by customer at the venue door.
+/// Signed using asymmetric Ed25519 (private key in KMS, public key on door scanner).
+model Voucher {
+  id        String        @id @default(uuid()) @db.Uuid
+  bookingId String        @unique @map("booking_id") @db.Uuid
+  keyId     String        @map("key_id")
+  qrPayload String        @map("qr_payload") @db.Text
+  signature String
+  status    VoucherStatus @default(ISSUED)
+
+  issuedAt         DateTime  @default(now()) @map("issued_at") @db.Timestamptz(3)
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(3)
+  redeemedAt       DateTime? @map("redeemed_at") @db.Timestamptz(3)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revocationReason String?   @map("revocation_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking        Booking         @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  redemptionLogs RedemptionLog[]
+
+  @@index([status])
+  @@index([expiresAt])
+  @@index([keyId])
+  @@map("vouchers")
+}
+
+/// Physical door admission and attendance tracking (Domain State Machine 5).
+model Attendance {
+  id             String           @id @default(uuid()) @db.Uuid
+  bookingId      String           @unique @map("booking_id") @db.Uuid
+  status         AttendanceStatus @default(NOT_ARRIVED)
+  guestCount     Int              @map("guest_count")
+  attendedAt     DateTime?        @map("attended_at") @db.Timestamptz(3)
+  noShowMarkedAt DateTime?        @map("no_show_marked_at") @db.Timestamptz(3)
+  noShowMarkedBy String?          @map("no_show_marked_by") @db.Uuid
+  notes          String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  @@index([status])
+  @@index([attendedAt])
+  @@map("attendances")
+}
+
+/// Append-only audit ledger recording every QR redemption or manual lookup attempt.
+model RedemptionLog {
+  id               BigInt        @id @default(autoincrement())
+  voucherId        String        @map("voucher_id") @db.Uuid
+  scannerUserId    String?       @map("scanner_user_id") @db.Uuid
+  deviceId         String?       @map("device_id")
+  ipAddress        String?       @map("ip_address") @db.Inet
+  userAgent        String?       @map("user_agent")
+  isOfflineSync    Boolean       @default(false) @map("is_offline_sync")
+  offlineScannedAt DateTime?     @map("offline_scanned_at") @db.Timestamptz(3)
+  syncedAt         DateTime      @default(now()) @map("synced_at") @db.Timestamptz(3)
+  resultStatus     VoucherStatus @map("result_status")
+  rawPayload       String?       @map("raw_payload") @db.Text
+  failureReason    String?       @map("failure_reason")
+
+  voucher Voucher @relation(fields: [voucherId], references: [id], onDelete: Restrict)
+
+  @@index([voucherId, syncedAt])
+  @@index([syncedAt])
+  @@index([resultStatus])
+  @@map("redemption_logs")
+}
+
+/// Operational and commercial partner account linking Twenty CRM to Host SaaS (ADR A-002, A-003, A-007).
+model PartnerAccount {
+  id           String               @id @default(uuid()) @db.Uuid
+  hostId       String               @unique @map("host_id") @db.Uuid
+  crmPartnerId String?              @unique @map("crm_partner_id")
+
+  /// Basis points for commission (e.g. 1500 = 15.00%, ADR A-003).
+  commissionBps       Int                 @default(1500) @map("commission_bps")
+  feeAbsorptionPolicy FeeAbsorptionPolicy @default(PLATFORM_ABSORBS) @map("fee_absorption_policy")
+  payoutMethod        PayoutMethod        @default(MANUAL_CSV) @map("payout_method")
+  status              PartnerAccountStatus @default(PENDING_ACTIVATION)
+
+  bankAccountNumber   String? @map("bank_account_number")
+  bankIfscCode        String? @map("bank_ifsc_code")
+  bankBeneficiaryName String? @map("bank_beneficiary_name")
+
+  /// Hardened 4-digit Door PIN security (ADR A-007).
+  doorPinHash           String?   @map("door_pin_hash")
+  doorPinFailedAttempts Int       @default(0) @map("door_pin_failed_attempts")
+  doorPinLockedUntil    DateTime? @map("door_pin_locked_until") @db.Timestamptz(3)
+
+  /// One-time invitation token for CRM Stage 5 activation (ADR A-002).
+  invitationTokenHash String?   @unique @map("invitation_token_hash")
+  invitationExpiresAt DateTime? @map("invitation_expires_at") @db.Timestamptz(3)
+  invitationAcceptedAt DateTime? @map("invitation_accepted_at") @db.Timestamptz(3)
+
+  activatedAt      DateTime? @map("activated_at") @db.Timestamptz(3)
+  suspendedAt      DateTime? @map("suspended_at") @db.Timestamptz(3)
+  suspensionReason String?   @map("suspension_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  host Host @relation(fields: [hostId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("partner_accounts")
 }
