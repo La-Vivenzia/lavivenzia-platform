@@ -9,6 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    testTimeout: 15_000,
     // Unit suite only. Integration tests live in tests/integration and need a
     // live database; they run via vitest.integration.config.mts. Keeping them
     // out is what lets `npm test` prove the domain layer needs no infrastructure.

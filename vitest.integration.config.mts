@@ -24,6 +24,7 @@ export default defineConfig({
     // Tests share one database. Running files in parallel would let one file's
     // cleanup truncate another's fixtures mid-assertion.
     fileParallelism: false,
+    maxWorkers: 1,
     sequence: { concurrent: false },
     testTimeout: 30_000,
     hookTimeout: 30_000,

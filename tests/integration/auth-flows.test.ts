@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TEST_EMAIL_DOMAIN, testDb, testEmail } from "./helpers";
 import { AuthService, type RequestContext } from "@/modules/auth/service";
 import {
@@ -82,10 +82,6 @@ afterEach(async () => {
     where: { email: { endsWith: TEST_EMAIL_DOMAIN, mode: "insensitive" } },
   });
   await testDb.rateLimitCounter.deleteMany({});
-});
-
-afterAll(async () => {
-  await testDb.$disconnect();
 });
 
 describe("registration", () => {
