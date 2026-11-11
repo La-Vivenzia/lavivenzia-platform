@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { quoteBooking, type PriceQuote } from "./pricing";
-import type { BookingCapacityRepository, HoldBookingRecord, LockedSlotRecord } from "./ports";
+import type { BookingCapacityRepository, HoldBookingRecord } from "./ports";
 
 /**
  * Default hold duration: 5 minutes (300,000 ms) as specified by Phase 2 architecture.

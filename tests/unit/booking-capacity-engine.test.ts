@@ -624,7 +624,7 @@ describe("BookingCapacityEngine (LA-12 Phase 2 Sprint 2)", () => {
 
   describe("Hold Expiration Precision & Boundary Conditions", () => {
     it("treats hold as active at T + 4m59s (299,000ms) and expired at T + 5m (300,000ms)", async () => {
-      const { engine, repo, slotId, defaultSlot } = createTestFixture();
+      const { repo, slotId, defaultSlot } = createTestFixture();
 
       // Existing hold created at BASE_TIME with 5m TTL
       repo.bookings.push({
