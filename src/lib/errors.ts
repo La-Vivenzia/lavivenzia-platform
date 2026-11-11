@@ -16,7 +16,11 @@ export type ErrorCode =
   | "PROVIDER_UNAVAILABLE"
   | "PROVIDER_TIMEOUT"
   | "NOT_IMPLEMENTED"
-  | "INTERNAL";
+  | "INTERNAL"
+  | "ORDER_CREATION_IN_PROGRESS"
+  | "ORDER_STATUS_UNRESOLVED"
+  | "PAYMENT_GATEWAY_ERROR"
+  | "PAYMENT_GATEWAY_TIMEOUT";
 
 export abstract class AppError extends Error {
   abstract readonly code: ErrorCode;
@@ -74,8 +78,30 @@ export class NotFoundError extends AppError {
 
 /** Concurrent modification, duplicate key, or an invalid state transition. */
 export class ConflictError extends AppError {
-  readonly code = "CONFLICT" as const;
+  readonly code: ErrorCode = "CONFLICT";
   readonly httpStatus = 409;
+}
+
+export class OrderCreationInProgressError extends ConflictError {
+  override readonly code = "ORDER_CREATION_IN_PROGRESS" as const;
+
+  constructor(
+    message = "An order creation request is currently being processed for this reservation. Please wait.",
+    context?: Record<string, unknown>,
+  ) {
+    super(message, context);
+  }
+}
+
+export class OrderStatusUnresolvedError extends ConflictError {
+  override readonly code = "ORDER_STATUS_UNRESOLVED" as const;
+
+  constructor(
+    message = "A previous checkout attempt has an unresolved status. Please wait for automated verification or contact support.",
+    context?: Record<string, unknown>,
+  ) {
+    super(message, context);
+  }
 }
 
 export class RateLimitedError extends AppError {
@@ -86,15 +112,37 @@ export class RateLimitedError extends AppError {
 
 /** An external provider failed in a way that may resolve on its own. */
 export class ProviderUnavailableError extends AppError {
-  readonly code = "PROVIDER_UNAVAILABLE" as const;
+  readonly code: ErrorCode = "PROVIDER_UNAVAILABLE";
   readonly httpStatus = 502;
   override readonly isRetryable = true;
 }
 
+export class PaymentGatewayError extends ProviderUnavailableError {
+  override readonly code = "PAYMENT_GATEWAY_ERROR" as const;
+
+  constructor(
+    message = "Payment provider rejected order creation. Please try again.",
+    context?: Record<string, unknown>,
+  ) {
+    super(message, context);
+  }
+}
+
 export class ProviderTimeoutError extends AppError {
-  readonly code = "PROVIDER_TIMEOUT" as const;
+  readonly code: ErrorCode = "PROVIDER_TIMEOUT";
   readonly httpStatus = 504;
   override readonly isRetryable = true;
+}
+
+export class PaymentGatewayTimeoutError extends ProviderTimeoutError {
+  override readonly code = "PAYMENT_GATEWAY_TIMEOUT" as const;
+
+  constructor(
+    message = "Payment provider timed out. Order outcome is uncertain. Verification in progress.",
+    context?: Record<string, unknown>,
+  ) {
+    super(message, context);
+  }
 }
 
 /**
@@ -136,6 +184,8 @@ export interface ErrorResponseBody {
     code: ErrorCode;
     message: string;
     correlationId: string;
+    paymentId?: string;
+    status?: string;
   };
 }
 
@@ -144,11 +194,17 @@ export interface ErrorResponseBody {
  * real message goes to the logs, keyed by correlation ID, never to the client.
  */
 export function toErrorResponseBody(error: AppError, correlationId: string): ErrorResponseBody {
+  const paymentId =
+    typeof error.context.paymentId === "string" ? error.context.paymentId : undefined;
+  const status = typeof error.context.status === "string" ? error.context.status : undefined;
+
   return {
     error: {
       code: error.code,
       message: error.isOperational ? error.message : "An unexpected error occurred.",
       correlationId,
+      ...(paymentId ? { paymentId } : {}),
+      ...(status ? { status } : {}),
     },
   };
 }
