@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, ArrowUp, Clock, MapPin, RotateCcw } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, Clock, MapPin, RotateCcw, Timer } from "lucide-react";
 
 import { ApiError, api } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
@@ -276,8 +276,13 @@ export function VivenIQChat({ initialQuery }: { readonly initialQuery?: string }
   );
 }
 
+/** How many perks a card shows. The listing page carries the rest. */
+const CARD_PERKS = 2;
+
 /** One listing in the stream. Every figure is the server's, rendered as given. */
 function PickCard({ pick }: { readonly pick: VivenIQPick }) {
+  const curation = pick.curation ?? null;
+
   return (
     <li className="group flex flex-col overflow-hidden rounded-card border border-line bg-surface transition-shadow duration-300 hover:shadow-card">
       <Link
@@ -297,7 +302,11 @@ function PickCard({ pick }: { readonly pick: VivenIQPick }) {
         </div>
 
         <div className="flex flex-1 flex-col gap-2 p-4">
-          {pick.categoryName ? (
+          {curation ? (
+            <p className="eyebrow text-[10px] text-accent-ink dark:text-accent">
+              {curation.trackLabel}
+            </p>
+          ) : pick.categoryName ? (
             <p className="eyebrow text-[10px] text-fg-subtle">{pick.categoryName}</p>
           ) : null}
           <h2 className="line-clamp-2 font-display text-[18px] leading-snug text-heading">
@@ -315,6 +324,33 @@ function PickCard({ pick }: { readonly pick: VivenIQPick }) {
           </p>
           {pick.reason ? (
             <p className="text-[12.5px] leading-snug font-light text-fg">{pick.reason}</p>
+          ) : null}
+
+          {curation ? (
+            <>
+              <ul aria-label="La Vivenzia perks" className="flex flex-col gap-1">
+                {curation.vipPerks.slice(0, CARD_PERKS).map((perk) => (
+                  <li key={perk} className="flex gap-1.5 text-[12.5px] leading-snug text-fg">
+                    <Check
+                      className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-ink dark:text-accent"
+                      strokeWidth={2}
+                      aria-hidden="true"
+                    />
+                    {perk}
+                  </li>
+                ))}
+              </ul>
+              <p className="border-l border-line-strong pl-2.5 text-[12px] leading-snug font-light text-fg-muted italic">
+                <span className="sr-only">Curator’s secret: </span>
+                {curation.curatorSecret}
+              </p>
+              {curation.timeSavedLabel ? (
+                <p className="inline-flex items-center gap-1 text-[12px] text-fg-muted">
+                  <Timer className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
+                  {curation.timeSavedLabel}
+                </p>
+              ) : null}
+            </>
           ) : null}
 
           <div className="mt-auto flex items-center justify-between gap-3 border-t border-line pt-3">

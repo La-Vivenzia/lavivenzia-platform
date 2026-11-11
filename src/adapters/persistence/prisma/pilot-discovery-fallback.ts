@@ -79,6 +79,7 @@ export function createPilotDiscoveryRepository(urlFor: UrlResolver): DiscoveryRe
       // Unknown without the database. Null rather than a made-up date.
       publishedAt: null,
       distanceMetres: null,
+      curation: input.curation,
       description: input.description,
       addressLine: input.addressLine,
       postalCode: input.postalCode,
@@ -122,6 +123,7 @@ export function createPilotDiscoveryRepository(urlFor: UrlResolver): DiscoveryRe
       hostName: detail.hostName,
       publishedAt: detail.publishedAt,
       distanceMetres,
+      curation: detail.curation ?? null,
     };
   }
 

@@ -29,6 +29,21 @@ export interface EmailTemplatePayloads {
     readonly code: string;
     readonly expiresInMinutes: number;
   };
+  /** The in-journey live butler: curated gems near where the traveller is now. */
+  "traveler.in-journey-companion": {
+    readonly patronName: string;
+    readonly activeVenueTitle: string;
+    readonly activeZone: string;
+    readonly butlerNote: string;
+    readonly recommendations: readonly {
+      readonly title: string;
+      readonly categoryName: string;
+      readonly distanceOrTime: string;
+      readonly curatorSecret: string;
+      readonly vipPerk: string;
+      readonly experienceUrl: string;
+    }[];
+  };
 }
 
 export type EmailTemplateId = keyof EmailTemplatePayloads;
@@ -75,6 +90,111 @@ function layout(heading: string, bodyHtml: string): string {
   ].join("");
 }
 
+/**
+ * An href that can only ever be a web link. Anything else — `javascript:`,
+ * `data:`, a relative path that resolves against the mail client — becomes an
+ * inert anchor rather than a live one.
+ */
+function safeHref(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" || parsed.protocol === "http:"
+      ? escapeHtml(parsed.toString())
+      : "#";
+  } catch {
+    return "#";
+  }
+}
+
+/**
+ * The live butler's palette.
+ *
+ * Literal values, unlike the product UI: mail clients cannot read the CSS
+ * custom properties in `globals.css`, so the brand's dark luxury register is
+ * spelled out here, once, for every email that uses it.
+ */
+const BUTLER = {
+  night: "#080806",
+  pine: "#0e2a22",
+  gold: "#cda851",
+  ivory: "#FAF8F5",
+  muted: "#b9b4a8",
+  rule: "#22382f",
+  serif: "Georgia,'Times New Roman',Times,serif",
+  sans: "system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif",
+} as const;
+
+type CompanionPayload = EmailTemplatePayloads["traveler.in-journey-companion"];
+
+function companionRecommendationHtml(
+  recommendation: CompanionPayload["recommendations"][number],
+): string {
+  const b = BUTLER;
+  return [
+    `<tr><td style="padding:0 0 16px">`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
+    `style="background:${b.pine};border:1px solid ${b.rule};border-radius:14px">`,
+    `<tr><td style="padding:22px 22px 24px">`,
+    `<p style="margin:0 0 8px;font-family:${b.sans};font-size:10px;letter-spacing:2.5px;color:${b.gold}">`,
+    `<span style="text-transform:uppercase">${escapeHtml(recommendation.categoryName)}</span>`,
+    // Units stay lower-case: an upper-cased "930 M" reads as millions.
+    `<span style="letter-spacing:1px"> &nbsp;·&nbsp; ${escapeHtml(recommendation.distanceOrTime)}</span></p>`,
+    `<h2 style="margin:0 0 14px;font-family:${b.serif};font-size:21px;line-height:1.3;`,
+    `font-weight:normal;color:${b.ivory}">${escapeHtml(recommendation.title)}</h2>`,
+    `<p style="margin:0 0 10px;font-family:${b.sans};font-size:14px;line-height:1.55;color:${b.ivory}">`,
+    `<span style="color:${b.gold}">&#10022;</span>&nbsp; ${escapeHtml(recommendation.vipPerk)}</p>`,
+    `<p style="margin:0 0 20px;padding-left:12px;border-left:2px solid ${b.gold};`,
+    `font-family:${b.serif};font-style:italic;font-size:14px;line-height:1.6;color:${b.muted}">`,
+    `${escapeHtml(recommendation.curatorSecret)}</p>`,
+    `<a href="${safeHref(recommendation.experienceUrl)}" `,
+    `style="display:inline-block;padding:12px 22px;border-radius:999px;background:${b.gold};`,
+    `color:${b.night};font-family:${b.sans};font-size:13px;font-weight:600;letter-spacing:0.5px;`,
+    `text-decoration:none">Reserve my pass &rarr;</a>`,
+    `</td></tr></table>`,
+    `</td></tr>`,
+  ].join("");
+}
+
+function companionHtml(variables: CompanionPayload): string {
+  const b = BUTLER;
+  return [
+    `<!doctype html><html lang="en"><head><meta charset="utf-8">`,
+    `<meta name="viewport" content="width=device-width,initial-scale=1">`,
+    `<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark">`,
+    `<title>${escapeHtml(EMAIL_SENDER_NAME)}</title></head>`,
+    `<body style="margin:0;padding:0;background:${b.night}">`,
+    // Inbox preview text; hidden in the body itself.
+    `<div style="display:none;max-height:0;overflow:hidden;opacity:0">`,
+    `${escapeHtml(variables.butlerNote)}</div>`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
+    `style="background:${b.night}"><tr><td align="center" style="padding:32px 16px">`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
+    `style="max-width:560px">`,
+    `<tr><td style="padding:0 0 28px;text-align:center">`,
+    `<p style="margin:0 0 18px;font-family:${b.serif};font-size:15px;letter-spacing:4px;`,
+    `text-transform:uppercase;color:${b.gold}">${escapeHtml(EMAIL_SENDER_NAME)}</p>`,
+    `<span style="display:inline-block;padding:6px 14px;border:1px solid ${b.gold};border-radius:999px;`,
+    `font-family:${b.sans};font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${b.gold}">`,
+    `&#9679;&nbsp; Live in ${escapeHtml(variables.activeZone)}</span>`,
+    `</td></tr>`,
+    `<tr><td style="padding:0 0 28px">`,
+    `<h1 style="margin:0 0 14px;font-family:${b.serif};font-size:28px;line-height:1.25;`,
+    `font-weight:normal;color:${b.ivory}">${escapeHtml(variables.patronName)}, a note from your butler.</h1>`,
+    `<p style="margin:0 0 14px;font-family:${b.sans};font-size:15px;line-height:1.65;color:${b.ivory}">`,
+    `${escapeHtml(variables.butlerNote)}</p>`,
+    `<p style="margin:0;font-family:${b.sans};font-size:12px;letter-spacing:1px;color:${b.muted}">`,
+    `Curated around ${escapeHtml(variables.activeVenueTitle)}</p>`,
+    `</td></tr>`,
+    variables.recommendations.map(companionRecommendationHtml).join(""),
+    `<tr><td style="padding:12px 0 0;border-top:1px solid ${b.rule}">`,
+    `<p style="margin:16px 0 0;font-family:${b.sans};font-size:11px;line-height:1.6;color:${b.muted}">`,
+    `Your live butler from ${escapeHtml(EMAIL_SENDER_NAME)}. Times and tables are confirmed live `,
+    `on each experience page. You received this because you asked for in-journey recommendations.</p>`,
+    `</td></tr>`,
+    `</table></td></tr></table></body></html>`,
+  ].join("");
+}
+
 const TEMPLATES: { [K in EmailTemplateId]: EmailTemplate<K> } = {
   "auth.login-code": {
     subject: ({ code }) => `${code} is your ${EMAIL_SENDER_NAME} login code`,
@@ -102,6 +222,35 @@ const TEMPLATES: { [K in EmailTemplateId]: EmailTemplate<K> } = {
           "email. Nobody can access your account with this code alone.</p>",
         ].join(""),
       ),
+  },
+
+  "traveler.in-journey-companion": {
+    subject: ({ activeZone, recommendations }) =>
+      `Your live butler in ${activeZone} — ${
+        recommendations.length === 1 ? "one curated gem" : `${recommendations.length} curated gems`
+      } nearby`,
+
+    text: ({ patronName, activeVenueTitle, activeZone, butlerNote, recommendations }) =>
+      [
+        `${patronName}, a note from your butler.`,
+        "",
+        butlerNote,
+        "",
+        `Live in ${activeZone} · curated around ${activeVenueTitle}`,
+        "",
+        ...recommendations.flatMap((recommendation) => [
+          `— ${recommendation.title}`,
+          `  ${recommendation.categoryName} · ${recommendation.distanceOrTime}`,
+          `  Perk: ${recommendation.vipPerk}`,
+          `  Curator's secret: ${recommendation.curatorSecret}`,
+          `  Reserve: ${recommendation.experienceUrl}`,
+          "",
+        ]),
+        "Times and tables are confirmed live on each experience page.",
+        `${EMAIL_SENDER_NAME}`,
+      ].join("\n"),
+
+    html: companionHtml,
   },
 };
 

@@ -364,3 +364,25 @@ Advanced cloud architecture
       ↓
 Multi-region / global infrastructure
 ```
+
+## 16. Curation Layer & In-Journey Live Butler
+
+### Experience Curation Layer (`src/modules/discovery/curation.ts`)
+Experiences are enriched with structured editorial metadata beyond raw database venue records:
+- `curationTrack`: Categorical mood tracks (`CONNOISSEUR`, `ALFRESCO_SUNDOWNER`, `HIGH_OCTANE_NIGHTLIFE`, `MINDFUL_WELLNESS`, `ARTISANAL_FOCUS`).
+- `vipPerks`: Concrete platform perks ("Pay once, just show up", welcome pours, queue bypass, chef's table).
+- `curatorSecret`: Authentic insider tips and golden hour timings.
+- `timeSavedMinutes`: Quantified time-saving metric vs manual research.
+- `curatedPairing`: Specific culinary/cocktail pairings.
+
+Metadata is mapped by experience slug without requiring database schema migrations, ensuring zero downtime for catalogue editorial updates.
+
+### VivenIQ Editorial Concierge (`src/modules/viveniq/tracks.ts`)
+VivenIQ operates as an Aman/Michelin-caliber cultural curator. When answering broad experiential vibe requests (e.g., dining, drinks, nightlife), it groups recommendations into 3 distinct, contrasting curation tracks and integrates the traveller's saved Patron Taste Profile (e.g. prioritizing quiet artisanal atmospheres over high-decibel venues).
+
+### In-Journey Live Butler (`src/modules/companion/`)
+Proactive micro-curation engine designed for travelers with an active booking:
+- `CompanionService` performs geospatial proximity checks (< 2.5km) around the active venue and scores complementary next-stop gems based on activity pacing (e.g. relaxation/coffee following high-energy activities).
+- Dispatches transactional mobile-first luxury emails using `traveler.in-journey-companion` template via `EmailPort` (Resend).
+- Secured behind authenticated session and strict rate limiting (10 dispatches/hr/IP).
+

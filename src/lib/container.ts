@@ -11,6 +11,7 @@ import { OperationsService } from "@/modules/operations/service";
 import { DiscoveryService } from "@/modules/discovery/service";
 import { CopilotService } from "@/modules/copilot/service";
 import { VivenIQService } from "@/modules/viveniq/service";
+import { CompanionService } from "@/modules/companion/service";
 import { CheckoutService, resolveCheckoutMode } from "@/modules/booking/checkout";
 import { getLogger } from "@/lib/logger";
 import { AnthropicLlmAdapter } from "@/adapters/llm/anthropic";
@@ -265,6 +266,23 @@ export function getVivenIQService(): VivenIQService {
   }
 
   return vivenIQService;
+}
+
+let companionService: CompanionService | undefined;
+
+/**
+ * The in-journey live butler. Reads the published catalogue through discovery
+ * and delivers through the configured transactional email transport — Resend
+ * when `EMAIL_TRANSPORT=resend` and `RESEND_API_KEY` are set.
+ */
+export function getCompanionService(): CompanionService {
+  companionService ??= new CompanionService({
+    catalogue: getDiscoveryService(),
+    email: getEmailPort(),
+    appUrl: env.APP_URL,
+  });
+
+  return companionService;
 }
 
 let checkoutService: CheckoutService | undefined;

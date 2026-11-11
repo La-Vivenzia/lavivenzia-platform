@@ -14,6 +14,7 @@ import type {
 } from "@/modules/discovery/ports";
 import type { ProximityFilter } from "@/modules/discovery/geo";
 import { createPilotDiscoveryRepository } from "@/adapters/persistence/prisma/pilot-discovery-fallback";
+import { pilotCurationFor } from "@/data/pune-pilot";
 
 /**
  * Prisma implementation of traveller discovery.
@@ -360,6 +361,9 @@ function createPrismaDiscoveryRepository(
       hostName: row.host.displayName,
       publishedAt: row.publishedAt,
       distanceMetres,
+      // Editorial content is not a database column; it is overlaid by slug so
+      // a perk can change without a migration (see `pilotCurationFor`).
+      curation: pilotCurationFor(row.slug),
     };
   }
 

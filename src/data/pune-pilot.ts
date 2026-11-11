@@ -9,6 +9,8 @@
  * cannot drift apart.
  */
 
+import type { ExperienceCuration } from "@/modules/discovery/curation";
+
 export const PILOT_HOST = {
   email: "pune.pilot.host@lavivenzia.com",
   displayName: "La Vivenzia Pune Curations",
@@ -43,6 +45,12 @@ export interface PilotExperienceInput {
   inclusions: string[];
   exclusions: string[];
   guestNotes: string;
+  /**
+   * Editorial layer: perks, insider knowledge and the mood track. Not seeded
+   * into PostgreSQL — the discovery repositories overlay it by slug (see
+   * `pilotCurationFor`), so editing a perk needs no migration.
+   */
+  curation: ExperienceCuration;
   coverImageKey: string;
   altText: string;
 }
@@ -77,6 +85,18 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Additional arcade credits", "Hard liquor"],
     guestNotes:
       "Socks mandatory for bowling shoe rental. Weekends experience peak footfall; reservations guarantee lane allocation.",
+    curation: {
+      curationTrack: "HIGH_OCTANE_NIGHTLIFE",
+      vipPerks: [
+        "Pre-assigned UV lane — no weekend lane queue at the counter",
+        "VR tokens loaded before arrival, straight to the simulator bay",
+        "Welcome craft pour or mocktail handed over at check-in",
+      ],
+      curatorSecret:
+        "Book the 8:30 PM lane on a Friday: the UV lighting peaks after the dinner crowd clears, and lane 6 sits furthest from the arcade din.",
+      timeSavedMinutes: 40,
+      curatedPairing: "Chilled lager with peri-peri loaded fries between frames",
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1538388149542-5e24932d11a8?auto=format&fit=crop&w=1600&q=80",
     altText: "Vibrant neon twilight bowling alley and arcade gaming lounge at Smaaash Amanora",
@@ -109,6 +129,17 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Personal video recordings inside game chambers"],
     guestNotes:
       "Arrive 15 minutes prior for mission briefing. Suitable for groups of friends, corporate teams, and double dates.",
+    curation: {
+      curationTrack: "HIGH_OCTANE_NIGHTLIFE",
+      vipPerks: [
+        "Room locked to your group — no sharing with strangers",
+        "Game master briefing held for you, no walk-in wait",
+        "Mission photograph sent straight to your inbox",
+      ],
+      curatorSecret:
+        "First-timers should take the Bomb Defusal room: its clue chain is linear and the finale is the most theatrical. Save the Haunted Cabin for a second visit.",
+      timeSavedMinutes: 35,
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1600&q=80",
     altText:
@@ -140,6 +171,17 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Merchandise counter prizes without tickets"],
     guestNotes: "Wear comfortable sneakers. Great for high-energy weekend battles.",
+    curation: {
+      curationTrack: "HIGH_OCTANE_NIGHTLIFE",
+      vipPerks: [
+        "Arena slot held for your group — skip the vest-up queue",
+        "Powercard preloaded and waiting at the desk",
+        "Back-to-back rounds booked, no re-queueing between battles",
+      ],
+      curatorSecret:
+        "Take the upper ramp in round one — most teams rush the ground maze and the high ground scores double the tags.",
+      timeSavedMinutes: 30,
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1511882150382-421056c89033?auto=format&fit=crop&w=1600&q=80",
     altText:
@@ -174,6 +216,18 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Additional beer pints beyond flight", "Imported spirits"],
     guestNotes:
       "Legal drinking age required for alcoholic flights. Live music starts at 8:30 PM on Friday and Saturday.",
+    curation: {
+      curationTrack: "CONNOISSEUR",
+      vipPerks: [
+        "Guaranteed mezzanine corner table — zero weekend wait",
+        "Complimentary seasonal craft taster pour on arrival",
+        "Brewmaster tasting notes walked through at your table",
+      ],
+      curatorSecret:
+        "Ask for the corner table by the mezzanine rail around 7:15 PM — you catch the last daylight over the terrace and settle in before the live set starts at 8:30.",
+      timeSavedMinutes: 45,
+      curatedPairing: "Cloudy Hefeweizen paired with crispy calamari and lemon aioli",
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=1600&q=80",
     altText:
@@ -205,8 +259,20 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Rare vintage bottled stouts"],
     guestNotes: "Outdoor seating is weather permitting; indoor AC section available.",
+    curation: {
+      curationTrack: "ALFRESCO_SUNDOWNER",
+      vipPerks: [
+        "Fountain-front alfresco table held for you",
+        "First draught pour on the house",
+        "Direct host seating — no waitlist at the piazza",
+      ],
+      curatorSecret:
+        "The two tables nearest the Oasis fountain catch the evening breeze and the light show at dusk; arrive by 6:45 PM to watch the piazza come alive.",
+      timeSavedMinutes: 30,
+      curatedPairing: "Belgian witbier with orange peel alongside a classic nachos grande",
+    },
     coverImageKey:
-      "https://images.unsplash.com/photo-1538488881522-4321453a99e3?auto=format&fit=crop&w=1600&q=80",
+      "https://images.unsplash.com/photo-1535958636474-b021ee887b13?auto=format&fit=crop&w=1600&q=80",
     altText:
       "Chilled international draught beers on an open-air alfresco patio at The Beer Café Amanora",
   },
@@ -236,6 +302,17 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Additional orders exceeding credit"],
     guestNotes: "Clubwear dress code enforced on Friday and Saturday evenings.",
+    curation: {
+      curationTrack: "HIGH_OCTANE_NIGHTLIFE",
+      vipPerks: [
+        "Direct host entry pass — skip the Friday door line",
+        "Reserved high-top beside the dance floor",
+        "Complimentary first round of shots for the table",
+      ],
+      curatorSecret:
+        "Prices on the drinks board dip when a round goes quiet — watch the screen around 10 PM, just before the DJ switches to the peak-hour set.",
+      timeSavedMinutes: 50,
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1572116469696-31de0f17cc34?auto=format&fit=crop&w=1600&q=80",
     altText:
@@ -268,6 +345,18 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Additional pints", "Premium spirits and cocktails"],
     guestNotes:
       "Legal drinking age required for alcoholic beverages; soft beverage served otherwise. Walk-in friendly; reservations hold a table at peak hours.",
+    curation: {
+      curationTrack: "ALFRESCO_SUNDOWNER",
+      vipPerks: [
+        "Peak-hour table held — no standing at the bar",
+        "Welcome pitcher top-up for groups of four or more",
+        "Quiet booth on request, away from the match screens",
+      ],
+      curatorSecret:
+        "The window booths face the Magarpatta skyline and stay calm even on match nights; ask for them when you arrive.",
+      timeSavedMinutes: 25,
+      curatedPairing: "House lager with the masala peanut chaat and chicken ghee roast sliders",
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1600&q=80",
     altText:
@@ -301,6 +390,18 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Whole bean retail bags"],
     guestNotes: "Outlets available at every table. Quiet work hours observed on weekday mornings.",
+    curation: {
+      curationTrack: "ARTISANAL_FOCUS",
+      vipPerks: [
+        "Reserved window seat with its own power outlet",
+        "Barista-led pour-over flight with origin notes",
+        "Second single-origin cup on the house",
+      ],
+      curatorSecret:
+        "Ask the barista for the current Chikmagalur micro-lot on V60 — it is rarely on the menu board but almost always in the hopper.",
+      timeSavedMinutes: 20,
+      curatedPairing: "Washed Ethiopian pour-over with an almond croissant",
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1600&q=80",
     altText:
@@ -332,6 +433,18 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Custom celebration cakes"],
     guestNotes: "Pet-friendly outdoor terrace. Reservation recommended for Sunday brunch.",
+    curation: {
+      curationTrack: "ARTISANAL_FOCUS",
+      vipPerks: [
+        "Shaded garden table reserved for Sunday brunch",
+        "Warm sourdough basket served on arrival",
+        "Pet-friendly terrace spot held when you bring a companion",
+      ],
+      curatorSecret:
+        "Sit under the frangipani at the far end of the garden — it is the quietest table, and the kitchen sends the first batch of sourdough out at 10:30 AM.",
+      timeSavedMinutes: 35,
+      curatedPairing: "Avocado sourdough tartine with a cold-pressed orange and rosemary spritz",
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=80",
     altText:
@@ -360,6 +473,18 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Takeaway merchandise"],
     guestNotes:
       "Casual and walk-in friendly. Great for quick afternoon cravings and conversations.",
+    curation: {
+      curationTrack: "ARTISANAL_FOCUS",
+      vipPerks: [
+        "Corner table held through the evening rush",
+        "Bingsu prepared to arrive the moment ramen plates clear",
+        "Spice level noted in advance for the kitchen",
+      ],
+      curatorSecret:
+        "Order the mango bingsu to share before you order ramen — it takes the longest to shave and arrives perfectly timed for dessert.",
+      timeSavedMinutes: 20,
+      curatedPairing: "Spicy kimchi ramen followed by a shared mango cheese bingsu",
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=1600&q=80",
     altText: "Steaming hot Japanese ramen bowl and Korean street desserts at Café Peter Hadapsar",
@@ -392,6 +517,18 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Alcoholic beverages"],
     guestNotes: "Come with an empty stomach! Table is held for 15 minutes past booking time.",
+    curation: {
+      curationTrack: "CONNOISSEUR",
+      vipPerks: [
+        "Grill table confirmed — no weekend waitlist at the door",
+        "Welcome mocktail and starter skewers ready as you sit",
+        "Wish Grill station walk-through with the chef",
+      ],
+      curatorSecret:
+        "Hold back on the first two rounds of starters and head to the Wish Grill early — the chef plates far better when the counter is not crowded.",
+      timeSavedMinutes: 40,
+      curatedPairing: "Cajun grilled prawns with a kokum-ginger cooler",
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1600&q=80",
     altText:
@@ -423,6 +560,18 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Hookah / Shisha"],
     guestNotes: "Smart casual dress code. Rooftop evening temperatures can be cool in winter.",
+    curation: {
+      curationTrack: "ALFRESCO_SUNDOWNER",
+      vipPerks: [
+        "Skyline-edge rooftop table held for golden hour",
+        "Complimentary signature molecular cocktail on arrival",
+        "Direct host entry — no lift-lobby wait on weekends",
+      ],
+      curatorSecret:
+        "Ask for a table on the west-facing parapet at 6:30 PM — the sunset settles over the Hadapsar skyline before the main dining rush arrives.",
+      timeSavedMinutes: 45,
+      curatedPairing: "Smoked rosemary gin sour with tandoori broccoli and truffle mayo",
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=1600&q=80",
     altText:
@@ -455,6 +604,18 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Extra concessions"],
     guestNotes:
       "Movie showtime selection confirmed 24 hours prior upon weekly theatrical schedule release.",
+    curation: {
+      curationTrack: "CONNOISSEUR",
+      vipPerks: [
+        "Centre-row recliners assigned for your party",
+        "Butler-served welcome drink before the trailers",
+        "Private lounge access while you wait for the doors",
+      ],
+      curatorSecret:
+        "Choose row D — it sits at the projection's sweet spot, and the butler station is closest, so orders arrive in half the time.",
+      timeSavedMinutes: 30,
+      curatedPairing: "Truffle popcorn with a salted caramel cold brew",
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1600&q=80",
     altText:
@@ -489,6 +650,18 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Specialized salon styling services"],
     guestNotes:
       "Please inform therapists of any recent injuries or pressure preferences during intake.",
+    curation: {
+      curationTrack: "MINDFUL_WELLNESS",
+      vipPerks: [
+        "Therapist matched to your pressure preference in advance",
+        "Herbal tea ritual and foot soak before the session",
+        "Quiet-room recovery time with no rush to vacate",
+      ],
+      curatorSecret:
+        "Book the first slot of the day: the rooms are at their stillest, and the sound-healing bowls are tuned fresh each morning.",
+      timeSavedMinutes: 35,
+      curatedPairing: "Lemongrass-ginger infusion after the session",
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1600&q=80",
     altText:
@@ -520,6 +693,17 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Professional camera rental"],
     guestNotes: "Meet at the lakeside amphitheater steps 15 minutes before sunset.",
+    curation: {
+      curationTrack: "MINDFUL_WELLNESS",
+      vipPerks: [
+        "Small-group walk with a curator-photographer",
+        "Golden-hour vantage points scouted for you",
+        "Edited reflection shots shared after the walk",
+      ],
+      curatorSecret:
+        "The east bank at the far end of the lake gives the cleanest tower reflections — the water is stillest there twenty minutes before sunset.",
+      timeSavedMinutes: 25,
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80",
     altText:
@@ -552,6 +736,17 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Courier shipping charges for fired ceramic pieces"],
     guestNotes:
       "Wear clothes that can get a little messy (aprons provided). Cut nails recommended for wheel throwing.",
+    curation: {
+      curationTrack: "ARTISANAL_FOCUS",
+      vipPerks: [
+        "Dedicated wheel for the full session — no sharing",
+        "Your piece glazed and fired, then held for collection",
+        "Studio chai served between throws",
+      ],
+      curatorSecret:
+        "Ask the potter for the reclaimed red clay: it is more forgiving on a first throw and fires to a warm terracotta finish.",
+      timeSavedMinutes: 30,
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=1600&q=80",
     altText:
@@ -586,6 +781,18 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     ],
     exclusions: ["Alcoholic beverages (available à la carte)", "Spa treatments at Arogya Spa"],
     guestNotes: "Smart casual dress code. Pool access requires proper swimwear.",
+    curation: {
+      curationTrack: "ALFRESCO_SUNDOWNER",
+      vipPerks: [
+        "Poolside cabana-side table reserved for brunch",
+        "Welcome sparkling mocktail on arrival",
+        "Pool and lounger access held through the afternoon",
+      ],
+      curatorSecret:
+        "Ask for a table on the pool deck rather than indoors — the live grill is steps away and the loungers free up right after the 1 PM rush.",
+      timeSavedMinutes: 50,
+      curatedPairing: "Live-grill lamb chops with a watermelon-mint cooler",
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1540541338287-41700207dee6?auto=format&fit=crop&w=1600&q=80",
     altText:
@@ -620,6 +827,18 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Hard liquor and wine bottles", "Mall parking fees"],
     guestNotes:
       "Please notify 24h in advance for Jain, gluten-free or seafood allergy preferences.",
+    curation: {
+      curationTrack: "CONNOISSEUR",
+      vipPerks: [
+        "Premium booth reserved — no mall-hour waitlist",
+        "Chef's sushi-rolling demonstration at your table",
+        "Jasmine tea or welcome mocktail on arrival",
+      ],
+      curatorSecret:
+        "Request the booth beside the open dim sum station — you watch the crystal prawn dumplings being pleated before they reach your basket.",
+      timeSavedMinutes: 40,
+      curatedPairing: "Edamame truffle dim sum with a yuzu-lemongrass highball",
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=1600&q=80",
     altText:
@@ -653,9 +872,35 @@ export const PILOT_EXPERIENCES: readonly PilotExperienceInput[] = [
     exclusions: ["Additional beer pints beyond tasting flight", "Desserts"],
     guestNotes:
       "Valid government ID required for guests consuming alcohol (legal drinking age 21+).",
+    curation: {
+      curationTrack: "CONNOISSEUR",
+      vipPerks: [
+        "Guaranteed upper-deck table — zero weekend wait",
+        "Complimentary seasonal craft taster pour on arrival",
+        "Brewery cellar tour with the brewmaster",
+      ],
+      curatorSecret:
+        "Ask for Table 14 on the upper deck at 7:15 PM for the golden-hour breeze, and avoid the ground floor's acoustic rush after 9.",
+      timeSavedMinutes: 45,
+      curatedPairing:
+        "Tint-In-Wit Belgian witbier with a blistered truffle mushroom sourdough pizza",
+    },
     coverImageKey:
       "https://images.unsplash.com/photo-1575037614876-c38a4d44f5b8?auto=format&fit=crop&w=1600&q=80",
     altText:
       "Six-glass craft beer tasting flight with artisan wood-fired pizza at Toit Brewery Kalyani Nagar",
   },
 ];
+
+const CURATION_BY_SLUG: ReadonlyMap<string, ExperienceCuration> = new Map(
+  PILOT_EXPERIENCES.map((experience) => [experience.slug, experience.curation]),
+);
+
+/**
+ * The editorial layer for a published slug, or null when our curators have not
+ * written one. Discovery overlays this onto whatever the database returned, so
+ * a host-created listing simply carries no curation rather than a made-up one.
+ */
+export function pilotCurationFor(slug: string): ExperienceCuration | null {
+  return CURATION_BY_SLUG.get(slug) ?? null;
+}

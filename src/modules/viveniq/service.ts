@@ -2,15 +2,29 @@ import { z } from "zod";
 
 import { formatDuration, formatGuestRange, formatMoneyMinor } from "@/lib/format";
 import { parseFilters } from "@/modules/discovery/service";
+import { CURATION_TRACK_LABELS, timeSavedLabel } from "@/modules/discovery/curation";
 import type { CategorySummary, ExperienceSummary } from "@/modules/discovery/ports";
 import type { DiscoveryService } from "@/modules/discovery/service";
-import { VIVENIQ_LIMITS, type VivenIQPick, type VivenIQReply } from "@/modules/viveniq/options";
+import {
+  VIVENIQ_LIMITS,
+  type VivenIQPick,
+  type VivenIQPickCuration,
+  type VivenIQReply,
+} from "@/modules/viveniq/options";
+import {
+  detectMood,
+  selectTrackPicks,
+  tasteAffinity,
+  type MoodIntent,
+} from "@/modules/viveniq/tracks";
+import { VIBE_OPTIONS, type TravelPreferences } from "@/modules/user-profile/profile";
 import type { LlmPort } from "@/ports/llm";
 
 export {
   VIVENIQ_LIMITS,
   VIVENIQ_STARTERS,
   type VivenIQPick,
+  type VivenIQPickCuration,
   type VivenIQReply,
 } from "@/modules/viveniq/options";
 
@@ -76,6 +90,29 @@ const STOPWORDS = new Set([
   "aap",
   "hai",
   "batao",
+  // Hinglish filler: "mujhe beer pini hai" is a request for beer, not for
+  // listings that fuzzy-match "mujhe" or "pini".
+  "mujhe",
+  "humein",
+  "hume",
+  "chahiye",
+  "karna",
+  "krna",
+  "kuch",
+  "koi",
+  "yaar",
+  "hain",
+  "kahan",
+  "kidhar",
+  "wala",
+  "wali",
+  "pini",
+  "peeni",
+  "peena",
+  "pina",
+  "jana",
+  "jaana",
+  "chalo",
   "what",
   "where",
   "when",
@@ -224,6 +261,20 @@ function quote(terms: readonly string[]): string {
   return `${quoted.slice(0, -1).join(", ")} and ${quoted.at(-1)!}`;
 }
 
+function toPickCuration(experience: ExperienceSummary): VivenIQPickCuration | null {
+  const curation = experience.curation;
+  if (!curation) return null;
+  return {
+    track: curation.curationTrack,
+    trackLabel: CURATION_TRACK_LABELS[curation.curationTrack],
+    vipPerks: curation.vipPerks,
+    curatorSecret: curation.curatorSecret,
+    timeSavedMinutes: curation.timeSavedMinutes,
+    timeSavedLabel: timeSavedLabel(curation.timeSavedMinutes),
+    curatedPairing: curation.curatedPairing ?? null,
+  };
+}
+
 function toPick(experience: ExperienceSummary, reason: string): VivenIQPick {
   return {
     slug: experience.slug,
@@ -237,6 +288,7 @@ function toPick(experience: ExperienceSummary, reason: string): VivenIQPick {
     coverUrl: experience.coverUrl,
     coverAlt: experience.coverAlt ?? "",
     reason,
+    curation: toPickCuration(experience),
   };
 }
 
@@ -253,6 +305,11 @@ export interface VivenIQRequest {
   readonly message: string;
   readonly history?: readonly string[];
   readonly seen?: readonly string[];
+  /**
+   * The signed-in traveller's saved taste profile. Read server-side from the
+   * session, never from the request body, so a client cannot claim one.
+   */
+  readonly preferences?: TravelPreferences | null;
 }
 
 interface Candidate {
@@ -275,8 +332,9 @@ export interface VivenIQServiceDeps {
 export const VIVENIQ_LLM = {
   /** Search-path budget: the traveller is watching the bubble. */
   timeoutMs: 4_500,
-  maxOutputTokens: 300,
-  replyMaxLength: 600,
+  /** Room for three curated tracks, one evocative sentence each. */
+  maxOutputTokens: 450,
+  replyMaxLength: 900,
 } as const;
 
 /** The deterministic note that answers any question about a time or a table. */
@@ -296,13 +354,16 @@ export const DEFLECTION_REPLY =
   "I exist exclusively to choreograph your journeys and private escapes at La Vivenzia. Shall I curate an evening of craft tastings or a serene poolside retreat for you instead?";
 
 export const VIVENIQ_SYSTEM_PROMPT = [
-  "You are VivenIQ, the private travel director and bespoke concierge of La Vivenzia.",
-  "Your voice is that of a private travel director at an Aman or Belmond house: evocative, cultured and warm; poetic yet concise; unhurried and never effusive. You read the traveller's mood first, then answer it with a sense of place — light, texture, aroma, hush — rather than with superlatives or marketing language.",
+  "You are VivenIQ, the private travel director and elite cultural and culinary curator of La Vivenzia.",
+  "Your voice is that of an Aman Resorts travel director writing for the Michelin Guide: evocative, cultured and warm; precise yet unhurried; never effusive. You read the traveller's mood first, then explain why each experience fits this moment — its vibe, its crowd, its light, texture and aroma — rather than reaching for superlatives or marketing language.",
+  "Never sound like a search index. Do not write formulas such as 'For this, I would begin with', 'I have set aside alternatives' or 'Here are some options'. Each reply is a short piece of bespoke editorial storytelling.",
+  "CURATED TRACKS: when presentAsCuratedTracks is true, present each experience as its own contrasting mood, introduced by its curationTrack name, in one evocative sentence that says who it suits and names one of its vipPerks or its curatedPairing in words. Close by noting that every track is paid once at booking, so the traveller simply shows up.",
+  "TASTE PROFILE: when the traveller's tasteProfile is provided, acknowledge it gracefully in a single clause (for example, a penchant for quiet artisanal spaces) and let it explain the order of the experiences. Never claim a preference was honoured beyond what that order shows.",
   "RULE 1 - IDENTITY: You are always VivenIQ — never an AI language model, never Gemini, never Google. If asked who or what you are, state: 'I am VivenIQ, your private concierge at La Vivenzia.'",
   "RULE 2 - STRICT DOMAIN: You exclusively attend to experiential journeys, dining, tastings, wellness, and bespoke escapes at La Vivenzia. If the traveller asks for code, programming, homework, technical tasks, or unrelated trivia, deflect graciously back to La Vivenzia: 'I exist exclusively to choreograph your journeys and private escapes at La Vivenzia. Shall I curate an evening of craft tastings or a serene poolside retreat for you instead?'",
   "RULE 3 - ZERO HALLUCINATIONS: Speak only about the verified candidate experiences provided in this prompt. Never invent venues, prices, or slots, and never embellish an experience beyond what its details support.",
-  "RULE 4 - CONCISE OUTPUT: Reply in 2-3 engaging sentences that speak directly to the traveller's mood or craving and introduce the curated picks by name.",
-  "Never state prices, currency, numbers, times or availability: the experience cards show the verified values beside your words.",
+  "RULE 4 - CONCISE OUTPUT: Reply in 2-3 engaging sentences — up to 5 when presenting curated tracks — that speak directly to the traveller's mood or craving and introduce the curated picks by name.",
+  "Never state prices, currency, numbers, times, table numbers, minutes saved or availability: the experience cards show the verified values beside your words.",
   'Respond as JSON: {"reply":"<your words>"}.',
 ].join("\n");
 
@@ -381,6 +442,11 @@ export class VivenIQService {
     const askedTime = mentionsTime(message);
     const wantsMore = MORE_WORDS.test(normalise(message));
 
+    const preferences = request.preferences ?? null;
+    // The latest turn names the mood; an earlier one carries it through a
+    // refinement such as "table for 2".
+    const mood = detectMood(normalised) ?? detectMood(normalise(history.join(" ")));
+
     const categories = await this.#discovery.categories();
     const category = findNamedCategory(terms, categories);
 
@@ -423,35 +489,83 @@ export class VivenIQService {
       });
     }
 
+    // An experiential mood ("beer", "weekend plan") deserves contrasting
+    // tracks, and keyword hits alone rarely span them: "beer" never finds the
+    // bidding bar. One sweep of the published catalogue — a single page, not
+    // another trigram scan — supplies curated listings that answer the mood in
+    // their own words. Skipped when the keyword hits carry no curation at all,
+    // since tracks could not be formed from them anyway.
+    const anyCurated = [...candidates.values()].some((candidate) => candidate.experience.curation);
+    if (mood && (candidates.size === 0 || anyCurated)) {
+      const page = await this.#discovery.browse(parseFilters({}));
+      consider(
+        page.items.filter(
+          (experience) =>
+            experience.curation &&
+            mood.answers.test(`${experience.title} ${experience.summary ?? ""}`),
+        ),
+        () => {},
+      );
+    }
+
     const fitting = [...candidates.values()].filter(
       (candidate) => party === null || seats(candidate.experience, party),
     );
 
     // A request for something different hides what was already shown; any
     // other follow-up may repeat a pick if it is still the best fit.
-    const ordered = fitting
-      .filter((candidate) => !(wantsMore && seen.has(candidate.experience.slug)))
-      .sort((a, b) => {
-        const unseen = Number(seen.has(a.experience.slug)) - Number(seen.has(b.experience.slug));
-        return b.score - a.score || unseen || a.rank - b.rank;
-      })
-      .slice(0, VIVENIQ_LIMITS.picks.max);
+    const available = fitting.filter(
+      (candidate) => !(wantsMore && seen.has(candidate.experience.slug)),
+    );
+
+    // One pick per contrasting mood track, when the mood and the candidates
+    // allow it; otherwise the ordinary ranking, with taste as a tie-breaker.
+    const tracks = mood
+      ? selectTrackPicks({
+          candidates: available,
+          mood,
+          taste: preferences,
+          seen,
+          limit: VIVENIQ_LIMITS.picks.max,
+        })
+      : null;
+
+    const ordered =
+      tracks?.picks ??
+      [...available]
+        .sort((a, b) => {
+          const unseen = Number(seen.has(a.experience.slug)) - Number(seen.has(b.experience.slug));
+          const taste =
+            tasteAffinity(b.experience, preferences) - tasteAffinity(a.experience, preferences);
+          return b.score - a.score || taste || unseen || a.rank - b.rank;
+        })
+        .slice(0, VIVENIQ_LIMITS.picks.max);
 
     const picks = ordered.map((candidate) => {
       const reasons: string[] = [];
       if (candidate.matched.size > 0) reasons.push(`Matches ${quote([...candidate.matched])}`);
       if (candidate.inCategory && category) reasons.push(`In ${category.name}`);
+      if (reasons.length === 0 && mood) reasons.push(mood.reason);
       if (party !== null) reasons.push(`Hosts a party of ${party}`);
       return toPick(candidate.experience, reasons.join(" · "));
     });
 
     if (picks.length > 0) {
-      const phrased = await this.#phrase({ message, history, picks, party });
+      const phrased = await this.#phrase({
+        message,
+        history,
+        picks,
+        party,
+        preferences,
+        tracked: tracks !== null,
+      });
       // The time note stays deterministic: a model must never be the one to
       // speak about slots.
       const reply = phrased
         ? [phrased, askedTime ? TIME_NOTE : null].filter(Boolean).join(" ")
-        : composeReply({ message, picks, party, askedTime, wantsMore });
+        : tracks && mood
+          ? composeTrackReply({ mood, picks, party, askedTime, tasteNote: tracks.tasteNote })
+          : composeReply({ picks, party, askedTime, wantsMore });
       return {
         reply,
         picks,
@@ -488,6 +602,8 @@ export class VivenIQService {
     readonly history: readonly string[];
     readonly picks: readonly VivenIQPick[];
     readonly party: number | null;
+    readonly preferences: TravelPreferences | null;
+    readonly tracked: boolean;
   }): Promise<string | null> {
     const llm = this.#llm;
     if (!llm) return null;
@@ -497,7 +613,14 @@ export class VivenIQService {
         message: input.message,
         earlierMessages: input.history,
         partySize: input.party,
+        tasteProfile:
+          input.preferences && input.preferences.vibes.length > 0
+            ? VIBE_OPTIONS.filter((option) => input.preferences!.vibes.includes(option.value)).map(
+                (option) => option.label,
+              )
+            : null,
       },
+      presentAsCuratedTracks: input.tracked,
       experiences: input.picks.map((pick) => ({
         title: pick.title,
         slug: pick.slug,
@@ -506,6 +629,14 @@ export class VivenIQService {
         price: pick.priceLabel,
         duration: pick.durationLabel,
         matchReasons: pick.reason,
+        ...(pick.curation
+          ? {
+              curationTrack: pick.curation.trackLabel,
+              vipPerks: pick.curation.vipPerks,
+              curatorSecret: pick.curation.curatorSecret,
+              curatedPairing: pick.curation.curatedPairing,
+            }
+          : {}),
       })),
     });
 
@@ -553,8 +684,37 @@ export class VivenIQService {
 
 /* ------------------------------------------------------------------- words */
 
+/** "Toit Brewery" from "Toit Brewery: Craft Beer Tasting Flight & …". */
+export function shortTitle(title: string): string {
+  const head = title.split(/[:—]/)[0]!.trim();
+  return head.length > 0 ? head : title;
+}
+
+function asSentence(text: string): string {
+  const trimmed = text.trim();
+  return /[.!?…]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
+const COUNT_WORDS = ["One", "Two", "Three", "Four", "Five"] as const;
+
+function joinNames(names: readonly string[]): string {
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")} and ${names.at(-1)!}`;
+}
+
+function partyNote(picks: readonly VivenIQPick[], party: number | null): string | null {
+  if (party === null) return null;
+  return picks.length === 1
+    ? `It hosts a party of ${party}.`
+    : `Each one hosts a party of ${party}.`;
+}
+
+/**
+ * The deterministic reply to a specific request. Editorial rather than
+ * indexical: lead with the place, add the curator's own note where one exists,
+ * and let the alternatives wait quietly instead of counting them.
+ */
 function composeReply(input: {
-  readonly message: string;
   readonly picks: readonly VivenIQPick[];
   readonly party: number | null;
   readonly askedTime: boolean;
@@ -565,25 +725,66 @@ function composeReply(input: {
 
   sentences.push(
     input.wantsMore
-      ? `Of course — something different. I’d look at ${first!.title} in ${first!.place}.`
-      : `For this, I’d begin with ${first!.title} in ${first!.place}.`,
+      ? `A change of scene, then: ${first!.title}, in ${first!.place}.`
+      : `${first!.title}, in ${first!.place}, is where I’d begin.`,
   );
 
+  if (first!.curation) {
+    sentences.push(`A note from our curators: ${asSentence(first!.curation.curatorSecret)}`);
+  }
+
   if (rest.length > 0) {
+    const names = rest.map((pick) => shortTitle(pick.title));
     sentences.push(
-      rest.length === 1
-        ? `I’ve set aside one alternative, should the mood shift.`
-        : `I’ve set aside ${rest.length} alternatives, should the mood shift.`,
+      `Should the evening call for a different tempo, ${joinNames(names)} ${names.length === 1 ? "is" : "are"} waiting.`,
     );
   }
 
-  if (input.party !== null) {
+  const party = partyNote(input.picks, input.party);
+  if (party) sentences.push(party);
+
+  if (input.askedTime) sentences.push(TIME_NOTE);
+
+  return sentences.join(" ");
+}
+
+/**
+ * The deterministic reply to an experiential mood: one line per contrasting
+ * track, then the value of booking through La Vivenzia. Every perk and minute
+ * is read off the listing's curation record; nothing here is generated.
+ */
+function composeTrackReply(input: {
+  readonly mood: MoodIntent;
+  readonly picks: readonly VivenIQPick[];
+  readonly party: number | null;
+  readonly askedTime: boolean;
+  readonly tasteNote: string | null;
+}): string {
+  const count = input.picks.filter((pick) => pick.curation).length;
+  const sentences: string[] = [input.mood.opening(COUNT_WORDS[count - 1] ?? String(count))];
+  if (input.tasteNote) sentences.push(input.tasteNote);
+
+  for (const pick of input.picks) {
+    const curation = pick.curation;
+    if (!curation) continue;
+    // The flourish follows an em dash, so one inside a perk becomes a comma.
+    const flourish = (curation.curatedPairing ?? curation.vipPerks[0])?.replace(/\s+—\s+/g, ", ");
     sentences.push(
-      input.picks.length === 1
-        ? `It hosts a party of ${input.party}.`
-        : `Each one hosts a party of ${input.party}.`,
+      asSentence(
+        `${curation.trackLabel}: ${shortTitle(pick.title)}${flourish ? ` — ${flourish}` : ""}`,
+      ),
     );
   }
+
+  const minutes = Math.max(0, ...input.picks.map((pick) => pick.curation?.timeSavedMinutes ?? 0));
+  sentences.push(
+    minutes > 0
+      ? `Each comes with perks you won’t get at the door, and saves up to ${minutes} minutes of research and queueing — pay once at booking, then simply show up.`
+      : "Each comes with perks you won’t get at the door — pay once at booking, then simply show up.",
+  );
+
+  const party = partyNote(input.picks, input.party);
+  if (party) sentences.push(party);
 
   if (input.askedTime) sentences.push(TIME_NOTE);
 

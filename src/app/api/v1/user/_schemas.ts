@@ -21,6 +21,15 @@ const optionalText = (max: number) => z.string().max(max).nullable().optional();
 const keys = <T extends string>(options: readonly { value: T }[]) =>
   z.array(z.enum(options.map((option) => option.value) as [T, ...T[]])).max(options.length * 2);
 
+/** A taste profile on the wire. Shared by every route that accepts one. */
+export const travelPreferencesSchema = z
+  .object({
+    dietary: keys(DIETARY_OPTIONS),
+    vibes: keys(VIBE_OPTIONS),
+    clusters: keys(CLUSTER_OPTIONS),
+  })
+  .strict();
+
 export const updateProfileSchema = z
   .object({
     fullName: optionalText(PROFILE_LIMITS.fullName),
@@ -28,14 +37,7 @@ export const updateProfileSchema = z
     phone: optionalText(PROFILE_LIMITS.phone * 2),
     avatarUrl: optionalText(PROFILE_LIMITS.avatarUrl),
     bio: optionalText(PROFILE_LIMITS.bio),
-    preferences: z
-      .object({
-        dietary: keys(DIETARY_OPTIONS),
-        vibes: keys(VIBE_OPTIONS),
-        clusters: keys(CLUSTER_OPTIONS),
-      })
-      .strict()
-      .optional(),
+    preferences: travelPreferencesSchema.optional(),
   })
   .strict();
 

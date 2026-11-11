@@ -98,7 +98,7 @@ describe("template registry", () => {
   it("exposes exactly the templates the product sends today", () => {
     // Guards against a template being added without a flow that sends it, and
     // against one being renamed out from under a caller.
-    expect([...EMAIL_TEMPLATE_IDS]).toEqual(["auth.login-code"]);
+    expect([...EMAIL_TEMPLATE_IDS]).toEqual(["auth.login-code", "traveler.in-journey-companion"]);
   });
 
   it("narrows a string to a known template id", () => {
@@ -107,5 +107,87 @@ describe("template registry", () => {
     // Must not be fooled by inherited object properties.
     expect(isEmailTemplateId("toString")).toBe(false);
     expect(isEmailTemplateId("constructor")).toBe(false);
+  });
+});
+
+describe("in-journey companion email", () => {
+  const COMPANION = {
+    patronName: "Asha",
+    activeVenueTitle: "Toit Brewery",
+    activeZone: "Kalyani Nagar",
+    butlerNote: "Asha, you're at Toit Brewery in Kalyani Nagar.",
+    recommendations: [
+      {
+        title: "Hyatt Regency: Poolside Brunch",
+        categoryName: "Culinary & Dining",
+        distanceOrTime: "~12-min walk · 930 m",
+        curatorSecret: "Ask for a table on the pool deck.",
+        vipPerk: "Poolside table reserved for brunch",
+        experienceUrl: "https://lavivenzia.com/experiences/hyatt-regency",
+      },
+      {
+        title: "Shizusan: Dim Sum",
+        categoryName: "Culinary & Dining",
+        distanceOrTime: "~7-min drive · 1.5 km",
+        curatorSecret: "Request the booth by the dim sum station.",
+        vipPerk: "Premium booth reserved",
+        experienceUrl: "https://lavivenzia.com/experiences/shizusan",
+      },
+    ],
+  } as const;
+
+  it("renders every recommendation with its perk, secret and pass link", () => {
+    const rendered = renderEmailTemplate("traveler.in-journey-companion", COMPANION);
+
+    expect(rendered.subject).toBe("Your live butler in Kalyani Nagar — 2 curated gems nearby");
+    for (const recommendation of COMPANION.recommendations) {
+      expect(rendered.html).toContain(recommendation.vipPerk);
+      expect(rendered.html).toContain(`href="${recommendation.experienceUrl}"`);
+      expect(rendered.text).toContain(recommendation.curatorSecret);
+      expect(rendered.text).toContain(recommendation.experienceUrl);
+    }
+    expect(rendered.html).toContain("Live in Kalyani Nagar");
+    expect(rendered.html).toContain("#080806");
+    expect(rendered.html).toContain("#cda851");
+  });
+
+  it("counts what it actually recommends in the subject", () => {
+    const rendered = renderEmailTemplate("traveler.in-journey-companion", {
+      ...COMPANION,
+      recommendations: COMPANION.recommendations.slice(0, 1),
+    });
+    expect(rendered.subject).toContain("one curated gem nearby");
+  });
+
+  it("escapes every variable in the HTML body", () => {
+    const rendered = renderEmailTemplate("traveler.in-journey-companion", {
+      ...COMPANION,
+      patronName: "<script>alert(1)</script>",
+      recommendations: [{ ...COMPANION.recommendations[0], title: "<img src=x onerror=1>" }],
+    });
+
+    expect(rendered.html).not.toContain("<script>");
+    expect(rendered.html).not.toContain("<img");
+    expect(rendered.html).toContain("&lt;script&gt;");
+  });
+
+  it("never renders a non-web link as a live href", () => {
+    const rendered = renderEmailTemplate("traveler.in-journey-companion", {
+      ...COMPANION,
+      recommendations: [{ ...COMPANION.recommendations[0], experienceUrl: "javascript:alert(1)" }],
+    });
+
+    expect(rendered.html).not.toContain("javascript:");
+    expect(rendered.html).toContain('href="#"');
+  });
+
+  it("has a plain-text alternative and balanced tables", () => {
+    const rendered = renderEmailTemplate("traveler.in-journey-companion", COMPANION);
+
+    expect(rendered.text).not.toContain("<");
+    expect(rendered.text).not.toContain("style=");
+    const opens = (rendered.html.match(/<table/g) ?? []).length;
+    const closes = (rendered.html.match(/<\/table>/g) ?? []).length;
+    expect(opens).toBe(closes);
   });
 });

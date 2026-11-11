@@ -100,6 +100,16 @@ export const RATE_LIMITS = {
   viveniqPerIp: { limit: 60, windowMs: 15 * MINUTE },
 
   /**
+   * In-journey butler emails per client.
+   *
+   * Every accepted request sends a real email from our verified domain, so
+   * this is a reputation control as much as a cost one. A traveller asks a
+   * handful of times in an evening; a script is stopped well before it can
+   * make the sending domain look like a spammer's.
+   */
+  companionDispatchPerIp: { limit: 10, windowMs: HOUR },
+
+  /**
    * Itinerary generation and swap per client.
    *
    * No model and no database read, but each request is an exhaustive search

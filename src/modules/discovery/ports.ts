@@ -1,6 +1,7 @@
 import type { Page } from "@/modules/shared/pagination";
 import type { PricingUnit } from "@/modules/experiences/readiness";
 import type { ProximityFilter } from "@/modules/discovery/geo";
+import type { ExperienceCuration } from "@/modules/discovery/curation";
 
 /**
  * Traveller-facing discovery (FR-01, FR-02).
@@ -43,6 +44,13 @@ export interface ExperienceSummary {
    * time — this is a property of the *search*, not of the listing.
    */
   readonly distanceMetres: number | null;
+  /**
+   * La Vivenzia's editorial layer — perks, insider knowledge, mood track — or
+   * null when our curators have not written one for this listing. Optional so
+   * that a summary built without it (a test fixture, an older cache) still
+   * reads as "not curated" rather than failing to type-check.
+   */
+  readonly curation?: ExperienceCuration | null;
 }
 
 export interface ExperienceImage {
