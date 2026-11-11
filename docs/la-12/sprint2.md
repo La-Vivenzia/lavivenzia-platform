@@ -387,7 +387,7 @@ In the subsequent successful bulk run at 23:13:05, this failure did not recur â€
       - Option C: Raw UUID directly as receipt ($36\text{ characters} \le 40$).
   - **Canonical Endpoint Contract:**
     - Canonical REST endpoint: `POST /api/v1/checkout/orders` (maps to `src/app/api/v1/checkout/orders/route.ts`).
-    - *Deprecation Notice:* `POST /api/v1/checkout/create-order` and `POST /api/v1/checkout/pay` are deprecated in favor of `POST /api/v1/checkout/orders` to adhere strictly to RESTful resource creation conventions (avoiding redundant RPC verbs in URLs).
+    - _Deprecation Notice:_ `POST /api/v1/checkout/create-order` and `POST /api/v1/checkout/pay` are deprecated in favor of `POST /api/v1/checkout/orders` to adhere strictly to RESTful resource creation conventions (avoiding redundant RPC verbs in URLs).
   - **Razorpay Receipt Length Constraints:**
     - Razorpay API enforces a maximum `receipt` length of **40 characters**.
     - Standard UUID `bookingId` is 36 characters (`8b9487c6-2c93-4e42-998e-4a64860b21a8`).
