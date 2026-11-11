@@ -11,7 +11,7 @@ import { PrismaClient } from "@/generated/prisma/client";
 export const testDb = new PrismaClient({
   adapter: new PrismaPg({
     connectionString: process.env.DATABASE_URL,
-    max: 5,
+    max: 20,
   }),
 });
 
@@ -33,6 +33,15 @@ export const TEST_EMAIL_DOMAIN = "@integration.test";
  * address survives cleanup.
  */
 export async function cleanupUsers(): Promise<void> {
+  await testDb.bookingItem.deleteMany({
+    where: { booking: { user: { email: { endsWith: TEST_EMAIL_DOMAIN, mode: "insensitive" } } } },
+  });
+  await testDb.payment.deleteMany({
+    where: { booking: { user: { email: { endsWith: TEST_EMAIL_DOMAIN, mode: "insensitive" } } } },
+  });
+  await testDb.booking.deleteMany({
+    where: { user: { email: { endsWith: TEST_EMAIL_DOMAIN, mode: "insensitive" } } },
+  });
   await testDb.user.deleteMany({
     where: { email: { endsWith: TEST_EMAIL_DOMAIN, mode: "insensitive" } },
   });
