@@ -13,6 +13,8 @@ import { CopilotService } from "@/modules/copilot/service";
 import { VivenIQService } from "@/modules/viveniq/service";
 import { CompanionService } from "@/modules/companion/service";
 import { CheckoutService, resolveCheckoutMode } from "@/modules/booking/checkout";
+import { CheckoutOrdersService } from "@/modules/booking/checkout-orders";
+import { BookingCapacityEngine } from "@/modules/booking/capacity-engine";
 import { getLogger } from "@/lib/logger";
 import { AnthropicLlmAdapter } from "@/adapters/llm/anthropic";
 import { GeminiLlmAdapter, resolveGeminiApiKey } from "@/adapters/llm/gemini";
@@ -40,6 +42,8 @@ import {
   createExperienceRepository,
 } from "@/adapters/persistence/prisma/experience-repositories";
 import { PrismaSlotRepository } from "@/adapters/persistence/prisma/availability-repositories";
+import { PrismaBookingCapacityRepository } from "@/adapters/persistence/prisma/booking-capacity-repositories";
+import { PrismaCheckoutOrdersRepository } from "@/adapters/persistence/prisma/checkout-orders-repositories";
 import { createOperationsRepository } from "@/adapters/persistence/prisma/operations-repositories";
 import { createDiscoveryRepository } from "@/adapters/persistence/prisma/discovery-repositories";
 
@@ -332,14 +336,7 @@ export function getCheckoutService(): CheckoutService {
       };
     },
     listBookableSlots: (experienceId) => getAvailabilityService().listBookable(experienceId),
-    gateway:
-      mode === "razorpay_test"
-        ? new RazorpayAdapter({
-            keyId: env.RAZORPAY_KEY_ID,
-            keySecret: env.RAZORPAY_KEY_SECRET,
-            webhookSecret: env.RAZORPAY_WEBHOOK_SECRET,
-          })
-        : null,
+    gateway: mode === "razorpay_test" ? getRazorpayAdapter() : null,
     razorpayKeyId: mode === "razorpay_test" ? (env.RAZORPAY_KEY_ID ?? null) : null,
     signingKey: createHmac("sha256", env.SESSION_SECRET)
       .update("lv.booking-intent.v1")
@@ -347,6 +344,56 @@ export function getCheckoutService(): CheckoutService {
   });
 
   return checkoutService;
+}
+
+let razorpayAdapter: RazorpayAdapter | undefined;
+
+/**
+ * Reusable Razorpay adapter instance.
+ */
+export function getRazorpayAdapter(): RazorpayAdapter {
+  razorpayAdapter ??= new RazorpayAdapter({
+    keyId: env.RAZORPAY_KEY_ID,
+    keySecret: env.RAZORPAY_KEY_SECRET,
+    webhookSecret: env.RAZORPAY_WEBHOOK_SECRET,
+  });
+
+  return razorpayAdapter;
+}
+
+let checkoutOrdersService: CheckoutOrdersService | undefined;
+
+/**
+ * Decoupled Checkout Orders Service (LA-12 Phase 2 Sprint 3).
+ *
+ * Implements canonical checkout order creation with attempt-level receipt correlation,
+ * two-phase short database transaction boundaries, coherent order reuse, and fast-webhook race recovery.
+ */
+export function getCheckoutOrdersService(): CheckoutOrdersService {
+  checkoutOrdersService ??= new CheckoutOrdersService({
+    repository: new PrismaCheckoutOrdersRepository(prisma),
+    gateway: getRazorpayAdapter(),
+    logger: getLogger(),
+    keyId: env.RAZORPAY_KEY_ID,
+  });
+
+  return checkoutOrdersService;
+}
+
+let bookingCapacityEngine: BookingCapacityEngine | undefined;
+
+/**
+ * Booking Capacity Engine (LA-12 Phase 2 Sprint 2).
+ *
+ * Provides atomic, transaction-safe 5-minute hold reservations and pessimistic
+ * row-level locking on experience slot inventory.
+ */
+export function getBookingCapacityEngine(): BookingCapacityEngine {
+  bookingCapacityEngine ??= new BookingCapacityEngine({
+    repository: new PrismaBookingCapacityRepository(prisma),
+  });
+
+  return bookingCapacityEngine;
 }
 
 let mapsPort: MapsPort | undefined;

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { BookingConfirmation, CheckoutIntent } from "@/modules/booking/contract";
+import type {
+  BookingConfirmation,
+  CheckoutIntent,
+  RazorpayPaymentResult,
+} from "@/modules/booking/contract";
 import {
   bookingReducer,
   canSubmit,
@@ -10,8 +14,11 @@ import {
   selectedSlot,
   type BookingEvent,
   type BookingState,
+  type HeldBooking,
+  type CheckoutOrderData,
 } from "@/modules/booking/flow";
 import type { PublicSlot } from "@/modules/booking/slots";
+import type { PriceQuote } from "@/modules/booking/pricing";
 
 /**
  * The booking panel's state machine (FR-09).
@@ -296,5 +303,172 @@ describe("checkout transitions", () => {
     );
     const again = run(done, { type: "START_OVER" });
     expect(again).toEqual(initialBookingState({ minGuests: 2, maxGuests: 6 }));
+  });
+});
+
+describe("Sprint 2 & 3 decoupled checkout transitions", () => {
+  const ready = () => run(loaded(), { type: "SELECT_SLOT", slotId: "morning" });
+
+  const sampleHold: HeldBooking = {
+    id: "booking_abc123",
+    bookingReference: "BK-REF-1234",
+    heldUntil: new Date(Date.now() + 300_000).toISOString(),
+    totalAmountMinorUnits: 250000,
+    currency: "INR",
+    guestCount: 2,
+    slotId: "morning",
+  };
+
+  const sampleQuote: PriceQuote = {
+    currency: "INR",
+    pricingUnit: "PER_PERSON",
+    guests: 2,
+    lines: [{ kind: "per_person", unitPriceMinor: 125000, quantity: 2, amountMinor: 250000 }],
+    totalMinor: 250000,
+  };
+
+  const sampleOrder: CheckoutOrderData = {
+    bookingId: "booking_abc123",
+    paymentId: "pay_123",
+    gatewayOrderId: "order_rzp_123",
+    orderId: "order_rzp_123",
+    amount: 250000,
+    currency: "INR",
+    receipt: "rcpt_123",
+    status: "CREATED",
+    keyId: "rzp_test_xyz",
+  };
+
+  const samplePaymentResult: RazorpayPaymentResult = {
+    orderId: "order_rzp_123",
+    paymentId: "pay_test_999",
+    signature: "sig_abc",
+  };
+
+  it("transitions from preparing to held upon HOLD_RESERVED", () => {
+    const preparing = run(ready(), { type: "SUBMIT" });
+    const held = run(preparing, {
+      type: "HOLD_RESERVED",
+      hold: sampleHold,
+      quote: sampleQuote,
+    });
+    expect(held.phase).toBe("held");
+    expect(held.hold).toEqual(sampleHold);
+    expect(held.quote).toEqual(sampleQuote);
+    expect(held.error).toBeNull();
+    expect(held.notice).toBeNull();
+  });
+
+  it("transitions to hold_expired when 5-minute hold timer elapses", () => {
+    const held = run(
+      ready(),
+      { type: "SUBMIT" },
+      { type: "HOLD_RESERVED", hold: sampleHold, quote: sampleQuote },
+    );
+    const expired = run(held, { type: "HOLD_EXPIRED" });
+    expect(expired.phase).toBe("hold_expired");
+    expect(expired.errorCode).toBe("HOLD_EXPIRED");
+    expect(expired.notice).toMatch(/hold has expired/i);
+  });
+
+  it("transitions to hold_expired if backend returns HOLD_EXPIRED error", () => {
+    const held = run(
+      ready(),
+      { type: "SUBMIT" },
+      { type: "HOLD_RESERVED", hold: sampleHold, quote: sampleQuote },
+    );
+    const expired = run(held, {
+      type: "FAILED",
+      message: "Reservation hold has expired. Please select a slot again.",
+      code: "HOLD_EXPIRED",
+    });
+    expect(expired.phase).toBe("hold_expired");
+    expect(expired.hold).toBeNull();
+  });
+
+  it("advances from held to ordering when user proceeds to payment", () => {
+    const held = run(
+      ready(),
+      { type: "SUBMIT" },
+      { type: "HOLD_RESERVED", hold: sampleHold, quote: sampleQuote },
+    );
+    const ordering = run(held, { type: "PROCEED_TO_PAYMENT" });
+    expect(ordering.phase).toBe("ordering");
+  });
+
+  it("transitions from ordering to paying upon ORDER_CREATED", () => {
+    const ordering = run(
+      ready(),
+      { type: "SUBMIT" },
+      { type: "HOLD_RESERVED", hold: sampleHold, quote: sampleQuote },
+      { type: "PROCEED_TO_PAYMENT" },
+    );
+    const paying = run(ordering, {
+      type: "ORDER_CREATED",
+      order: sampleOrder,
+    });
+    expect(paying.phase).toBe("paying");
+    expect(paying.order).toEqual(sampleOrder);
+  });
+
+  it("preserves active hold and permits replay if payment modal is dismissed", () => {
+    const paying = run(
+      ready(),
+      { type: "SUBMIT" },
+      { type: "HOLD_RESERVED", hold: sampleHold, quote: sampleQuote },
+      { type: "PROCEED_TO_PAYMENT" },
+      { type: "ORDER_CREATED", order: sampleOrder },
+    );
+    const dismissed = run(paying, { type: "PAYMENT_DISMISSED" });
+    // Invariant: Dismissal MUST NOT cancel hold or mark as failed
+    expect(dismissed.phase).toBe("held");
+    expect(dismissed.hold).toEqual(sampleHold);
+    expect(dismissed.notice).toMatch(/Payment window was closed/i);
+  });
+
+  it("preserves active hold if payment attempt fails non-terminally", () => {
+    const paying = run(
+      ready(),
+      { type: "SUBMIT" },
+      { type: "HOLD_RESERVED", hold: sampleHold, quote: sampleQuote },
+      { type: "PROCEED_TO_PAYMENT" },
+      { type: "ORDER_CREATED", order: sampleOrder },
+    );
+    const failed = run(paying, {
+      type: "PAYMENT_FAILED",
+      message: "Card was declined by bank.",
+    });
+    expect(failed.phase).toBe("held");
+    expect(failed.hold).toEqual(sampleHold);
+    expect(failed.notice).toMatch(/Card was declined/i);
+  });
+
+  it("transitions from paying to confirmed on PAYMENT_AUTHORIZED", () => {
+    const paying = run(
+      ready(),
+      { type: "SUBMIT" },
+      { type: "HOLD_RESERVED", hold: sampleHold, quote: sampleQuote },
+      { type: "PROCEED_TO_PAYMENT" },
+      { type: "ORDER_CREATED", order: sampleOrder },
+    );
+    const confirmed = run(paying, {
+      type: "PAYMENT_AUTHORIZED",
+      payment: samplePaymentResult,
+    });
+    expect(confirmed.phase).toBe("confirmed");
+    expect(confirmed.paymentResult).toEqual(samplePaymentResult);
+  });
+
+  it("resets cleanly on START_OVER from hold_expired", () => {
+    const expired = run(
+      ready(),
+      { type: "SUBMIT" },
+      { type: "HOLD_RESERVED", hold: sampleHold, quote: sampleQuote },
+      { type: "HOLD_EXPIRED" },
+    );
+    const reset = run(expired, { type: "START_OVER" });
+    expect(reset.phase).toBe("loading");
+    expect(reset.hold).toBeNull();
+    expect(reset.order).toBeNull();
   });
 });

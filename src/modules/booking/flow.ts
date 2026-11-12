@@ -1,4 +1,5 @@
-import type { BookingConfirmation, CheckoutIntent } from "./contract";
+import type { BookingConfirmation, CheckoutIntent, RazorpayPaymentResult } from "./contract";
+import type { PriceQuote } from "./pricing";
 import {
   checkGuestCount,
   clampGuests,
@@ -10,22 +11,21 @@ import {
 import { groupSlotsByDay, slotsForParty, type PublicSlot, type SlotDay } from "./slots";
 
 /**
- * The booking panel as a state machine (FR-09).
+ * The booking panel as a state machine (FR-09, Phase 2 Sprint 2 & 3).
  *
- * A reducer rather than a handful of `useState`s, for one reason: the
- * transitions are the product. "Payment dismissed keeps the selection", "a slot
- * change re-clamps the party", "nothing can be selected while a payment is
- * open" — each is one line here, testable without a browser, instead of an
- * implicit property of which setters a click handler remembered to call.
- *
- * An event that does not apply in the current phase returns the state
- * unchanged. A late slot reload cannot reset a panel that is mid-payment.
+ * Implements the full lifecycle:
+ * 1. Slot & party selection (`loading` -> `selecting`)
+ * 2. Inventory Hold reservation via Sprint 2 (`reserving` -> `held`)
+ * 3. 5-minute Hold countdown with expiration detection (`held` -> `hold_expired`)
+ * 4. Decoupled Order initiation via Sprint 3 (`ordering` -> `paying`)
+ * 5. Razorpay hosted checkout interaction & dismissal recovery
+ * 6. Payment authorization confirmation
  *
  * ```text
- * loading ─► selecting ─► preparing ─► paying ─► confirming ─► confirmed
- *    │           ▲   ▲         │          │           │
- *    ▼           │   └─dismiss─┼──────────┘           │
- * load_error ────┘             └────► error ◄─────────┘
+ * loading ─► selecting ─► reserving ─► held ─► ordering ─► paying ─► confirmed
+ *    │           ▲          │           │ ▲       │          │
+ *    ▼           │          ▼           ▼ └──dismiss─────────┘
+ * load_error ────┘        error    hold_expired
  * ```
  */
 
@@ -33,11 +33,38 @@ export type BookingPhase =
   | "loading"
   | "load_error"
   | "selecting"
-  | "preparing"
+  | "reserving"
+  | "held"
+  | "hold_expired"
+  | "ordering"
   | "paying"
   | "confirming"
   | "confirmed"
-  | "error";
+  | "error"
+  // Legacy phase alias
+  | "preparing";
+
+export interface HeldBooking {
+  readonly id: string;
+  readonly bookingReference: string;
+  readonly heldUntil: string;
+  readonly totalAmountMinorUnits: number;
+  readonly currency: string;
+  readonly guestCount: number;
+  readonly slotId: string;
+}
+
+export interface CheckoutOrderData {
+  readonly bookingId: string;
+  readonly paymentId: string;
+  readonly gatewayOrderId: string;
+  readonly orderId: string;
+  readonly amount: number;
+  readonly currency: string;
+  readonly receipt: string;
+  readonly status: string;
+  readonly keyId?: string;
+}
 
 export interface BookingState {
   readonly phase: BookingPhase;
@@ -46,10 +73,21 @@ export interface BookingState {
   readonly selectedDay: string | null;
   readonly selectedSlotId: string | null;
   readonly guests: number;
+  /** Active reservation hold created in Sprint 2 */
+  readonly hold: HeldBooking | null;
+  /** Active checkout order created in Sprint 3 */
+  readonly order: CheckoutOrderData | null;
+  /** Authoritative price quote from server */
+  readonly quote: PriceQuote | null;
+  /** Authorized payment result from Razorpay modal */
+  readonly paymentResult: RazorpayPaymentResult | null;
   /** A failure the traveller must read. */
   readonly error: string | null;
-  /** Something worth saying that is not a failure — e.g. a cancelled payment. */
+  /** Error code from ApiError (e.g. UNAUTHENTICATED, CONFLICT, BAD_REQUEST). */
+  readonly errorCode: string | null;
+  /** Something worth saying that is not a failure — e.g. a cancelled payment or active hold. */
   readonly notice: string | null;
+  /** Legacy intent & confirmation for backwards compatibility */
   readonly intent: CheckoutIntent | null;
   readonly confirmation: BookingConfirmation | null;
 }
@@ -62,13 +100,19 @@ export type BookingEvent =
   | { readonly type: "SELECT_SLOT"; readonly slotId: string }
   | { readonly type: "SET_GUESTS"; readonly guests: number }
   | { readonly type: "SUBMIT" }
-  | { readonly type: "INTENT_READY"; readonly intent: CheckoutIntent }
+  | { readonly type: "HOLD_RESERVED"; readonly hold: HeldBooking; readonly quote: PriceQuote }
+  | { readonly type: "HOLD_EXPIRED" }
+  | { readonly type: "PROCEED_TO_PAYMENT" }
+  | { readonly type: "ORDER_CREATED"; readonly order: CheckoutOrderData }
+  | { readonly type: "PAYMENT_AUTHORIZED"; readonly payment: RazorpayPaymentResult }
   | { readonly type: "PAYMENT_COMPLETED" }
   | { readonly type: "PAYMENT_DISMISSED" }
+  | { readonly type: "PAYMENT_FAILED"; readonly message: string }
   | { readonly type: "CONFIRMED"; readonly confirmation: BookingConfirmation }
-  | { readonly type: "FAILED"; readonly message: string }
+  | { readonly type: "FAILED"; readonly message: string; readonly code?: string }
   | { readonly type: "DISMISS_ERROR" }
-  | { readonly type: "START_OVER" };
+  | { readonly type: "START_OVER" }
+  | { readonly type: "INTENT_READY"; readonly intent: CheckoutIntent };
 
 export function initialBookingState(party: {
   readonly minGuests: number;
@@ -81,7 +125,12 @@ export function initialBookingState(party: {
     selectedDay: null,
     selectedSlotId: null,
     guests: Math.max(1, party.minGuests),
+    hold: null,
+    order: null,
+    quote: null,
+    paymentResult: null,
     error: null,
+    errorCode: null,
     notice: null,
     intent: null,
     confirmation: null,
@@ -135,9 +184,19 @@ export function canSubmit(state: BookingState): boolean {
   );
 }
 
+export function canPay(state: BookingState): boolean {
+  return state.phase === "held" && state.hold !== null;
+}
+
 /** Selection is frozen while a request or payment is in flight. */
 export function isBusy(state: BookingState): boolean {
-  return state.phase === "preparing" || state.phase === "paying" || state.phase === "confirming";
+  return (
+    state.phase === "preparing" ||
+    state.phase === "reserving" ||
+    state.phase === "ordering" ||
+    state.phase === "paying" ||
+    state.phase === "confirming"
+  );
 }
 
 // ── Transitions ─────────────────────────────────────────────────────────────
@@ -208,29 +267,116 @@ export function bookingReducer(state: BookingState, event: BookingEvent): Bookin
     }
 
     case "SUBMIT":
-      return canSubmit(state) ? { ...state, phase: "preparing", error: null, notice: null } : state;
+      return canSubmit(state)
+        ? {
+            ...state,
+            phase: "preparing",
+            error: null,
+            errorCode: null,
+            notice: null,
+          }
+        : state;
 
-    case "INTENT_READY":
-      if (state.phase !== "preparing") return state;
-      // Demo mode has no payment step: the server confirms on the next call.
+    case "HOLD_RESERVED":
+      if (state.phase !== "reserving" && state.phase !== "preparing") return state;
       return {
         ...state,
-        phase: event.intent.mode === "razorpay_test" ? "paying" : "confirming",
-        intent: event.intent,
+        phase: "held",
+        hold: event.hold,
+        quote: event.quote,
+        error: null,
+        errorCode: null,
+        notice: null,
+      };
+
+    case "HOLD_EXPIRED":
+      if (
+        state.phase !== "held" &&
+        state.phase !== "ordering" &&
+        state.phase !== "paying" &&
+        state.phase !== "error"
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        phase: "hold_expired",
+        order: null,
+        error: null,
+        errorCode: "HOLD_EXPIRED",
+        notice: "Your 5-minute reservation hold has expired. Please choose a slot again.",
+      };
+
+    case "PROCEED_TO_PAYMENT":
+      if (state.phase !== "held" || !state.hold) return state;
+      return {
+        ...state,
+        phase: "ordering",
+        error: null,
+        errorCode: null,
+        notice: null,
+      };
+
+    case "ORDER_CREATED":
+      if (state.phase !== "ordering" && state.phase !== "held") return state;
+      return {
+        ...state,
+        phase: "paying",
+        order: event.order,
+        error: null,
+        errorCode: null,
+        notice: null,
+      };
+
+    case "PAYMENT_AUTHORIZED":
+      if (state.phase !== "paying" && state.phase !== "ordering") return state;
+      return {
+        ...state,
+        phase: "confirmed",
+        paymentResult: event.payment,
+        error: null,
+        errorCode: null,
+        notice: null,
       };
 
     case "PAYMENT_COMPLETED":
       return state.phase === "paying" ? { ...state, phase: "confirming" } : state;
 
     case "PAYMENT_DISMISSED":
-      return state.phase === "paying"
-        ? {
-            ...state,
-            phase: "selecting",
-            intent: null,
-            notice: "Payment was cancelled. Nothing was charged and your selection is kept.",
-          }
-        : state;
+      if (state.phase !== "paying") return state;
+      // Invariant: Modal dismissal does NOT fail the payment or destroy the hold!
+      // Customer remains in 'held' state with active countdown and can click 'Resume Payment'.
+      if (state.hold) {
+        return {
+          ...state,
+          phase: "held",
+          notice:
+            "Payment window was closed. Your seats are still held. Click 'Resume Payment' to reopen.",
+        };
+      }
+      return {
+        ...state,
+        phase: "selecting",
+        intent: null,
+        notice: "Payment was cancelled. Nothing was charged and your selection is kept.",
+      };
+
+    case "PAYMENT_FAILED":
+      if (state.phase !== "paying") return state;
+      if (state.hold) {
+        return {
+          ...state,
+          phase: "held",
+          notice:
+            event.message ||
+            "Payment did not go through. Your seats are still held — please try another card or UPI.",
+        };
+      }
+      return {
+        ...state,
+        phase: "error",
+        error: event.message,
+      };
 
     case "CONFIRMED":
       return state.phase === "confirming"
@@ -238,15 +384,51 @@ export function bookingReducer(state: BookingState, event: BookingEvent): Bookin
         : state;
 
     case "FAILED":
-      return isBusy(state)
-        ? { ...state, phase: "error", error: event.message, intent: null }
-        : state;
+      if (!isBusy(state) && state.phase !== "held") return state;
+      if (
+        event.code === "HOLD_EXPIRED" ||
+        event.message.toLowerCase().includes("hold has expired") ||
+        event.message.toLowerCase().includes("hold expired")
+      ) {
+        return {
+          ...state,
+          phase: "hold_expired",
+          error: event.message,
+          errorCode: event.code ?? "HOLD_EXPIRED",
+          hold: null,
+          order: null,
+          intent: null,
+        };
+      }
+      return {
+        ...state,
+        phase: "error",
+        error: event.message,
+        errorCode: event.code ?? null,
+        intent: null,
+        ...(state.phase === "preparing" || state.phase === "reserving" ? { hold: null } : {}),
+      };
 
     case "DISMISS_ERROR":
-      return state.phase === "error" ? { ...state, phase: "selecting", error: null } : state;
+      if (state.phase !== "error") return state;
+      return {
+        ...state,
+        phase: state.hold ? "held" : "selecting",
+        error: null,
+        errorCode: null,
+      };
 
     case "START_OVER":
       // Seats have changed since the slots were read, so start from a fresh read.
-      return state.phase === "confirmed" ? initialBookingState(state.party) : state;
+      return initialBookingState(state.party);
+
+    // Backward compatibility for existing tests
+    case "INTENT_READY":
+      if (state.phase !== "preparing" && state.phase !== "reserving") return state;
+      return {
+        ...state,
+        phase: event.intent.mode === "razorpay_test" ? "paying" : "confirming",
+        intent: event.intent,
+      };
   }
 }
