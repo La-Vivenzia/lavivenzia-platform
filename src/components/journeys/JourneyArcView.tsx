@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Clock, Crown } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Clock, Crown } from "lucide-react";
 
 import { JOURNEY_SELECT_EVENT } from "@/components/journeys/events";
 import { cn } from "@/lib/cn";
@@ -18,9 +18,9 @@ const NUMERALS = ["I", "II", "III"] as const;
  * Horizontal from `lg`, vertical below — one tree, so the mobile and desktop
  * homes share the component and differ only in the space around it.
  *
- * Everything priced here is copied from the listings. Booking stays per
- * chapter: there is no multi-stop checkout, so each chapter links to its own
- * listing rather than the journey offering a "book all" it cannot honour.
+ * Everything priced here is copied from the listings. Each chapter links to
+ * its own listing; the journey as a whole is reserved in one checkout on its
+ * own page (`/journeys/:id`), which issues the VIP pass.
  */
 export function JourneyArcView({
   journeys,
@@ -99,7 +99,7 @@ export function JourneyArcView({
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
           <div className="max-w-[60ch]">
             <p className="eyebrow text-[10px] text-accent-ink lg:text-[11px]">
-              {selected.mood} · Three chapters
+              {selected.mood} · {selected.chapters.length === 2 ? "Two" : "Three"} chapters
             </p>
             <h3 className="mt-2 font-display text-[22px] leading-[1.2] text-heading xs:text-[24px] lg:text-[32px]">
               {selected.title}
@@ -141,10 +141,19 @@ export function JourneyArcView({
           ))}
         </ol>
 
-        <p className="mt-6 text-[12px] leading-relaxed font-light text-fg-muted lg:text-[13px]">
-          A suggested running order, not a reservation. Each chapter is booked on its own listing at
-          the price shown, subject to that listing&apos;s availability.
-        </p>
+        <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[12px] leading-relaxed font-light text-fg-muted lg:text-[13px]">
+            A suggested running order. Reserve the whole evening in one booking, or book any chapter
+            on its own listing — subject to availability.
+          </p>
+          <Link
+            href={`/journeys/${selected.id}`}
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-pill bg-cta px-5 text-[13px] font-medium text-cta-fg transition-colors duration-200 hover:bg-cta-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            Reserve Experience
+            <ArrowRight className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+          </Link>
+        </div>
       </div>
     </div>
   );

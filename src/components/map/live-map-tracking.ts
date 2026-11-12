@@ -123,8 +123,22 @@ export function isOffRoute(position: LatLng, route: WalkingRoute | null): boolea
   return nearestVertex(position, route.points).distance > OFF_ROUTE_METRES;
 }
 
-export function hasArrived(position: LatLng, to: LatLng): boolean {
-  return haversineMetres(position, to) <= ARRIVAL_RADIUS_METRES;
+export function hasArrived(
+  position: LatLng,
+  to: LatLng,
+  radiusMetres: number = ARRIVAL_RADIUS_METRES,
+): boolean {
+  return haversineMetres(position, to) <= radiusMetres;
+}
+
+/** Initial compass bearing from `from` to `to`, in degrees clockwise from north. */
+export function bearingDegrees(from: LatLng, to: LatLng): number {
+  const φ1 = toRadians(from.lat);
+  const φ2 = toRadians(to.lat);
+  const Δλ = toRadians(to.lng - from.lng);
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
 
 /** The point `metres` along the route, clamped to its ends. */
@@ -174,13 +188,149 @@ export function formatEta(seconds: number): string {
 
 /** Google Maps walking directions, from the traveller when we know where they are. */
 export function googleMapsWalkingUrl(to: LatLng, from?: LatLng | null): string {
+  return googleMapsDirectionsUrl(to, from, "walking");
+}
+
+/** Google Maps directions in the given mode. */
+export function googleMapsDirectionsUrl(
+  to: LatLng,
+  from: LatLng | null | undefined,
+  mode: TravelMode,
+): string {
   const params = new URLSearchParams({
     api: "1",
     destination: `${to.lat},${to.lng}`,
-    travelmode: "walking",
+    travelmode: mode,
   });
   if (from) params.set("origin", `${from.lat},${from.lng}`);
   return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+/* ------------------------------------------------------- journey stops */
+
+/**
+ * One stop on a multi-act journey. The coordinates are the listing's stored
+ * pin; `role` is the act's display label, e.g. "Prelude".
+ */
+export interface JourneyStop {
+  readonly name: string;
+  readonly role: string;
+  readonly coordinates: LatLng;
+  readonly address: string;
+}
+
+/**
+ * A venue is a building, not a point: within this distance of a journey stop
+ * the traveller has arrived. Wider than `ARRIVAL_RADIUS_METRES`, which is for
+ * the copilot's single pin where a doorstep matters.
+ */
+export const STOP_ARRIVAL_RADIUS_METRES = 80;
+
+/** Having arrived, moving this far away means the traveller has left the act. */
+export const STOP_DEPARTURE_METRES = 150;
+
+/** Beyond this, a leg is a short cab ride rather than a walk. */
+export const WALKABLE_METRES = 2_000;
+
+/** A cautious city-traffic average, ~22 km/h, for a cab between venues. */
+export const DRIVING_SPEED_MPS = 6.1;
+
+export type TravelMode = "walking" | "driving";
+
+export function travelModeFor(metres: number): TravelMode {
+  return metres > WALKABLE_METRES ? "driving" : "walking";
+}
+
+export function travelEtaSeconds(metres: number, mode: TravelMode): number {
+  return Math.max(0, metres) / (mode === "driving" ? DRIVING_SPEED_MPS : WALKING_SPEED_MPS);
+}
+
+export type StopStatus = "done" | "active" | "next" | "upcoming";
+
+export const STOP_STATUS_LABELS: Readonly<Record<StopStatus, string>> = {
+  done: "Done",
+  active: "Active",
+  next: "Next",
+  upcoming: "Upcoming",
+};
+
+export function stopStatus(index: number, activeIndex: number): StopStatus {
+  if (index < activeIndex) return "done";
+  if (index === activeIndex) return "active";
+  return index === activeIndex + 1 ? "next" : "upcoming";
+}
+
+/** Where the traveller is in the journey. */
+export interface JourneyProgress {
+  readonly activeIndex: number;
+  /** True once the traveller has reached the active stop. */
+  readonly arrived: boolean;
+}
+
+export const JOURNEY_START: JourneyProgress = { activeIndex: 0, arrived: false };
+
+/**
+ * The next progress for a new position. Pure, and returns the same object when
+ * nothing changed, so a caller can feed it every GPS tick.
+ *
+ * Arriving within `STOP_ARRIVAL_RADIUS_METRES` marks the act as reached;
+ * leaving a reached act by `STOP_DEPARTURE_METRES` advances to the next one.
+ * The last act never advances — the journey ends there.
+ */
+export function advanceJourney(
+  progress: JourneyProgress,
+  position: LatLng,
+  stops: readonly JourneyStop[],
+): JourneyProgress {
+  const stop = stops[progress.activeIndex];
+  if (!stop) return progress;
+  const distance = haversineMetres(position, stop.coordinates);
+
+  if (!progress.arrived) {
+    return distance <= STOP_ARRIVAL_RADIUS_METRES ? { ...progress, arrived: true } : progress;
+  }
+  if (distance > STOP_DEPARTURE_METRES && progress.activeIndex < stops.length - 1) {
+    return { activeIndex: progress.activeIndex + 1, arrived: false };
+  }
+  return progress;
+}
+
+/** Move to the next act by hand. A no-op on the last one. */
+export function skipToNextStop(
+  progress: JourneyProgress,
+  stops: readonly JourneyStop[],
+): JourneyProgress {
+  if (progress.activeIndex >= stops.length - 1) return progress;
+  return { activeIndex: progress.activeIndex + 1, arrived: false };
+}
+
+/** Straight-line length of the stops still ahead, from the active one onward. */
+export function metresBeyondActive(stops: readonly JourneyStop[], activeIndex: number): number {
+  return routeLengthMetres(
+    stops.map((stop) => stop.coordinates),
+    Math.max(0, activeIndex),
+  );
+}
+
+/**
+ * Google Maps directions through every stop still ahead: the active stop and
+ * any after it become waypoints, the last stop the destination.
+ */
+export function googleMapsJourneyUrl(
+  stops: readonly JourneyStop[],
+  activeIndex: number,
+  from: LatLng | null | undefined,
+  mode: TravelMode,
+): string {
+  const ahead = stops.slice(Math.max(0, activeIndex));
+  const last = ahead[ahead.length - 1];
+  if (!last) throw new Error("googleMapsJourneyUrl needs at least one stop ahead");
+  const url = new URL(googleMapsDirectionsUrl(last.coordinates, from, mode));
+  const waypoints = ahead
+    .slice(0, -1)
+    .map((stop) => `${stop.coordinates.lat},${stop.coordinates.lng}`);
+  if (waypoints.length > 0) url.searchParams.set("waypoints", waypoints.join("|"));
+  return url.toString();
 }
 
 /* -------------------------------------------------------- walking route */
@@ -281,6 +431,22 @@ export async function fetchWalkingRoute(
   }
 
   return straightRoute(from, to);
+}
+
+/**
+ * The legs between consecutive stops, each a walking route or its straight
+ * fallback. Never rejects for provider trouble (see `fetchWalkingRoute`); a
+ * caller's abort rejects, as there.
+ */
+export async function fetchJourneyLegs(
+  stops: readonly JourneyStop[],
+  options: Parameters<typeof fetchWalkingRoute>[2] = {},
+): Promise<WalkingRoute[]> {
+  const legs: Promise<WalkingRoute>[] = [];
+  for (let i = 1; i < stops.length; i += 1) {
+    legs.push(fetchWalkingRoute(stops[i - 1]!.coordinates, stops[i]!.coordinates, options));
+  }
+  return Promise.all(legs);
 }
 
 /* ---------------------------------------------------- walk simulation */

@@ -2,49 +2,83 @@
 
 import "leaflet/dist/leaflet.css";
 
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import type { Map as LeafletMap, Marker, Polyline, TileLayer } from "leaflet";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
+import type * as Leaflet from "leaflet";
+import type { DivIcon, Map as LeafletMap, Marker, Polyline, TileLayer } from "leaflet";
 import {
   ArrowLeft,
+  CarFront,
   Footprints,
+  KeyRound,
   LocateFixed,
   Navigation,
   PartyPopper,
   Pause,
   Play,
+  SkipForward,
 } from "lucide-react";
 
 import { Alert, Skeleton } from "@/components/ui/feedback";
 import { cn } from "@/lib/cn";
 import {
+  JOURNEY_START,
   MAP_TILES,
   OFF_ROUTE_METRES,
   SIMULATION_METRES_PER_TICK,
   SIMULATION_TICK_MS,
+  STOP_ARRIVAL_RADIUS_METRES,
+  STOP_STATUS_LABELS,
+  advanceJourney,
+  bearingDegrees,
+  fetchJourneyLegs,
   fetchWalkingRoute,
   formatDistance,
   formatEta,
-  googleMapsWalkingUrl,
+  googleMapsDirectionsUrl,
+  googleMapsJourneyUrl,
   hasArrived,
   haversineMetres,
   isOffRoute,
   pointAlongRoute,
   remainingMetres,
   routeLengthMetres,
-  walkingEtaSeconds,
+  skipToNextStop,
+  stopStatus,
+  travelEtaSeconds,
+  travelModeFor,
+  type JourneyProgress,
+  type JourneyStop,
   type LatLng,
+  type StopStatus,
   type WalkingRoute,
 } from "@/components/map/live-map-tracking";
 
 /**
- * Live map tracker — a full-bleed map from the traveller to one venue, with a
- * floating HUD of distance and walking time that updates as they move.
+ * Live map tracker — a full-bleed map from the traveller to one venue, or
+ * through every act of a curated journey, with a floating HUD of distance and
+ * travel time that updates as they move.
  *
- * The destination is the listing's stored coordinates; nothing on screen is
+ * Two modes, one component:
+ *
+ * - **Single destination** (`destination`): the copilot's "take me there".
+ * - **Journey** (`stops`): the companion map. Act pins carry status badges,
+ *   the active act is routed live from the traveller, the legs still ahead
+ *   are drawn faintly, and the act advances on arrival-then-departure — or by
+ *   hand. On arrival the HUD repeats the pass's secret keyword.
+ *
+ * Every destination is a listing's stored coordinates; nothing on screen is
  * generated (CLAUDE.md §7). Each external dependency degrades on its own:
  *
- * - **Location** off or unavailable: the copilot's chosen starting point stands
- *   in, and the HUD says the position is approximate.
+ * - **Location** off or unavailable: the chosen starting point stands in, and
+ *   the HUD says the position is approximate.
  * - **Routing** (OSRM) slow or down: a dashed straight line, and the HUD says
  *   the distance is as the crow flies.
  * - **Tiles** failing: a notice over the map; the HUD keeps working.
@@ -57,17 +91,24 @@ import {
 
 type GpsStatus = "locating" | "live" | "denied" | "unavailable" | "unsupported";
 type MapStatus = "loading" | "ready" | "error";
+type LeafletModule = typeof Leaflet;
 
 interface Layers {
+  readonly L: LeafletModule;
   readonly map: LeafletMap;
   readonly tiles: TileLayer;
   readonly you: Marker;
   readonly route: Polyline;
   readonly casing: Polyline;
+  readonly ahead: Polyline;
+  readonly stops: readonly Marker[];
 }
 
 /** Don't hammer the public routing server while someone wanders off-route. */
 const REROUTE_COOLDOWN_MS = 15_000;
+
+/** Below this, a GPS heading is noise from standing still. */
+const MIN_HEADING_SPEED_MPS = 0.5;
 
 const GPS_NOTES: Partial<Record<GpsStatus, string>> = {
   locating: "Finding your location…",
@@ -76,16 +117,34 @@ const GPS_NOTES: Partial<Record<GpsStatus, string>> = {
   unsupported: "This browser can't share a location — starting from your chosen spot.",
 };
 
-export function LiveMapTracker({
-  destination,
-  destinationLabel,
-  fallbackOrigin,
-  onClose,
-  closeLabel = "Back to suggestions",
-  allowSimulation = process.env.NODE_ENV !== "production",
-}: {
-  readonly destination: LatLng;
-  readonly destinationLabel: string;
+const escapeHtml = (text: string) =>
+  text.replace(
+    /[&<>"']/g,
+    (char) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char,
+  );
+
+const COMPASS_HTML =
+  '<span class="lv-map-compass lv-map-compass--still">' +
+  '<span class="lv-map-compass__halo"></span>' +
+  '<span class="lv-map-compass__body"><span class="lv-map-compass__needle"></span></span>' +
+  '<span class="lv-map-compass__label">You (VIP Traveler)</span>' +
+  "</span>";
+
+function stopIcon(L: LeafletModule, stop: JourneyStop, index: number, status: StopStatus): DivIcon {
+  return L.divIcon({
+    className: "",
+    html:
+      `<span class="lv-map-stop lv-map-stop--${status}">` +
+      `<span class="lv-map-stop__pin">${index + 1}</span>` +
+      `<span class="lv-map-stop__label">Act ${index + 1} · ${escapeHtml(stop.role)}</span>` +
+      "</span>",
+    iconSize: [40, 60],
+    iconAnchor: [20, 19],
+  });
+}
+
+interface CommonProps {
   /** Where the traveller said they are — used until (or unless) GPS answers. */
   readonly fallbackOrigin: LatLng;
   readonly onClose: () => void;
@@ -93,8 +152,51 @@ export function LiveMapTracker({
   readonly closeLabel?: string;
   /** Shows the walk simulator. Defaults to development builds only. */
   readonly allowSimulation?: boolean;
-}) {
+}
+
+interface SingleDestinationProps extends CommonProps {
+  readonly destination: LatLng;
+  readonly destinationLabel: string;
+  readonly stops?: undefined;
+  readonly journeyTitle?: undefined;
+  readonly secretKeyword?: undefined;
+}
+
+interface JourneyProps extends CommonProps {
+  /** At least one stop, in act order. Keep the array stable between renders. */
+  readonly stops: readonly JourneyStop[];
+  readonly journeyTitle?: string;
+  /** Repeated on arrival so the traveller has it at the door. */
+  readonly secretKeyword?: string;
+  readonly destination?: undefined;
+  readonly destinationLabel?: undefined;
+}
+
+export function LiveMapTracker(props: SingleDestinationProps | JourneyProps) {
+  const {
+    fallbackOrigin,
+    onClose,
+    closeLabel = "Back to suggestions",
+    allowSimulation = process.env.NODE_ENV !== "production",
+  } = props;
+  const journeyMode = props.stops !== undefined;
   const titleId = useId();
+
+  const singleDestination = props.destination;
+  const singleLabel = props.destinationLabel;
+  const journeyStops = props.stops;
+  const stops = useMemo<readonly JourneyStop[]>(
+    () =>
+      journeyStops ?? [
+        {
+          name: singleLabel ?? "",
+          role: "Destination",
+          coordinates: singleDestination!,
+          address: "",
+        },
+      ],
+    [journeyStops, singleLabel, singleDestination],
+  );
 
   const rootRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -102,22 +204,51 @@ export function LiveMapTracker({
   const closeRef = useRef<HTMLButtonElement>(null);
   const layersRef = useRef<Layers | null>(null);
   const lastRerouteRef = useRef(0);
+  const lastFixRef = useRef<LatLng | null>(null);
 
   const [mapStatus, setMapStatus] = useState<MapStatus>("loading");
   const [tilesFailing, setTilesFailing] = useState(false);
   const [gpsStatus, setGpsStatus] = useState<GpsStatus>("locating");
   const [gpsPosition, setGpsPosition] = useState<LatLng | null>(null);
+  const [gpsHeading, setGpsHeading] = useState<number | null>(null);
   const [routeFrom, setRouteFrom] = useState<LatLng>(fallbackOrigin);
   const [route, setRoute] = useState<WalkingRoute | null>(null);
+  const [legs, setLegs] = useState<readonly WalkingRoute[] | null>(null);
+  const [progress, setProgress] = useState<JourneyProgress>(JOURNEY_START);
   const [follow, setFollow] = useState(true);
   const [simulating, setSimulating] = useState(false);
   const [simMetres, setSimMetres] = useState(0);
+  /** Where the simulated walker stands while the next leg's route loads. */
+  const [simAnchor, setSimAnchor] = useState<LatLng | null>(null);
 
-  const simPosition = simulating && route ? pointAlongRoute(route.points, simMetres) : null;
+  const activeIndex = journeyMode ? progress.activeIndex : 0;
+  const activeStop = stops[activeIndex]!;
+  const destination = journeyMode ? activeStop.coordinates : singleDestination!;
+  const destinationLabel = activeStop.name;
+
+  const simPosition = simulating
+    ? route
+      ? pointAlongRoute(route.points, simMetres)
+      : simAnchor
+    : null;
   const position = simPosition ?? gpsPosition ?? fallbackOrigin;
   const approximate = !simPosition && !gpsPosition;
-  const arrived = hasArrived(position, destination);
+  const arrived = journeyMode
+    ? progress.arrived || hasArrived(position, destination, STOP_ARRIVAL_RADIUS_METRES)
+    : hasArrived(position, destination);
   const metresLeft = arrived ? 0 : remainingMetres(position, route, destination);
+  const travelMode = journeyMode
+    ? travelModeFor(route?.distanceMetres ?? haversineMetres(position, destination))
+    : "walking";
+
+  const simHeading =
+    simulating && route && simMetres > 0
+      ? bearingDegrees(
+          pointAlongRoute(route.points, Math.max(0, simMetres - 5)),
+          pointAlongRoute(route.points, simMetres),
+        )
+      : null;
+  const heading = simulating ? simHeading : gpsHeading;
 
   /* ---------------------------------------------------------------- map */
 
@@ -128,7 +259,7 @@ export function LiveMapTracker({
     (async () => {
       try {
         const mod = await import("leaflet");
-        const L = (mod as unknown as { default?: typeof mod }).default ?? mod;
+        const L = (mod as unknown as { default?: LeafletModule }).default ?? mod;
         if (cancelled || !mapRef.current) return;
 
         const map = L.map(mapRef.current, { zoomControl: false, attributionControl: true });
@@ -150,6 +281,16 @@ export function LiveMapTracker({
           setTilesFailing(false);
         });
 
+        // The legs still ahead: faint and dashed, beneath the live route.
+        const ahead = L.polyline([], {
+          className: "lv-map-route-ahead",
+          weight: 3,
+          opacity: 0.7,
+          dashArray: "4 8",
+          lineCap: "round",
+          lineJoin: "round",
+          interactive: false,
+        }).addTo(map);
         const casing = L.polyline([], {
           className: "lv-map-route-casing",
           weight: 9,
@@ -166,24 +307,35 @@ export function LiveMapTracker({
           interactive: false,
         }).addTo(map);
 
-        L.marker([destination.lat, destination.lng], {
-          icon: L.divIcon({
-            className: "",
-            html: '<span class="lv-map-venue"></span>',
-            iconSize: [34, 34],
-            iconAnchor: [17, 34],
-          }),
-          title: destinationLabel,
-          alt: destinationLabel,
-          keyboard: false,
-        }).addTo(map);
+        const stopMarkers = journeyMode
+          ? stops.map((stop, index) =>
+              L.marker([stop.coordinates.lat, stop.coordinates.lng], {
+                icon: stopIcon(L, stop, index, stopStatus(index, 0)),
+                title: `Act ${index + 1}: ${stop.name}`,
+                alt: `Act ${index + 1}: ${stop.name}`,
+                keyboard: false,
+              }).addTo(map),
+            )
+          : [
+              L.marker([destination.lat, destination.lng], {
+                icon: L.divIcon({
+                  className: "",
+                  html: '<span class="lv-map-venue"></span>',
+                  iconSize: [34, 34],
+                  iconAnchor: [17, 34],
+                }),
+                title: destinationLabel,
+                alt: destinationLabel,
+                keyboard: false,
+              }).addTo(map),
+            ];
 
         const you = L.marker([fallbackOrigin.lat, fallbackOrigin.lng], {
           icon: L.divIcon({
             className: "",
-            html: '<span class="lv-map-you"><span class="lv-map-you__pulse"></span><span class="lv-map-you__dot"></span></span>',
-            iconSize: [22, 22],
-            iconAnchor: [11, 11],
+            html: COMPASS_HTML,
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
           }),
           title: "You",
           alt: "Your position",
@@ -194,14 +346,16 @@ export function LiveMapTracker({
         map.fitBounds(
           L.latLngBounds([
             [fallbackOrigin.lat, fallbackOrigin.lng],
-            [destination.lat, destination.lng],
+            ...stops.map(
+              (stop) => [stop.coordinates.lat, stop.coordinates.lng] as [number, number],
+            ),
           ]),
           { padding: [48, 48], maxZoom: 17 },
         );
         // A drag means the traveller wants to look around; stop following.
         map.on("dragstart", () => setFollow(false));
 
-        layersRef.current = { map, tiles, you, route, casing };
+        layersRef.current = { L, map, tiles, you, route, casing, ahead, stops: stopMarkers };
         setMapStatus("ready");
       } catch {
         if (!cancelled) setMapStatus("error");
@@ -227,7 +381,21 @@ export function LiveMapTracker({
     }
     const watch = navigator.geolocation.watchPosition(
       (fix) => {
-        setGpsPosition({ lat: fix.coords.latitude, lng: fix.coords.longitude });
+        const next = { lat: fix.coords.latitude, lng: fix.coords.longitude };
+        const { heading: reported, speed } = fix.coords;
+        const previous = lastFixRef.current;
+        if (
+          reported !== null &&
+          Number.isFinite(reported) &&
+          (speed ?? 0) >= MIN_HEADING_SPEED_MPS
+        ) {
+          setGpsHeading(reported);
+        } else if (previous && haversineMetres(previous, next) >= 5) {
+          // No compass from the device: infer the heading from the last move.
+          setGpsHeading(bearingDegrees(previous, next));
+        }
+        lastFixRef.current = next;
+        setGpsPosition(next);
         setGpsStatus("live");
       },
       (error) => {
@@ -263,12 +431,55 @@ export function LiveMapTracker({
     return () => controller.abort();
   }, [routeFrom, destination]);
 
+  // The legs between acts do not move, so they are fetched once.
+  useEffect(() => {
+    if (!journeyMode || stops.length < 2) return;
+    const controller = new AbortController();
+    fetchJourneyLegs(stops, { signal: controller.signal })
+      .then(setLegs)
+      .catch(() => {
+        // Unmounted or superseded.
+      });
+    return () => controller.abort();
+  }, [journeyMode, stops]);
+
+  /* ------------------------------------------------------------ journey */
+
+  const moveTo = useCallback((next: JourneyProgress, from: LatLng) => {
+    setProgress(next);
+    setRoute(null);
+    setRouteFrom(from);
+    setSimAnchor(from);
+    setSimMetres(0);
+    setFollow(true);
+  }, []);
+
+  const { lat, lng } = position;
+
+  // Arrival marks the act reached; leaving it afterwards moves to the next.
+  useEffect(() => {
+    if (!journeyMode) return;
+    const next = advanceJourney(progress, { lat, lng }, stops);
+    if (next === progress) return;
+    if (next.activeIndex !== progress.activeIndex) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- progress follows the external position stream
+      moveTo(next, { lat, lng });
+    } else {
+      setProgress(next);
+    }
+  }, [journeyMode, lat, lng, stops, progress, moveTo]);
+
+  function goToNextAct() {
+    const next = skipToNextStop(progress, stops);
+    if (next !== progress) moveTo(next, position);
+  }
+
   /* ---------------------------------------------------------- simulation */
 
   // The simulator walks the drawn route and parks at its end, so the arrival
-  // state stays on screen until the tester stops it.
+  // state stays on screen until the tester stops it or moves to the next act.
   const simLength = route ? routeLengthMetres(route.points) : 0;
-  const simWalking = simulating && simMetres < simLength;
+  const simWalking = simulating && route !== null && simMetres < simLength;
   useEffect(() => {
     if (!simWalking) return;
     const timer = window.setInterval(() => {
@@ -283,6 +494,7 @@ export function LiveMapTracker({
       return;
     }
     setSimMetres(0);
+    setSimAnchor(position);
     setFollow(true);
     setSimulating(true);
   }
@@ -319,13 +531,42 @@ export function LiveMapTracker({
     layers.casing.setLatLngs(route?.source === "road" ? points : []);
   }, [route, mapStatus]);
 
-  const { lat, lng } = position;
+  // Leg k joins act k to act k + 1; draw only those still ahead.
+  useEffect(() => {
+    const layers = layersRef.current;
+    if (!layers || !journeyMode) return;
+    const ahead = (legs ?? []).slice(activeIndex);
+    layers.ahead.setLatLngs(
+      ahead.map((leg) => leg.points.map((p) => [p.lat, p.lng] as [number, number])),
+    );
+  }, [legs, activeIndex, journeyMode, mapStatus]);
+
+  useEffect(() => {
+    const layers = layersRef.current;
+    if (!layers || !journeyMode) return;
+    layers.stops.forEach((marker, index) => {
+      const status = stopStatus(index, activeIndex);
+      marker.setIcon(stopIcon(layers.L, stops[index]!, index, status));
+      marker.setZIndexOffset(status === "active" ? 500 : 0);
+    });
+  }, [activeIndex, journeyMode, stops, mapStatus]);
+
   useEffect(() => {
     const layers = layersRef.current;
     if (!layers) return;
     layers.you.setLatLng([lat, lng]);
     if (follow) fitView({ lat, lng }, true);
   }, [lat, lng, follow, fitView, mapStatus]);
+
+  // The needle turns with the heading; with none, the compass shows a star.
+  useEffect(() => {
+    const compass = layersRef.current?.you
+      .getElement()
+      ?.querySelector<HTMLElement>(".lv-map-compass");
+    if (!compass) return;
+    compass.classList.toggle("lv-map-compass--still", heading === null);
+    if (heading !== null) compass.style.setProperty("--lv-heading", `${heading.toFixed(0)}deg`);
+  }, [heading, mapStatus]);
 
   function recenter() {
     setFollow(true);
@@ -341,7 +582,7 @@ export function LiveMapTracker({
   }, []);
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    // The copilot drawer behind has its own Escape and focus trap; keep ours local.
+    // A drawer behind may have its own Escape and focus trap; keep ours local.
     event.stopPropagation();
     if (event.key === "Escape") {
       onClose();
@@ -365,7 +606,10 @@ export function LiveMapTracker({
 
   /* -------------------------------------------------------------- render */
 
-  const mapsUrl = googleMapsWalkingUrl(destination, approximate ? null : position);
+  const from = approximate ? null : position;
+  const mapsUrl = journeyMode
+    ? googleMapsJourneyUrl(stops, activeIndex, from, travelMode)
+    : googleMapsDirectionsUrl(destination, from, "walking");
   const statusLabel = simulating
     ? "Simulating walk"
     : gpsStatus === "live"
@@ -374,6 +618,13 @@ export function LiveMapTracker({
         ? "Locating"
         : "Approximate";
   const note = simulating || gpsStatus === "live" ? null : GPS_NOTES[gpsStatus];
+  const etaLabel = formatEta(travelEtaSeconds(metresLeft, travelMode));
+  const modeLabel = travelMode === "driving" ? "by cab" : "walking";
+  const ModeIcon = travelMode === "driving" ? CarFront : Footprints;
+  const isLastAct = activeIndex >= stops.length - 1;
+  const actsAhead = (legs ?? []).slice(activeIndex);
+  const journeyMetresLeft =
+    metresLeft + actsAhead.reduce((sum, leg) => sum + leg.distanceMetres, 0);
 
   return (
     <div
@@ -387,8 +638,12 @@ export function LiveMapTracker({
       <div
         ref={mapRef}
         role="region"
-        aria-label={`Map to ${destinationLabel}`}
-        className="lv-map absolute inset-0"
+        aria-label={
+          journeyMode
+            ? `Map of ${props.journeyTitle ?? "your journey"}`
+            : `Map to ${destinationLabel}`
+        }
+        className="lv-map absolute inset-0 isolate"
       />
 
       {mapStatus === "loading" ? (
@@ -425,7 +680,7 @@ export function LiveMapTracker({
       {tilesFailing ? (
         <div className="absolute inset-x-3 top-20 mx-auto max-w-xl">
           <Alert tone="warning">
-            Map images aren&rsquo;t loading. Distance and walking time below are still live.
+            Map images aren&rsquo;t loading. Distance and travel time below are still live.
           </Alert>
         </div>
       ) : null}
@@ -435,13 +690,47 @@ export function LiveMapTracker({
         ref={hudRef}
         className="absolute inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] mx-auto max-w-xl rounded-card border border-line bg-surface p-4 shadow-editorial lg:p-5"
       >
-        <p className="eyebrow text-[10.5px] text-fg-subtle">Live tracking</p>
+        <p className="eyebrow text-[10.5px] text-fg-subtle">
+          {journeyMode
+            ? `Stop ${activeIndex + 1} of ${stops.length} · Act ${activeIndex + 1}: ${activeStop.role}`
+            : "Live tracking"}
+        </p>
         <h2
           id={titleId}
           className="mt-1 line-clamp-1 font-display text-[17px] leading-snug text-heading"
         >
           {destinationLabel}
         </h2>
+
+        {journeyMode && stops.length > 1 ? (
+          <ol aria-label="Acts" className="mt-3 flex flex-wrap gap-1.5">
+            {stops.map((stop, index) => {
+              const status = stopStatus(index, activeIndex);
+              return (
+                <li
+                  key={`${stop.role}-${index}`}
+                  aria-current={status === "active" ? "step" : undefined}
+                  className={cn(
+                    "inline-flex h-7 items-center gap-1 rounded-pill border px-2.5 text-[11.5px]",
+                    status === "active"
+                      ? "border-transparent bg-panel text-panel-fg"
+                      : status === "next"
+                        ? "border-line-strong text-fg"
+                        : "border-line text-fg-muted",
+                  )}
+                >
+                  <span className="font-medium">
+                    Act {index + 1}: {stop.role}
+                  </span>
+                  <span aria-hidden="true">·</span>
+                  <span className={status === "active" ? "text-accent" : undefined}>
+                    {STOP_STATUS_LABELS[status]}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        ) : null}
 
         {mapStatus === "error" ? (
           <div className="mt-3">
@@ -450,13 +739,25 @@ export function LiveMapTracker({
             </Alert>
           </div>
         ) : arrived ? (
-          <p
-            role="status"
-            className="mt-3 flex items-center gap-2 text-[15px] font-medium text-heading"
-          >
-            <PartyPopper className="h-5 w-5 text-accent-ink" strokeWidth={1.8} aria-hidden="true" />
-            You&rsquo;ve arrived
-          </p>
+          <div role="status" className="mt-3">
+            <p className="flex items-center gap-2 text-[15px] font-medium text-heading">
+              <PartyPopper
+                className="h-5 w-5 text-accent-ink dark:text-accent"
+                strokeWidth={1.8}
+                aria-hidden="true"
+              />
+              {journeyMode ? `You have arrived at Act ${activeIndex + 1}.` : "You’ve arrived"}
+            </p>
+            {journeyMode && props.secretKeyword ? (
+              <p className="mt-2 inline-flex items-center gap-2 rounded-pill bg-panel px-3 py-1.5 text-[13px] text-panel-fg">
+                <KeyRound className="h-4 w-4 text-accent" strokeWidth={1.8} aria-hidden="true" />
+                Secret keyword:{" "}
+                <span className="font-semibold tracking-[0.12em] text-accent">
+                  {props.secretKeyword}
+                </span>
+              </p>
+            ) : null}
+          </div>
         ) : (
           <div className="mt-3 flex items-end gap-5">
             <div>
@@ -469,27 +770,29 @@ export function LiveMapTracker({
             </div>
             <div>
               <div className="flex items-center gap-1.5 font-display text-[26px] leading-none text-heading tabular-nums">
-                <Footprints
-                  className="h-5 w-5 text-accent-ink"
+                <ModeIcon
+                  className="h-5 w-5 text-accent-ink dark:text-accent"
                   strokeWidth={1.8}
                   aria-hidden="true"
                 />
-                {route ? (
-                  formatEta(walkingEtaSeconds(metresLeft))
-                ) : (
-                  <Skeleton className="h-6 w-14" />
-                )}
+                {route ? etaLabel : <Skeleton className="h-6 w-14" />}
               </div>
-              <p className="mt-1.5 text-[11.5px] text-fg-muted">walking</p>
+              <p className="mt-1.5 text-[11.5px] text-fg-muted">{modeLabel}</p>
             </div>
+            {journeyMode && !isLastAct && legs ? (
+              <div className="ml-auto text-right">
+                <div className="text-[14px] leading-none text-fg tabular-nums">
+                  {formatDistance(journeyMetresLeft)}
+                </div>
+                <p className="mt-1.5 text-[11.5px] text-fg-muted">whole journey</p>
+              </div>
+            ) : null}
           </div>
         )}
 
         {/* Screen-reader summary, announced politely — not every GPS tick. */}
         <p className="sr-only" aria-live="polite">
-          {route && !arrived
-            ? `${formatDistance(metresLeft)}, about ${formatEta(walkingEtaSeconds(metresLeft))} walking`
-            : ""}
+          {route && !arrived ? `${formatDistance(metresLeft)}, about ${etaLabel} ${modeLabel}` : ""}
         </p>
 
         {note || route?.source === "straight" ? (
@@ -526,6 +829,21 @@ export function LiveMapTracker({
             <LocateFixed className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
             Recenter
           </button>
+          {journeyMode && !isLastAct ? (
+            <button
+              type="button"
+              onClick={goToNextAct}
+              className={cn(
+                "inline-flex h-11 items-center justify-center gap-1.5 rounded-pill border px-4 text-[13px] font-medium transition-colors duration-200",
+                arrived
+                  ? "border-transparent bg-panel text-panel-fg hover:opacity-90"
+                  : "border-line-strong text-fg hover:bg-surface-2",
+              )}
+            >
+              <SkipForward className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+              {arrived ? `On to Act ${activeIndex + 2}` : `Skip to Act ${activeIndex + 2}`}
+            </button>
+          ) : null}
           {allowSimulation ? (
             <button
               type="button"

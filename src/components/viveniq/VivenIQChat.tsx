@@ -3,13 +3,26 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, ArrowUp, Check, Clock, MapPin, RotateCcw, Timer } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUp,
+  Check,
+  ChevronRight,
+  Clock,
+  Crown,
+  Map as MapIcon,
+  MapPin,
+  RotateCcw,
+  Timer,
+} from "lucide-react";
 
 import { ApiError, api } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
 import {
   VIVENIQ_LIMITS,
   VIVENIQ_STARTERS,
+  seenJourneyKey,
+  type VivenIQJourney,
   type VivenIQPick,
   type VivenIQReply,
 } from "@/modules/viveniq/options";
@@ -35,6 +48,7 @@ type Message =
       readonly from: "viveniq";
       readonly text: string;
       readonly picks: readonly VivenIQPick[];
+      readonly journeys: readonly VivenIQJourney[];
       readonly followUps: readonly string[];
     };
 
@@ -69,7 +83,14 @@ export function VivenIQChat({ initialQuery }: { readonly initialQuery?: string }
         .map((entry) => entry.text)
         .slice(-VIVENIQ_LIMITS.history.max);
       const seen = transcript
-        .flatMap((entry) => (entry.from === "viveniq" ? entry.picks.map((pick) => pick.slug) : []))
+        .flatMap((entry) =>
+          entry.from === "viveniq"
+            ? [
+                ...entry.journeys.map((journey) => seenJourneyKey(journey.id)),
+                ...entry.picks.map((pick) => pick.slug),
+              ]
+            : [],
+        )
         .slice(-VIVENIQ_LIMITS.seen.max);
 
       if (appendUser) {
@@ -90,6 +111,7 @@ export function VivenIQChat({ initialQuery }: { readonly initialQuery?: string }
             from: "viveniq",
             text: result.reply,
             picks: result.picks,
+            journeys: result.journeys ?? [],
             followUps: result.followUps,
           },
         ]);
@@ -190,6 +212,19 @@ export function VivenIQChat({ initialQuery }: { readonly initialQuery?: string }
                   <span className="sr-only">VivenIQ: </span>
                   {message.text}
                 </p>
+
+                {message.journeys.length > 0 ? (
+                  <section aria-label="Curated experiences" className="flex flex-col gap-3">
+                    <p className="eyebrow text-[10px] text-accent-ink dark:text-accent">
+                      Curated experiences · one booking each
+                    </p>
+                    <ul className="grid gap-4 lg:grid-cols-2">
+                      {message.journeys.map((journey) => (
+                        <JourneyCard key={journey.id} journey={journey} />
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
 
                 {message.picks.length > 0 ? (
                   <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -364,6 +399,123 @@ function PickCard({ pick }: { readonly pick: VivenIQPick }) {
           </div>
         </div>
       </Link>
+    </li>
+  );
+}
+
+/**
+ * A whole curated journey in the stream: the arc as a stepper, the venues as
+ * backdrops, one privilege per act and one all-inclusive price. Every figure
+ * is the server's, rendered as given.
+ */
+function JourneyCard({ journey }: { readonly journey: VivenIQJourney }) {
+  const href = `/journeys/${journey.id}`;
+
+  return (
+    <li className="flex flex-col overflow-hidden rounded-card border border-accent/40 bg-surface shadow-card">
+      <div className="grid auto-cols-fr grid-flow-col gap-px bg-line">
+        {journey.acts.map((act) => (
+          <div key={act.role} className="relative aspect-[4/3] bg-surface-2">
+            {act.coverUrl ? (
+              <Image
+                src={act.coverUrl}
+                alt={act.coverAlt}
+                fill
+                sizes="(min-width: 1024px) 160px, 33vw"
+                className="object-cover"
+              />
+            ) : null}
+            <span className="absolute bottom-2 left-2 rounded-pill bg-panel px-2 py-0.5 text-[10px] font-medium text-panel-fg">
+              {act.label}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-1 flex-col gap-3 p-4">
+        <div>
+          <p className="eyebrow text-[10px] text-accent-ink dark:text-accent">
+            {journey.mood} · {journey.acts.length === 2 ? "Two acts" : "Three acts"}
+          </p>
+          <h2 className="mt-1 font-display text-[18px] leading-snug text-heading">
+            {journey.title}
+          </h2>
+          <p className="mt-1 text-[12.5px] leading-snug font-light text-fg-muted">
+            {journey.tagline}
+          </p>
+        </div>
+
+        <ol aria-label="Running order" className="flex flex-wrap items-center gap-1 text-[12px]">
+          {journey.acts.map((act, index) => (
+            <li key={act.role} className="inline-flex items-center gap-1">
+              <span className="text-fg">
+                {act.label} <span className="text-fg-muted tabular-nums">({act.startLabel})</span>
+              </span>
+              {index < journey.acts.length - 1 ? (
+                <ChevronRight className="h-3.5 w-3.5 text-fg-subtle" aria-hidden="true" />
+              ) : null}
+            </li>
+          ))}
+        </ol>
+
+        <ul aria-label="VIP privileges" className="flex flex-col gap-1">
+          {journey.acts.map((act) => (
+            <li key={act.role} className="flex gap-1.5 text-[12.5px] leading-snug text-fg">
+              <Crown
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-ink dark:text-accent"
+                strokeWidth={1.8}
+                aria-hidden="true"
+              />
+              <span>
+                {act.privilegeTitle}
+                <span className="text-fg-muted">
+                  {" "}
+                  at {act.title.split(/[:—]/)[0]!.trim()}
+                  {act.privilegeConfirmed ? "" : " · requested"}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-fg-muted">
+          {journey.durationLabel ? (
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
+              {journey.durationLabel}
+            </span>
+          ) : null}
+          {journey.timeSavedLabel ? (
+            <span className="inline-flex items-center gap-1">
+              <Timer className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
+              {journey.timeSavedLabel}
+            </span>
+          ) : null}
+        </p>
+
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
+          <span className="text-[14px] font-medium text-heading tabular-nums">
+            {journey.priceLabel ?? "Price on each act"}
+            <span className="block text-[11px] font-normal text-fg-muted">all-inclusive</span>
+          </span>
+          <span className="flex gap-2">
+            <Link
+              href={`${href}?map=1`}
+              className="inline-flex min-h-10 items-center gap-1 rounded-pill border border-line-strong px-3 text-[12px] text-fg transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <MapIcon className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
+              Companion Map
+            </Link>
+            <Link
+              href={href}
+              className="inline-flex min-h-10 items-center gap-1 rounded-pill bg-cta px-3.5 text-[12px] font-medium text-cta-fg transition-colors hover:bg-cta-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              Reserve Experience
+              <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
+            </Link>
+          </span>
+        </div>
+      </div>
     </li>
   );
 }

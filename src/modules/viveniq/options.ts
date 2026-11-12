@@ -7,6 +7,7 @@
  */
 
 import type { CurationTrack } from "@/modules/discovery/curation";
+import type { ChapterRole } from "@/modules/journeys/data";
 
 /* ----------------------------------------------------------------- limits */
 
@@ -20,7 +21,14 @@ export const VIVENIQ_LIMITS = {
   terms: { max: 4 },
   /** Restraint over volume (DESIGN.md §B.4). */
   picks: { max: 3 },
+  /** Curated journeys offered alongside the picks for an occasion. */
+  journeys: { max: 3 },
 } as const;
+
+/** The entry VivenIQ records in `seen` once a journey has been shown. */
+export function seenJourneyKey(journeyId: string): string {
+  return `journey:${journeyId}`;
+}
 
 /** Shown before the first message. Plain data, so it lives outside the client component. */
 export const VIVENIQ_STARTERS: readonly string[] = [
@@ -65,8 +73,43 @@ export interface VivenIQPick {
   readonly curation?: VivenIQPickCuration | null;
 }
 
+/** One act of a curated journey, as the chat renders it. */
+export interface VivenIQJourneyAct {
+  readonly role: ChapterRole;
+  /** "Prelude", "Centerpiece", "Epilogue". */
+  readonly label: string;
+  readonly slug: string;
+  readonly title: string;
+  readonly place: string;
+  /** Suggested start, e.g. "18:30". A running order, not a reserved slot. */
+  readonly startLabel: string;
+  readonly privilegeTitle: string;
+  /** False until the venue has agreed; the card then says "requested". */
+  readonly privilegeConfirmed: boolean;
+  readonly coverUrl: string | null;
+  readonly coverAlt: string;
+}
+
+/**
+ * A whole curated journey — two or three acts sold as one experience. Every
+ * figure is copied from the listings the acts name.
+ */
+export interface VivenIQJourney {
+  readonly id: string;
+  readonly title: string;
+  readonly mood: string;
+  readonly tagline: string;
+  readonly durationLabel: string;
+  /** e.g. "₹2,849 / person" — the sum of the acts' own prices. */
+  readonly priceLabel: string | null;
+  readonly timeSavedLabel: string | null;
+  readonly acts: readonly VivenIQJourneyAct[];
+}
+
 export interface VivenIQReply {
   readonly reply: string;
   readonly picks: readonly VivenIQPick[];
   readonly followUps: readonly string[];
+  /** Present when the traveller described an occasion a journey answers. */
+  readonly journeys?: readonly VivenIQJourney[];
 }

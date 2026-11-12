@@ -386,3 +386,13 @@ Proactive micro-curation engine designed for travelers with an active booking:
 - Dispatches transactional mobile-first luxury emails using `traveler.in-journey-companion` template via `EmailPort` (Resend).
 - Secured behind authenticated session and strict rate limiting (10 dispatches/hr/IP).
 
+
+## 17. Curated Experiences, VIP Pass & Companion Map
+
+Decision record: `docs/adr/0017-curated-journeys-unified-pass-and-companion-map.md`.
+
+- **Journeys** (`src/modules/journeys/data.ts`): two- or three-act arcs resolved from pilot listings by slug. `listJourneys()` is the featured four (home page); `listCuratedJourneys()` adds the signature collection. Invariants (act order, 15–30 min transitions, per-person pricing) are enforced at resolve time.
+- **VivenIQ experience mode** (`src/modules/viveniq/journeys.ts`): an occasion in the traveller's words (date, celebration, unwind, connoisseur, weekend) returns up to three whole journeys in `VivenIQReply.journeys`, alongside the single-venue picks. Deterministic; the model never selects or prices a journey.
+- **Unified journey pass** (`src/modules/booking/journey-pass.ts`, `POST /api/v1/journeys/:id/pass`): one combined, simulated checkout governed by `BOOKING_CHECKOUT` (ADR-0016). Each act is re-read through discovery (PostgreSQL) for live price and publication; the pass carries an `LV-XXXX` reference, a derived two-word secret host keyword (`src/modules/booking/keywords.ts`) and an HMAC-signed QR payload.
+- **Journey page** (`/journeys/[id]`): arc, act cards, reserve panel, Digital VIP Passcard and the companion map.
+- **Companion map** (`src/components/map/LiveMapTracker.tsx` with `stops`): live route to the active act, faint legs ahead, act status badges, arrival (80 m) then departure (150 m) advancement, keyword on arrival, multi-stop Google Maps fallback. Pure logic lives in `live-map-tracking.ts`.

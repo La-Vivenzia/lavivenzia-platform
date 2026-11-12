@@ -506,15 +506,12 @@
 /*
  * Live map tracker (src/components/map/LiveMapTracker.tsx).
  *
- * `--lv-map-you` is functional, not brand: the blue "you are here" dot is a
- * cross-app convention travellers read without a legend, like a red error. It
- * is constant across palettes and modes, and used nowhere but the beacon.
- * Everything else on the map — venue pin, route, chrome — is existing tokens.
+ * The traveller is the La Vivenzia compass: a pine disc with a gold needle
+ * inside a soft gold halo. It replaced the generic blue dot so the beacon reads
+ * as the brand's own; it stays legible without a legend because it is the only
+ * moving, haloed marker on the map and carries a "You" label. Everything here
+ * is existing tokens.
  */
-:root {
-  --lv-map-you: #2b7bf3;
-}
-
 .lv-map.leaflet-container {
   background: var(--lv-bg-soft);
   font-family: inherit;
@@ -530,29 +527,152 @@
   color: var(--lv-fg);
 }
 
-.lv-map-you {
+.lv-map-compass {
   position: relative;
   display: block;
-  width: 22px;
-  height: 22px;
+  width: 44px;
+  height: 44px;
 }
 
-.lv-map-you__dot {
-  position: absolute;
-  inset: 3px;
-  border-radius: 9999px;
-  background: var(--lv-map-you);
-  border: 3px solid #fff;
-  box-shadow: var(--lv-shadow-md);
-}
-
-.lv-map-you__pulse {
+.lv-map-compass__halo {
   position: absolute;
   inset: 0;
   border-radius: 9999px;
-  background: var(--lv-map-you);
-  opacity: 0.35;
-  animation: lv-map-pulse 2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  background: color-mix(in srgb, var(--lv-accent) 25%, transparent);
+  animation: lv-map-pulse 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.lv-map-compass__body {
+  position: absolute;
+  inset: 8px;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  background: var(--lv-panel);
+  border: 2px solid var(--lv-accent);
+  box-shadow: var(--lv-shadow-md);
+  transform: rotate(var(--lv-heading, 0deg));
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The needle: a gold point to the heading, a muted tail behind it. */
+.lv-map-compass__needle {
+  position: relative;
+  width: 8px;
+  height: 20px;
+}
+
+.lv-map-compass__needle::before,
+.lv-map-compass__needle::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+}
+
+.lv-map-compass__needle::before {
+  top: 0;
+  border-bottom: 10px solid var(--lv-accent);
+}
+
+.lv-map-compass__needle::after {
+  bottom: 0;
+  border-top: 10px solid color-mix(in srgb, var(--lv-panel-fg) 45%, transparent);
+}
+
+/* Without a heading the needle would point north and mislead: show a star. */
+.lv-map-compass--still .lv-map-compass__body {
+  transform: none;
+}
+
+.lv-map-compass--still .lv-map-compass__needle {
+  width: 12px;
+  height: 12px;
+  background: var(--lv-accent);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+}
+
+.lv-map-compass--still .lv-map-compass__needle::before,
+.lv-map-compass--still .lv-map-compass__needle::after {
+  display: none;
+}
+
+.lv-map-compass__label {
+  position: absolute;
+  top: calc(100% - 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  border-radius: 9999px;
+  padding: 1px 8px;
+  background: var(--lv-panel);
+  color: var(--lv-panel-fg);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: var(--lv-shadow-md);
+}
+
+/* Journey act pins: a numbered disc with its act label beneath. */
+.lv-map-stop {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  width: 40px;
+}
+
+.lv-map-stop__pin {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  border: 2px solid var(--lv-surface);
+  background: var(--lv-surface-3);
+  color: var(--lv-fg);
+  font-weight: 700;
+  font-size: 13px;
+  box-shadow: var(--lv-shadow-md);
+}
+
+.lv-map-stop__label {
+  margin-top: 4px;
+  white-space: nowrap;
+  border-radius: 9999px;
+  padding: 1px 8px;
+  background: var(--lv-surface);
+  color: var(--lv-fg-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  box-shadow: var(--lv-shadow-md);
+}
+
+.lv-map-stop--active .lv-map-stop__pin {
+  width: 38px;
+  height: 38px;
+  background: var(--lv-accent);
+  color: var(--lv-accent-fg);
+}
+
+.lv-map-stop--active .lv-map-stop__label {
+  background: var(--lv-panel);
+  color: var(--lv-panel-fg);
+}
+
+.lv-map-stop--next .lv-map-stop__pin {
+  background: var(--lv-panel);
+  color: var(--lv-panel-fg);
+}
+
+.lv-map-stop--done .lv-map-stop__pin {
+  opacity: 0.6;
+}
+
+.lv-map-route-ahead {
+  stroke: var(--lv-fg-muted);
 }
 
 @keyframes lv-map-pulse {
@@ -611,8 +731,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lv-map-you__pulse {
-    display: none;
+  .lv-map-compass__halo {
+    animation: none;
   }
 }
 

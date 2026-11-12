@@ -13,6 +13,8 @@ import { CopilotService } from "@/modules/copilot/service";
 import { VivenIQService } from "@/modules/viveniq/service";
 import { CompanionService } from "@/modules/companion/service";
 import { CheckoutService, resolveCheckoutMode } from "@/modules/booking/checkout";
+import { JourneyPassService } from "@/modules/booking/journey-pass";
+import { findJourney, listCuratedJourneys } from "@/modules/journeys/data";
 import { getLogger } from "@/lib/logger";
 import { AnthropicLlmAdapter } from "@/adapters/llm/anthropic";
 import { GeminiLlmAdapter, resolveGeminiApiKey } from "@/adapters/llm/gemini";
@@ -259,6 +261,7 @@ export function getVivenIQService(): VivenIQService {
     const geminiKey = resolveGeminiApiKey(env);
     vivenIQService = new VivenIQService({
       discovery: getDiscoveryService(),
+      journeys: listCuratedJourneys,
       llm: geminiKey ? new GeminiLlmAdapter({ apiKey: geminiKey }) : undefined,
       onLlmFailure: (reason) =>
         getLogger().warn({ reason }, "viveniq model reply failed; using deterministic reply"),
@@ -347,6 +350,38 @@ export function getCheckoutService(): CheckoutService {
   });
 
   return checkoutService;
+}
+
+let journeyPassService: JourneyPassService | undefined;
+
+/**
+ * Unified journey checkout and VIP pass. Follows the booking checkout mode, so
+ * it is closed wherever checkout is. Each act's listing is re-read through
+ * discovery (PostgreSQL) at issue, so the combined price is the live one.
+ *
+ * The QR signing key is derived from SESSION_SECRET with its own purpose
+ * label, so a pass signature can never be replayed as a checkout intent.
+ */
+export function getJourneyPassService(): JourneyPassService {
+  journeyPassService ??= new JourneyPassService({
+    mode: getCheckoutService().mode,
+    findJourney,
+    findListing: async (slug) => {
+      const experience = await getDiscoveryService().getExperience(slug);
+      return {
+        slug: experience.slug,
+        title: experience.title,
+        basePriceMinor: experience.basePriceMinor,
+        currency: experience.currency,
+        pricingUnit: experience.pricingUnit,
+        minGuests: experience.minGuests,
+        maxGuests: experience.maxGuests,
+      };
+    },
+    signingKey: createHmac("sha256", env.SESSION_SECRET).update("lv.journey-pass.v1").digest("hex"),
+  });
+
+  return journeyPassService;
 }
 
 let mapsPort: MapsPort | undefined;

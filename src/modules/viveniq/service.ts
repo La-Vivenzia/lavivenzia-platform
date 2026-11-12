@@ -5,8 +5,16 @@ import { parseFilters } from "@/modules/discovery/service";
 import { CURATION_TRACK_LABELS, timeSavedLabel } from "@/modules/discovery/curation";
 import type { CategorySummary, ExperienceSummary } from "@/modules/discovery/ports";
 import type { DiscoveryService } from "@/modules/discovery/service";
+import type { Journey } from "@/modules/journeys/data";
+import {
+  composeJourneyLead,
+  detectOccasion,
+  selectJourneys,
+  toVivenIQJourney,
+} from "@/modules/viveniq/journeys";
 import {
   VIVENIQ_LIMITS,
+  type VivenIQJourney,
   type VivenIQPick,
   type VivenIQPickCuration,
   type VivenIQReply,
@@ -23,6 +31,8 @@ import type { LlmPort } from "@/ports/llm";
 export {
   VIVENIQ_LIMITS,
   VIVENIQ_STARTERS,
+  type VivenIQJourney,
+  type VivenIQJourneyAct,
   type VivenIQPick,
   type VivenIQPickCuration,
   type VivenIQReply,
@@ -323,6 +333,11 @@ interface Candidate {
 
 export interface VivenIQServiceDeps {
   readonly discovery: Pick<DiscoveryService, "browse" | "featured" | "categories">;
+  /**
+   * The curated journey collection. Optional: absent means VivenIQ answers
+   * every occasion with single venues only.
+   */
+  readonly journeys?: (() => readonly Journey[]) | undefined;
   /** Optional. Absent means every reply is deterministic. */
   readonly llm?: LlmPort | undefined;
   /** Observability hook for a failed or rejected model reply. Never throws. */
@@ -336,6 +351,9 @@ export const VIVENIQ_LLM = {
   maxOutputTokens: 450,
   replyMaxLength: 900,
 } as const;
+
+/** Follows a journey lead, introducing the single-venue picks beneath it. */
+const SINGLE_STOP_NOTE = "Should you prefer a single stop, the venues below stand on their own.";
 
 /** The deterministic note that answers any question about a time or a table. */
 const TIME_NOTE =
@@ -387,11 +405,13 @@ export function acceptReply(raw: unknown): string | null {
 
 export class VivenIQService {
   readonly #discovery: VivenIQServiceDeps["discovery"];
+  readonly #journeys: VivenIQServiceDeps["journeys"];
   readonly #llm: LlmPort | undefined;
   readonly #onLlmFailure: VivenIQServiceDeps["onLlmFailure"];
 
   constructor(deps: VivenIQServiceDeps) {
     this.#discovery = deps.discovery;
+    this.#journeys = deps.journeys;
     this.#llm = deps.llm;
     this.#onLlmFailure = deps.onLlmFailure;
   }
@@ -446,6 +466,9 @@ export class VivenIQService {
     // The latest turn names the mood; an earlier one carries it through a
     // refinement such as "table for 2".
     const mood = detectMood(normalised) ?? detectMood(normalise(history.join(" ")));
+    // An occasion ("date night", "birthday", "chill evening") is answered with
+    // whole journeys as well as venues. Carried through refinements the same way.
+    const occasion = detectOccasion(normalised) ?? detectOccasion(normalise(history.join(" ")));
 
     const categories = await this.#discovery.categories();
     const category = findNamedCategory(terms, categories);
@@ -541,6 +564,16 @@ export class VivenIQService {
         })
         .slice(0, VIVENIQ_LIMITS.picks.max);
 
+    const journeys = await this.#journeysFor({
+      occasion,
+      preferences,
+      seen,
+      wantsMore,
+      party,
+      known: [...candidates.values()].map((candidate) => candidate.experience),
+    });
+    const lead = journeys.length > 0 && occasion ? composeJourneyLead(occasion, journeys) : null;
+
     const picks = ordered.map((candidate) => {
       const reasons: string[] = [];
       if (candidate.matched.size > 0) reasons.push(`Matches ${quote([...candidate.matched])}`);
@@ -549,6 +582,24 @@ export class VivenIQService {
       if (party !== null) reasons.push(`Hosts a party of ${party}`);
       return toPick(candidate.experience, reasons.join(" · "));
     });
+
+    // When journeys lead, the single venues get one line, not a second essay:
+    // the cards carry their detail, and the reply stays readable.
+    if (picks.length > 0 && lead) {
+      return {
+        reply: [
+          lead,
+          SINGLE_STOP_NOTE,
+          party !== null ? `Every journey and venue here hosts a party of ${party}.` : null,
+          askedTime ? TIME_NOTE : null,
+        ]
+          .filter(Boolean)
+          .join(" "),
+        picks,
+        followUps: followUpsFor({ picks, party, categories, category }),
+        journeys,
+      };
+    }
 
     if (picks.length > 0) {
       const phrased = await this.#phrase({
@@ -580,6 +631,15 @@ export class VivenIQService {
       .filter((experience) => party === null || seats(experience, party))
       .map((experience) => toPick(experience, "A current highlight from our hosts"));
 
+    if (lead) {
+      return {
+        reply: [lead, askedTime ? TIME_NOTE : null].filter(Boolean).join(" "),
+        picks: featured,
+        followUps: categories.slice(0, 3).map((entry) => `Something in ${entry.name}`),
+        journeys,
+      };
+    }
+
     const asked = terms.length > 0 ? `for ${quote(latest.length > 0 ? latest : terms)} ` : "";
     const partyNote = party !== null ? ` that hosts a party of ${party}` : "";
 
@@ -591,6 +651,58 @@ export class VivenIQService {
       picks: featured,
       followUps: categories.slice(0, 3).map((entry) => `Something in ${entry.name}`),
     };
+  }
+
+  /**
+   * Curated journeys for an occasion, as the chat renders them. Empty when no
+   * occasion was described, no collection is wired, or none seats the party.
+   *
+   * Act covers are read off listings discovery returned — this turn's
+   * candidates, then one page of the published catalogue — never invented.
+   */
+  async #journeysFor(input: {
+    readonly occasion: ReturnType<typeof detectOccasion>;
+    readonly preferences: TravelPreferences | null;
+    readonly seen: ReadonlySet<string>;
+    readonly wantsMore: boolean;
+    readonly party: number | null;
+    readonly known: readonly ExperienceSummary[];
+  }): Promise<VivenIQJourney[]> {
+    if (!input.occasion || !this.#journeys) return [];
+
+    const selected = selectJourneys({
+      journeys: this.#journeys(),
+      occasion: input.occasion,
+      taste: input.preferences,
+      seen: input.seen,
+      wantsMore: input.wantsMore,
+      limit: VIVENIQ_LIMITS.journeys.max,
+    });
+    if (selected.length === 0) return [];
+
+    const bySlug = new Map(input.known.map((experience) => [experience.slug, experience]));
+    const needed = selected.flatMap((journey) => journey.chapters.map((c) => c.experienceSlug));
+    if (needed.some((slug) => !bySlug.has(slug))) {
+      const page = await this.#discovery.browse(parseFilters({}));
+      for (const experience of page.items) bySlug.set(experience.slug, experience);
+    }
+
+    // A journey whose act cannot seat the party is not offered for it.
+    const fits = selected.filter(
+      (journey) =>
+        input.party === null ||
+        journey.chapters.every((chapter) => {
+          const listing = bySlug.get(chapter.experienceSlug);
+          return !listing || seats(listing, input.party!);
+        }),
+    );
+
+    const covers = new Map<string, { url: string; alt: string }>();
+    for (const [slug, experience] of bySlug) {
+      if (experience.coverUrl)
+        covers.set(slug, { url: experience.coverUrl, alt: experience.coverAlt ?? "" });
+    }
+    return fits.map((journey) => toVivenIQJourney(journey, covers));
   }
 
   /**
