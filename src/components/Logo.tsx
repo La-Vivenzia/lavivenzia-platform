@@ -11,21 +11,45 @@ type LogoProps = {
 };
 
 /**
- * The supplied brand asset, used as-is. Its transparent background means the
- * single gold artwork sits correctly on both the ivory and the pine surfaces,
- * so no per-theme variant is needed.
+ * The brand lockup:
+ * Light mode displays the deep emerald wordmark, dark mode displays the radiant warm ivory wordmark.
  */
 export function Logo({ variant = "full", className, priority }: LogoProps) {
   const isFull = variant === "full";
+
+  if (!isFull) {
+    return (
+      <Image
+        src="/logo-mark.png"
+        alt={`${brand.name} — ${brand.tagline}`}
+        width={239}
+        height={326}
+        priority={priority}
+        className={cn("w-auto select-none", className)}
+      />
+    );
+  }
+
   return (
-    <Image
-      src={isFull ? "/logo-lavivenzia.png" : "/logo-mark.png"}
-      alt={`${brand.name} — ${brand.tagline}`}
-      width={isFull ? 1449 : 239}
-      height={326}
-      priority={priority}
-      className={cn("w-auto select-none", className)}
-      sizes="(max-width: 1023px) 180px, 260px"
-    />
+    <span className="inline-flex items-center">
+      <Image
+        src="/logo-lavivenzia.png"
+        alt={`${brand.name} — ${brand.tagline}`}
+        width={1213}
+        height={254}
+        priority={priority}
+        className={cn("w-auto select-none dark:hidden", className)}
+        sizes="(max-width: 1023px) 180px, 260px"
+      />
+      <Image
+        src="/logo-lavivenzia-dark.png"
+        alt={`${brand.name} — ${brand.tagline}`}
+        width={1213}
+        height={254}
+        priority={priority}
+        className={cn("hidden w-auto select-none dark:inline-block", className)}
+        sizes="(max-width: 1023px) 180px, 260px"
+      />
+    </span>
   );
 }
