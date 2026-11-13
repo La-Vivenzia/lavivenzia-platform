@@ -47,7 +47,7 @@ export function DesktopHeader({
     >
       <div className="mx-auto flex h-[86px] w-full max-w-[1440px] items-center gap-8 px-8 xl:px-12 3xl:max-w-[1680px]">
         <a href="#d-top" aria-label="La Vivenzia — home" className="-m-2 shrink-0 p-2">
-          <Logo className="h-[38px] max-w-[190px] xl:h-10 xl:max-w-[210px]" priority />
+          <Logo className="h-[25px] xl:h-[28px]" priority />
         </a>
 
         <nav aria-label="Primary" className="min-w-0 flex-1">

@@ -25,7 +25,7 @@ export function Logo({ variant = "full", className, priority }: LogoProps) {
         width={239}
         height={326}
         priority={priority}
-        className={cn("w-auto select-none", className)}
+        className={cn("w-auto select-none object-contain", className)}
       />
     );
   }
@@ -38,8 +38,8 @@ export function Logo({ variant = "full", className, priority }: LogoProps) {
         width={1213}
         height={254}
         priority={priority}
-        className={cn("w-auto select-none dark:hidden", className)}
-        sizes="(max-width: 1023px) 180px, 260px"
+        className={cn("w-auto select-none object-contain dark:hidden", className)}
+        sizes="(max-width: 1023px) 140px, 180px"
       />
       <Image
         src="/brand/la-vivenzia-logo-dark.png"
@@ -47,8 +47,8 @@ export function Logo({ variant = "full", className, priority }: LogoProps) {
         width={1213}
         height={254}
         priority={priority}
-        className={cn("hidden w-auto select-none dark:inline-block", className)}
-        sizes="(max-width: 1023px) 180px, 260px"
+        className={cn("hidden w-auto select-none object-contain dark:inline-block", className)}
+        sizes="(max-width: 1023px) 140px, 180px"
       />
     </>
   );

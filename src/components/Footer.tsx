@@ -62,7 +62,7 @@ export function Footer() {
       <div className="mx-auto w-full max-w-[1440px] px-5 pt-12 pb-28 sm:px-8 sm:pt-16 sm:pb-32 lg:pt-20 lg:pb-16 xl:px-12 3xl:max-w-[1680px]">
         <div className="grid grid-cols-12 lg:gap-x-12">
           <div className="col-span-12 pb-10 lg:col-span-5 lg:pb-0">
-            <Logo className="h-10 max-w-[210px] lg:h-11 lg:max-w-[230px]" />
+            <Logo className="h-[26px] lg:h-[30px]" />
             <p className="mt-6 max-w-[38ch] text-[14px] leading-[1.7] font-light text-fg-muted lg:mt-7 lg:text-[14.5px]">
               Choreographed multi-venue evenings and verified experiences across Pune — reserved in
               one touch with VIP privileges.
