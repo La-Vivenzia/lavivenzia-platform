@@ -49,7 +49,7 @@ export function Hero({
         </h1>
 
         <p className="mt-2 text-[12px] xs:text-[13px] leading-relaxed font-light text-fg-muted truncate">
-          Curated evenings in East Pune
+          Choreographed multi-venue evenings
         </p>
       </div>
     </section>

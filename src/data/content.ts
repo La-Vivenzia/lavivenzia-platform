@@ -19,8 +19,8 @@ export const brand = {
   tagline: "Experience Every Journey Through Its Soul",
   eyebrow: "Experiences Beyond Destinations",
   headline: ["Journeys", "Designed", "Around You."],
-  supporting: "Choreographed multi-venue evenings and verified experiences across Pune — reserved in one touch with VIP privileges.",
-  searchPlaceholder: "Search experiences, dining, journeys in Pune...",
+  supporting: "Choreographed multi-venue evenings and verified experiences — reserved in one touch with VIP privileges.",
+  searchPlaceholder: "Search experiences, dining, journeys...",
 } as const;
 
 export const heroImage = {
