@@ -1,33 +1,55 @@
 "use client";
 
 import { Heart } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { useAuth } from "@/components/auth/AuthContext";
 import { cn } from "@/lib/cn";
+import { currentPath, signInHref } from "@/lib/destinations";
 
 /**
  * Sits over photography in both themes, so it uses its own fixed translucent
  * dark treatment rather than a theme token — that reads correctly either way.
+ *
+ * Saving belongs to a patron account, so a signed-out visitor is sent to sign
+ * in — and back to this page — rather than shown a heart that saves nowhere.
+ * `signedIn` defaults to the session from `AuthProvider`.
  */
 export function FavouriteButton({
   label,
   className,
   size = "md",
+  signedIn,
 }: {
   label: string;
   className?: string;
   size?: "sm" | "md";
+  signedIn?: boolean;
 }) {
+  const router = useRouter();
+  const auth = useAuth();
+  const canSave = signedIn ?? auth.signedIn;
   const [saved, setSaved] = useState(false);
 
   return (
     <button
       type="button"
-      aria-pressed={saved}
-      aria-label={saved ? `Remove ${label} from saved` : `Save ${label}`}
+      aria-pressed={canSave ? saved : undefined}
+      aria-label={
+        !canSave
+          ? `Sign in to save ${label}`
+          : saved
+            ? `Remove ${label} from saved`
+            : `Save ${label}`
+      }
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
+        if (!canSave) {
+          router.push(signInHref(currentPath()));
+          return;
+        }
         setSaved((v) => !v);
       }}
       className={cn(

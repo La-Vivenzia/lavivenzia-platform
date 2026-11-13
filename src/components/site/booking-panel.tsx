@@ -1,11 +1,13 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useReducer, useRef, type ReactNode } from "react";
 import { CalendarDays, Check, Clock, MapPin, Minus, Plus, Printer, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, Skeleton } from "@/components/ui/feedback";
 import { ApiError, api } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
+import { signInHref } from "@/lib/destinations";
 import { formatMoneyMinor } from "@/lib/format";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 import type {
@@ -42,7 +44,17 @@ import type { PricingUnit } from "@/modules/experiences/readiness";
  * The total shown before reserving is a preview from the same `quoteBooking`
  * the server runs. The server's figure is the one charged, and the venue in
  * the confirmation only exists once the server has verified the checkout.
+ *
+ * Browsing is public; reserving is not. A signed-out visitor can pick a date,
+ * time and party and see the price, then "Sign in to Reserve" sends them to
+ * sign in with that choice in the return URL (`?slot=&guests=`), and the panel
+ * restores it when they land back here. The checkout API refuses anonymous
+ * requests regardless — this only decides what the button offers.
  */
+
+/** Query parameters that carry a selection through sign-in. */
+const SLOT_PARAM = "slot";
+const GUESTS_PARAM = "guests";
 
 /** A seat count at or below this is worth telling the traveller about. */
 const LOW_SEATS = 5;
@@ -96,6 +108,7 @@ export function BookingPanel({
   minGuests,
   maxGuests,
   checkoutMode,
+  signedIn,
 }: {
   readonly slug: string;
   readonly title: string;
@@ -105,15 +118,52 @@ export function BookingPanel({
   readonly minGuests: number;
   readonly maxGuests: number | null;
   readonly checkoutMode: CheckoutMode;
+  readonly signedIn: boolean;
 }) {
+  const router = useRouter();
   const [state, dispatch] = useReducer(
     bookingReducer,
     { minGuests, maxGuests },
     initialBookingState,
   );
   const payment = useRef<RazorpayPaymentResult | null>(null);
+  /** A selection carried back from sign-in, applied once the slots arrive. */
+  const restore = useRef<{ slotId: string; guests: number | null } | null | undefined>(undefined);
 
   const base = `/api/v1/experiences/${encodeURIComponent(slug)}`;
+
+  // ── Selection carried through sign-in ────────────────────────────────────
+
+  useEffect(() => {
+    if (restore.current === undefined) {
+      const params = new URLSearchParams(window.location.search);
+      const slotId = params.get(SLOT_PARAM);
+      const guests = Number.parseInt(params.get(GUESTS_PARAM) ?? "", 10);
+      restore.current = slotId ? { slotId, guests: Number.isFinite(guests) ? guests : null } : null;
+    }
+    const wanted = restore.current;
+    if (state.phase !== "selecting" || !wanted) return;
+    restore.current = null;
+
+    // Only a slot that is still open is restored; a stale one leaves the
+    // default selection, and the reducer re-checks every step.
+    const day = state.days.find((candidate) =>
+      candidate.slots.some((slot) => slot.id === wanted.slotId),
+    );
+    if (!day) return;
+    dispatch({ type: "SELECT_DAY", day: day.key });
+    dispatch({ type: "SELECT_SLOT", slotId: wanted.slotId });
+    if (wanted.guests !== null) dispatch({ type: "SET_GUESTS", guests: wanted.guests });
+  }, [state.phase, state.days]);
+
+  function signInToReserve(): void {
+    const url = new URL(window.location.href);
+    if (state.selectedSlotId) {
+      url.searchParams.set(SLOT_PARAM, state.selectedSlotId);
+      url.searchParams.set(GUESTS_PARAM, String(state.guests));
+    }
+    router.push(signInHref(`${url.pathname}${url.search}`));
+  }
 
   // ── Requests the state machine asks for ──────────────────────────────────
 
@@ -401,6 +451,22 @@ export function BookingPanel({
           </Button>
           <p className="text-text-subtle text-[12px] leading-relaxed">
             You can explore dates and prices now. Reservations open shortly.
+          </p>
+        </div>
+      ) : !signedIn ? (
+        <div className="flex flex-col gap-3">
+          <Button
+            variant="primary"
+            size="lg"
+            className="w-full"
+            disabled={state.phase === "loading"}
+            onClick={signInToReserve}
+          >
+            Sign in to Reserve
+          </Button>
+          <p className="text-text-subtle text-[12px] leading-relaxed">
+            Reservations are held on your patron account. Your date, time and party are kept while
+            you sign in.
           </p>
         </div>
       ) : state.phase !== "error" ? (

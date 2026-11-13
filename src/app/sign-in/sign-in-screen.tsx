@@ -39,7 +39,7 @@ interface MeResponse {
 
 type Step = "credentials" | "code";
 
-export function SignInScreen() {
+export function SignInScreen({ next }: { readonly next?: string }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("credentials");
   const [email, setEmail] = useState("");
@@ -51,6 +51,11 @@ export function SignInScreen() {
 
   async function landAfterSignIn(): Promise<void> {
     router.refresh();
+    // Back to the gated action that sent them here, when there was one.
+    if (next) {
+      router.push(next);
+      return;
+    }
     const me = await api.get<MeResponse>("/api/v1/auth/me");
     router.push(destinationForRoles(me.roles));
   }

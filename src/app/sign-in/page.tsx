@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { getPrincipal } from "@/lib/auth-context";
-import { destinationForRoles } from "@/lib/destinations";
+import { destinationForRoles, safeNextPath } from "@/lib/destinations";
 import { SignInScreen } from "./sign-in-screen";
 
 export const metadata: Metadata = {
@@ -23,10 +23,20 @@ export const metadata: Metadata = {
  * An already-signed-in visitor is sent where their roles allow, not to `/host`
  * unconditionally — that older behaviour put travellers in front of a console
  * they cannot enter.
+ *
+ * `?next=` is where a gated action sent them from — a reservation, a saved
+ * listing, the profile. It is honoured only as a same-origin path.
  */
-export default async function SignInPage() {
+export default async function SignInPage({
+  searchParams,
+}: {
+  readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { next: rawNext } = await searchParams;
+  const next = safeNextPath(typeof rawNext === "string" ? rawNext : null);
+
   const principal = await getPrincipal();
-  if (principal) redirect(destinationForRoles(principal.roles));
+  if (principal) redirect(next ?? destinationForRoles(principal.roles));
 
   return (
     <AuthScreen
@@ -44,7 +54,7 @@ export default async function SignInPage() {
         alt: "A cliffside town above a calm sea at golden hour.",
       }}
     >
-      <SignInScreen />
+      <SignInScreen {...(next ? { next } : {})} />
     </AuthScreen>
   );
 }

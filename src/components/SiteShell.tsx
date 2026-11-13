@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { AuthProvider } from "@/components/auth/AuthContext";
 import { CopilotProvider } from "@/components/copilot/CopilotProvider";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { DesktopHeader } from "@/components/DesktopHeader";
@@ -36,20 +37,22 @@ export function SiteShell({
   readonly children: ReactNode;
 }) {
   return (
-    <CopilotProvider>
-      <div className="flex min-h-dvh flex-col">
-        <div className="lg:hidden">
-          <MobileHeader signedIn={signedIn} accountHref={accountHref} initials={initials} />
-        </div>
-        <div className="hidden lg:block">
-          <DesktopHeader signedIn={signedIn} accountHref={accountHref} initials={initials} />
-        </div>
+    <AuthProvider value={{ signedIn, accountHref, ...(initials ? { initials } : {}) }}>
+      <CopilotProvider>
+        <div className="flex min-h-dvh flex-col">
+          <div className="lg:hidden">
+            <MobileHeader signedIn={signedIn} accountHref={accountHref} initials={initials} />
+          </div>
+          <div className="hidden lg:block">
+            <DesktopHeader signedIn={signedIn} accountHref={accountHref} initials={initials} />
+          </div>
 
-        <main className="flex-1 pb-28 lg:pb-0">{children}</main>
+          <main className="flex-1 pb-28 lg:pb-0">{children}</main>
 
-        <Footer />
-        <BottomNavigation accountHref={accountHref} />
-      </div>
-    </CopilotProvider>
+          <Footer />
+          <BottomNavigation accountHref={accountHref} />
+        </div>
+      </CopilotProvider>
+    </AuthProvider>
   );
 }

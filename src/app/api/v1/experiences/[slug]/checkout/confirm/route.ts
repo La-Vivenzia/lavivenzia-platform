@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { requirePrincipal } from "@/lib/auth-context";
 import { jsonResponse, parseJsonBody, withRoute } from "@/lib/http";
 import { getCheckoutService } from "@/lib/container";
 import { enforceIpRateLimit } from "@/lib/rate-limit";
@@ -31,6 +32,9 @@ const ConfirmBody = z.object({
  */
 export const POST = withRoute<RouteContext>(async (request, { params }) => {
   await enforceIpRateLimit("checkoutPerIp");
+
+  // Reserving is for signed-in patrons; browsing the listing is not gated.
+  await requirePrincipal();
 
   const { slug } = await params;
   const body = await parseJsonBody(request, ConfirmBody);

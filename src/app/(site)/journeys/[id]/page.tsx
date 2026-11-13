@@ -6,6 +6,7 @@ import {
   JourneyExperienceView,
   type JourneyActMedia,
 } from "@/components/journeys/JourneyExperienceView";
+import { getPrincipal } from "@/lib/auth-context";
 import { getCheckoutService, getDiscoveryService } from "@/lib/container";
 import { NotFoundError } from "@/lib/errors";
 import { getLogger } from "@/lib/logger";
@@ -85,6 +86,8 @@ export default async function JourneyPage({
   const journey = findJourney(id);
   if (!journey) notFound();
 
+  const principal = await getPrincipal();
+
   return (
     <PageBody>
       <JourneyExperienceView
@@ -92,6 +95,7 @@ export default async function JourneyPage({
         media={await actMedia(journey)}
         checkoutMode={checkoutMode()}
         initialMapOpen={map === "1"}
+        signedIn={principal !== null}
       />
     </PageBody>
   );

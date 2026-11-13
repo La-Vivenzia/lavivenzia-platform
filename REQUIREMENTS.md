@@ -54,6 +54,8 @@ The system MUST support availability, slots, capacity and booking cut-offs.
 
 The system MUST support individual/group bookings, cart/checkout, booking confirmation and digital vouchers.
 
+Discovery is public: listings, journeys, dates, times and price quotes are browsable without an account. Reserving (experience checkout and confirmation, journey passes) and saving favourites MUST require a signed-in account; the checkout APIs refuse anonymous requests, and sign-in returns the traveller to the page — and selection — they came from.
+
 ### FR-10 Payments
 
 The system MUST integrate Razorpay and handle payment state through server-side verification/webhooks.

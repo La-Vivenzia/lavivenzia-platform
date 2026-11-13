@@ -7,6 +7,7 @@ import { GoldRule } from "@/components/ui/wordmark";
 import { BookingPanel } from "@/components/site/booking-panel";
 import { LiveTrackButton } from "@/components/site/live-track-button";
 import { LocationPanel } from "@/components/site/location-panel";
+import { getPrincipal } from "@/lib/auth-context";
 import { getCheckoutService, getDiscoveryService } from "@/lib/container";
 import { getLogger } from "@/lib/logger";
 import { NotFoundError, ValidationError } from "@/lib/errors";
@@ -153,6 +154,8 @@ export default async function ExperienceDetailPage({
   const { slug } = await params;
   const experience = await load(slug);
   if (!experience) notFound();
+
+  const principal = await getPrincipal();
 
   const cover = experience.images[0];
   const gallery = experience.images.slice(1);
@@ -391,6 +394,7 @@ export default async function ExperienceDetailPage({
                   minGuests={experience.minGuests}
                   maxGuests={experience.maxGuests}
                   checkoutMode={checkoutMode()}
+                  signedIn={principal !== null}
                 />
               </div>
             </div>

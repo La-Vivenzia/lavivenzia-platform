@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AuthProvider } from "@/components/auth/AuthContext";
 import { DesktopHome } from "@/components/DesktopHome";
 import { MobileHome } from "@/components/MobileHome";
 import { getDiscoveryService } from "@/lib/container";
@@ -89,9 +90,15 @@ export default async function HomePage() {
   };
 
   return (
-    <>
+    <AuthProvider
+      value={{
+        signedIn: session.signedIn,
+        accountHref: session.accountHref,
+        ...(session.initials ? { initials: session.initials } : {}),
+      }}
+    >
       <MobileHome {...session} />
       <DesktopHome {...session} />
-    </>
+    </AuthProvider>
   );
 }

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -22,6 +23,7 @@ import { TextField } from "@/components/ui/field";
 import { DigitalVipPass } from "@/components/journeys/DigitalVipPass";
 import { ApiError, api } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
+import { currentPath, signInHref } from "@/lib/destinations";
 import { formatClock, formatDuration, formatMoneyMinor } from "@/lib/format";
 import type { CheckoutMode } from "@/modules/booking/contract";
 import {
@@ -87,19 +89,26 @@ const money = (minor: number, currency: string) => formatMoneyMinor(minor, curre
  * Prices shown before booking are the journey's catalogue prices, for
  * preview. The pass is priced by the server from the live listings, and that
  * is the figure the pass prints (CLAUDE.md §6).
+ *
+ * Everything but the reservation is public. A signed-out visitor is offered
+ * "Sign in to Reserve Experience", which returns them here; the pass endpoint
+ * refuses anonymous requests on its own.
  */
 export function JourneyExperienceView({
   journey,
   media,
   checkoutMode,
   initialMapOpen = false,
+  signedIn,
 }: {
   readonly journey: Journey;
   readonly media: readonly JourneyActMedia[];
   readonly checkoutMode: CheckoutMode;
   /** Opens the companion map on arrival, e.g. from VivenIQ's journey card. */
   readonly initialMapOpen?: boolean;
+  readonly signedIn: boolean;
 }) {
+  const router = useRouter();
   const [party, setParty] = useState(2);
   const [holder, setHolder] = useState("");
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
@@ -270,9 +279,9 @@ export function JourneyExperienceView({
                     className="w-full"
                     loading={phase.kind === "booking"}
                     disabled={!open || unavailable}
-                    onClick={reserve}
+                    onClick={signedIn ? reserve : () => router.push(signInHref(currentPath()))}
                   >
-                    Reserve Experience
+                    {signedIn ? "Reserve Experience" : "Sign in to Reserve Experience"}
                   </Button>
                   {open ? (
                     <p className="text-[12px] leading-relaxed text-fg-muted">
