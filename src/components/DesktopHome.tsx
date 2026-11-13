@@ -71,12 +71,11 @@ export function DesktopHome(props: HomeData) {
                 as="li"
                 key={experience.id}
                 delay={index * 80}
-                className="h-[460px] xl:h-[500px]"
               >
                 <ExperienceCard
                   experience={experience}
                   href={experience.href}
-                  className="h-full w-full"
+                  className="w-full"
                   sizes="(max-width: 1279px) 33vw, 30vw"
                 />
               </Reveal>

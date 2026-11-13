@@ -19,17 +19,17 @@ export function ExperiencesSection({ items }: { readonly items: readonly LinkedE
       </Reveal>
 
       <Reveal delay={80}>
-        <ul className="rail mt-5 gap-3 px-5 pb-2">
+        <ul className="rail mt-4 gap-4 px-5 pb-4">
           {items.map((experience) => (
             <li
               key={experience.id}
-              className="rail-item aspect-[4/5] w-[248px] xs:w-[262px] sm:w-[300px]"
+              className="rail-item w-[260px] xs:w-[280px] sm:w-[320px]"
             >
               <ExperienceCard
                 experience={experience}
                 href={experience.href}
-                className="h-full w-full"
-                sizes="(max-width: 640px) 80vw, 320px"
+                className="w-full"
+                sizes="(max-width: 640px) 280px, 320px"
               />
             </li>
           ))}
