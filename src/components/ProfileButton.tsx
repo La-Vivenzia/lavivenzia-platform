@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Bell } from "lucide-react";
 
 import { cn } from "@/lib/cn";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 /**
  * Header account controls.
@@ -12,9 +12,9 @@ import { cn } from "@/lib/cn";
  * visitor is offered a way in, a signed-in one gets their own initials and a
  * way out.
  *
- * The bell appears only when signed in and carries no unread badge, because
- * there is no notification system behind it yet. A dot that never changes is a
- * lie the interface repeats on every page load.
+ * The bell now carries the live notification system: an amber dot appears when
+ * there are unread items, and clicking opens the inbox popover (desktop) or
+ * sheet (mobile). An anonymous visitor sees neither bell nor dot.
  */
 
 export interface AccountProps {
@@ -28,32 +28,14 @@ export interface AccountProps {
 
 export function NotificationButton({
   signedIn,
-  accountHref,
   className,
 }: {
   readonly signedIn: boolean;
-  readonly accountHref: string;
+  /** @deprecated accountHref is no longer used by the notification bell. */
+  readonly accountHref?: string;
   readonly className?: string;
 }) {
-  if (!signedIn) return null;
-
-  return (
-    <Link
-      href={accountHref}
-      aria-label="Your activity"
-      className={cn(
-        "group relative grid h-8 w-8 place-items-center rounded-full xs:h-9 xs:w-9",
-        "text-heading hover:bg-surface-2 transition-colors duration-300",
-        className,
-      )}
-    >
-      <Bell
-        className="xs:h-[21px] xs:w-[21px] h-[19px] w-[19px] transition-transform duration-300 group-hover:-rotate-[8deg]"
-        strokeWidth={1.6}
-        aria-hidden="true"
-      />
-    </Link>
-  );
+  return <NotificationBell signedIn={signedIn} className={className} />;
 }
 
 export function ProfileButton({ signedIn, accountHref, initials, className }: AccountProps) {
