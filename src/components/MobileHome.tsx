@@ -60,12 +60,9 @@ export function MobileHome(props: HomeData) {
                 action="Explore All"
                 href="/journeys"
               />
-              <p className="mt-2 text-[13px] leading-relaxed font-light text-fg-muted">
-                Three chapters, one evening in East Pune — each with a privilege of its own.
-              </p>
             </Reveal>
             <Reveal delay={80}>
-              <JourneyRail journeys={journeys} className="mt-5" />
+              <JourneyRail journeys={journeys} className="mt-4" />
             </Reveal>
           </section>
         ) : null}

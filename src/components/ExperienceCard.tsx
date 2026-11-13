@@ -25,7 +25,7 @@ export function ExperienceCard({
   return (
     <article
       className={cn(
-        "group relative isolate flex overflow-hidden rounded-card shadow-card",
+        "group relative isolate flex overflow-hidden rounded-2xl shadow-card",
         "transition-shadow duration-500 hover:shadow-editorial",
         className,
       )}

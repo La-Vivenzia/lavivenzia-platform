@@ -44,13 +44,7 @@ export function DesktopHome(props: HomeData) {
               />
             </Reveal>
             <Reveal delay={80}>
-              <p className="mt-4 max-w-[62ch] text-[15px] leading-relaxed font-light text-fg-muted">
-                Three venues sequenced into a harmonious evening across Amanora, Seasons, and
-                Magarpatta. Reserved in one pass with exclusive patron privileges at each stop.
-              </p>
-            </Reveal>
-            <Reveal delay={140}>
-              <JourneyRail journeys={journeys} className="mt-10" />
+              <JourneyRail journeys={journeys} className="mt-8" />
             </Reveal>
           </section>
         ) : null}
@@ -70,14 +64,8 @@ export function DesktopHome(props: HomeData) {
               size="lg"
             />
           </Reveal>
-          <Reveal delay={80}>
-            <p className="mt-4 max-w-[60ch] text-[15px] leading-relaxed font-light text-fg-muted">
-              Individual culinary, wellness, and nightlife venues in Pune, each with a verified host
-              and exclusive La Vivenzia privilege.
-            </p>
-          </Reveal>
 
-          <ul className="mt-12 grid grid-cols-3 gap-6 xl:gap-8">
+          <ul className="mt-8 grid grid-cols-3 gap-6 xl:gap-8">
             {stories.slice(0, 6).map((experience, index) => (
               <Reveal
                 as="li"

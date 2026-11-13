@@ -146,9 +146,9 @@ function JourneyCard({ journey }: { readonly journey: Journey }) {
   const privilege = centerpiece?.privilege;
 
   return (
-    <li data-journey-id={journey.id} className="rail-item w-[280px] xs:w-[320px] sm:w-[340px]">
+    <li data-journey-id={journey.id} className="rail-item w-[290px] xs:w-[330px] sm:w-[350px]">
       <article className="group relative">
-        <div className="relative aspect-[4/3] overflow-hidden rounded-card bg-surface-2 shadow-card">
+        <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-surface-2 shadow-card">
           <Image
             src={journey.coverImage}
             alt={journey.coverAlt}

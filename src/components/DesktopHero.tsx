@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { HeroVisual } from "@/components/HeroVisual";
 import { Reveal } from "@/components/Reveal";
 import { SearchBar } from "@/components/SearchBar";
@@ -58,26 +56,14 @@ export function DesktopHero({
           </Reveal>
 
           <Reveal delay={170}>
-            <p className="mt-8 max-w-[38ch] text-[17px] leading-[1.65] font-light text-fg-muted xl:text-lg">
-              {brand.supporting}
+            <p className="mt-6 max-w-[42ch] text-[16px] leading-[1.65] font-light text-fg-muted xl:text-[17px]">
+              Choreographed multi-venue evenings and verified experiences across Pune, reserved in one touch with VIP privileges.
             </p>
           </Reveal>
 
           <Reveal delay={240}>
-            <div className="mt-10 max-w-[520px]">
+            <div className="mt-8 max-w-[520px]">
               <SearchBar variant="inline" />
-            </div>
-          </Reveal>
-
-          <Reveal delay={310}>
-            <div className="mt-8 flex items-center gap-3 text-xs tracking-wide text-fg-muted">
-              <span>Pune Pilot Corridor</span>
-              <span className="text-gold">•</span>
-              <span>Verified Curation</span>
-              <span className="text-gold">•</span>
-              <Link href="/experiences" className="text-gold hover:underline">
-                Explore The Collection →
-              </Link>
             </div>
           </Reveal>
         </div>

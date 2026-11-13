@@ -20,7 +20,7 @@ export const brand = {
   eyebrow: "Experiences Beyond Destinations",
   headline: ["Journeys", "Designed", "Around You."],
   supporting: "Choreographed multi-venue evenings and verified experiences across Pune — reserved in one touch with VIP privileges.",
-  searchPlaceholder: "Describe the moment (e.g. poolside brunch, sunset craft brews)...",
+  searchPlaceholder: "Search experiences, dining, journeys in Pune...",
 } as const;
 
 export const heroImage = {

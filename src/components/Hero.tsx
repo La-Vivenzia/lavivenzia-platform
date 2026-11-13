@@ -18,10 +18,10 @@ export function Hero({
   const slides = resolveHeroSlides(images, image);
 
   return (
-    <section aria-labelledby="lv-hero-heading" className="relative px-5 pt-3 pb-7">
-      {/* Photograph — matches the text column's height and escapes the gutter. */}
+    <section aria-labelledby="lv-hero-heading" className="relative px-5 pt-4 pb-8 min-h-[220px] xs:min-h-[250px] flex items-center">
+      {/* Photograph — dominant visual presence with deep radius */}
       <div
-        className="absolute inset-y-0 right-0 w-[43%] min-w-[140px] overflow-hidden rounded-tl-[3rem] xs:w-[44%] sm:w-[46%] sm:rounded-tl-[4rem]"
+        className="absolute inset-y-0 right-0 w-[47%] min-w-[150px] overflow-hidden rounded-tl-[3.5rem] xs:w-[49%] sm:w-[50%] sm:rounded-tl-[4.5rem]"
         aria-hidden="false"
       >
         <HeroVisual
@@ -31,17 +31,15 @@ export function Hero({
         />
       </div>
 
-      {/* Editorial text column */}
-      <div className="relative z-10 w-[58%] min-w-0 pt-1 sm:w-[55%]">
-        {/* Runs slightly wider than the headline column so it holds one line
-            at 375px, matching the reference. */}
-        <p className="eyebrow w-[108%] text-[8px] tracking-[0.09em] text-fg-subtle xs:text-[8.5px] xs:tracking-[0.12em] sm:w-full sm:text-[10.5px] sm:tracking-[0.2em] dark:text-accent-ink">
+      {/* Editorial text column — clean, spacious, uncluttered */}
+      <div className="relative z-10 w-[52%] min-w-0 pr-2 xs:w-[50%] sm:w-[49%]">
+        <p className="eyebrow text-[8px] tracking-[0.14em] text-fg-subtle xs:text-[9px] xs:tracking-[0.16em] sm:text-[10px] dark:text-accent-ink uppercase">
           {brand.eyebrow}
         </p>
 
         <h1
           id="lv-hero-heading"
-          className="mt-3 font-display text-[clamp(1.6rem,7.5vw,3.5rem)] leading-[1.12] font-normal tracking-[-0.015em] text-heading"
+          className="mt-2.5 font-display text-[25px] xs:text-[28px] sm:text-[34px] leading-[1.15] font-normal tracking-tight text-heading"
         >
           {brand.headline.map((line) => (
             <span key={line} className="block">
@@ -50,8 +48,8 @@ export function Hero({
           ))}
         </h1>
 
-        <p className="mt-4 max-w-[30ch] text-[13.5px] leading-[1.55] font-light text-fg-muted sm:text-[15px]">
-          {brand.supporting}
+        <p className="mt-2 text-[12px] xs:text-[13px] leading-relaxed font-light text-fg-muted truncate">
+          Curated evenings in East Pune
         </p>
       </div>
     </section>

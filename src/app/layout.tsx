@@ -1,29 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Cinzel, Sora } from "next/font/google";
+import { Cormorant_Garamond, Sora } from "next/font/google";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { themeInitScript } from "@/lib/theme-init";
 import "./globals.css";
 
 /**
- * The pairing DESIGN.md §6 asks for: a classical high-contrast serif for
- * display, a modern sans for everything a user has to read closely.
- *
- * Cinzel and **Sora** are the approved faces, matching the founder-approved
- * references. Sora replaced Montserrat on 2026-09-08 — it is the body face in
- * the approved demo, and it carries the slightly wider, more geometric feel the
- * reference screens have at small sizes. Cinzel was already correct.
- *
- * Loaded through `next/font`, which self-hosts the files at build time. That is
- * not only a performance choice — no request leaves the browser for
- * fonts.googleapis.com, so the page does not disclose every visitor to a third
- * party and the layout does not wait on someone else's CDN.
- *
- * `display: swap` shows the fallback immediately rather than holding text
- * invisible while a font loads.
+ * Editorial luxury pairing: Cormorant Garamond for display and Sora for UI/body.
+ * Loaded through `next/font`, which self-hosts at build time.
  */
-const cinzel = Cinzel({
+const displayFont = Cormorant_Garamond({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["300", "400", "500", "600"],
   variable: "--font-cinzel",
   display: "swap",
 });
@@ -112,7 +99,7 @@ export const viewport: Viewport = {
  */
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${cinzel.variable} ${sora.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${displayFont.variable} ${sora.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
