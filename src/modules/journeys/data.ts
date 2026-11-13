@@ -505,6 +505,9 @@ export interface JourneyChapter {
   /** Copied from the listing's curation record; 0 when none is claimed. */
   readonly timeSavedMinutes: number;
   readonly privilege: VipPrivilege;
+  /** The listing's cover photograph and its alt text. */
+  readonly coverImage: string;
+  readonly coverAlt: string;
 }
 
 export interface Journey {
@@ -523,6 +526,9 @@ export interface Journey {
   readonly timeSavedMinutes: number;
   readonly currency: string;
   readonly chapters: readonly JourneyChapter[];
+  /** The centerpiece's cover photograph — the journey's face on a card. */
+  readonly coverImage: string;
+  readonly coverAlt: string;
 }
 
 export class JourneyDefinitionError extends Error {
@@ -561,6 +567,8 @@ function resolveChapter(
     priceMinor: listing.basePriceMinor,
     timeSavedMinutes: listing.curation.timeSavedMinutes,
     privilege: chapter.privilege,
+    coverImage: listing.coverImageKey,
+    coverAlt: listing.altText,
   };
 }
 
@@ -603,6 +611,7 @@ function resolveJourney(
 
   const first = chapters[0]!;
   const last = chapters[chapters.length - 1]!;
+  const cover = chapters.find((chapter) => chapter.role === "centerpiece") ?? first;
 
   return {
     id: definition.id,
@@ -616,6 +625,8 @@ function resolveJourney(
     timeSavedMinutes: chapters.reduce((sum, chapter) => sum + chapter.timeSavedMinutes, 0),
     currency: JOURNEY_CURRENCY,
     chapters,
+    coverImage: cover.coverImage,
+    coverAlt: cover.coverAlt,
   };
 }
 

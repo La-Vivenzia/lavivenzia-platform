@@ -5,7 +5,7 @@ import { DesktopHeader } from "@/components/DesktopHeader";
 import { DesktopHero } from "@/components/DesktopHero";
 import { ExperienceCard } from "@/components/ExperienceCard";
 import { Footer } from "@/components/Footer";
-import { JourneyArcView } from "@/components/journeys/JourneyArcView";
+import { JourneyRail } from "@/components/journeys/JourneyRail";
 import type { HomeData } from "@/components/MobileHome";
 import { Reveal } from "@/components/Reveal";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -99,7 +99,7 @@ export function DesktopHome(props: HomeData) {
               </p>
             </Reveal>
             <Reveal delay={140}>
-              <JourneyArcView journeys={journeys} className="mt-10" />
+              <JourneyRail journeys={journeys} className="mt-10" />
             </Reveal>
           </section>
         ) : null}

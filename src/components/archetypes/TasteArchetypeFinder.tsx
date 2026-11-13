@@ -23,7 +23,7 @@ import type { Journey } from "@/modules/journeys/data";
  * model, no network. Choosing an option advances; Back revisits a question
  * with the earlier answer still marked.
  *
- * `arcTargetId` is the section holding this tree's `JourneyArcView`: "See the
+ * `arcTargetId` is the section holding this tree's `JourneyRail`: "See the
  * full journey" selects the match there and scrolls to it.
  */
 export function TasteArchetypeFinder({

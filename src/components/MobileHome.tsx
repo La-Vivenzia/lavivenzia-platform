@@ -4,7 +4,7 @@ import { ArrowRight, CalendarCheck, Compass, KeyRound, MapPin, ShieldCheck, Spar
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { ExperiencesSection } from "@/components/ExperiencesSection";
 import { Hero } from "@/components/Hero";
-import { JourneyArcView } from "@/components/journeys/JourneyArcView";
+import { JourneyRail } from "@/components/journeys/JourneyRail";
 import { MobileHeader } from "@/components/MobileHeader";
 import { Reveal } from "@/components/Reveal";
 import { SearchBar } from "@/components/SearchBar";
@@ -111,7 +111,7 @@ export function MobileHome(props: HomeData) {
               </p>
             </Reveal>
             <Reveal delay={80}>
-              <JourneyArcView journeys={journeys} className="mt-5" />
+              <JourneyRail journeys={journeys} className="mt-5" />
             </Reveal>
           </section>
         ) : null}

@@ -1,9 +1,9 @@
 /**
  * Cross-component signal: "show this journey". The taste finder dispatches it,
- * every mounted `JourneyArcView` listens.
+ * every mounted `JourneyRail` listens.
  *
  * A window event rather than shared state because the mobile and desktop home
- * trees are rendered side by side and swapped by CSS — each holds its own arc,
+ * trees are rendered side by side and swapped by CSS — each holds its own rail,
  * and both should follow the traveller's match.
  *
  * A plain module, not a `"use client"` one, so the constant is a real string on
