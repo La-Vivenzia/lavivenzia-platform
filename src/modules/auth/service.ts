@@ -212,6 +212,56 @@ export class AuthService {
     await this.#deps.deliverOtp(email, code);
   }
 
+  /**
+   * Issue a code that both creates and signs in to a traveller account.
+   *
+   * For flows that ask for an email once — anchoring a Taste Genome — rather
+   * than making the visitor choose between "sign in" and "join". A new address
+   * gets a passwordless, unverified traveller account, exactly as `register`
+   * would make; the code proves the mailbox and verifies it. Nothing about the
+   * account (a name, a genome) is written until the code is verified, so
+   * entering someone else's address achieves nothing beyond sending them a
+   * code they can ignore.
+   *
+   * The response is the same whether the account was new, existing, or a
+   * password account that cannot use codes. Unlike `register`, this does not
+   * report a taken address.
+   */
+  async requestTravellerAccessOtp(input: {
+    readonly email: string;
+    readonly context: RequestContext;
+  }): Promise<void> {
+    const { email, context } = input;
+
+    if (!(await this.#deps.users.findByEmail(email))) {
+      await this.#enforceLimit("registerPerIp", context.ipAddress ?? "unknown");
+      try {
+        const user = await this.#deps.users.createWithRole({
+          email,
+          passwordHash: null,
+          role: "traveller",
+          emailVerified: false,
+        });
+        await this.#deps.audit.record({
+          actorId: user.id,
+          sessionId: null,
+          action: "auth.registered",
+          subjectType: "user",
+          subjectId: user.id,
+          ipAddress: context.ipAddress,
+          correlationId: context.correlationId,
+          after: { role: "traveller", email: user.email, via: "taste_genome_anchor" },
+        });
+      } catch (error) {
+        // Two requests racing for the same new address: the loser's insert hits
+        // the unique index. The account exists either way, so carry on.
+        if (!(await this.#deps.users.findByEmail(email))) throw error;
+      }
+    }
+
+    await this.requestLoginOtp({ email, context });
+  }
+
   /** Verify a login code and issue a session. */
   async verifyLoginOtp(input: {
     readonly email: string;

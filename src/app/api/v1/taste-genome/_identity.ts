@@ -35,6 +35,15 @@ function readCookie(request: Request, name: string): string | null {
 }
 
 /**
+ * The guest patron id from the cookie, whether or not a session is also present.
+ * Only a well-formed id is honoured, so the cookie cannot inject arbitrary keys.
+ */
+export function readGuestPatronId(request: Request): string | null {
+  const existing = readCookie(request, GUEST_COOKIE);
+  return existing && UUID.test(existing) ? `guest:${existing}` : null;
+}
+
+/**
  * Resolve the patron. A failing session lookup degrades to guest rather than
  * failing the request: personalisation is never a dependency.
  */
@@ -49,9 +58,8 @@ export async function resolvePatron(request: Request): Promise<PatronIdentity> {
     );
   }
 
-  // Only a well-formed id is honoured, so the cookie cannot inject arbitrary keys.
-  const existing = readCookie(request, GUEST_COOKIE);
-  if (existing && UUID.test(existing)) return { patronId: `guest:${existing}`, newGuestId: null };
+  const existing = readGuestPatronId(request);
+  if (existing) return { patronId: existing, newGuestId: null };
 
   const minted = randomUUID();
   return { patronId: `guest:${minted}`, newGuestId: minted };

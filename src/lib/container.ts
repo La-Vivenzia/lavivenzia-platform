@@ -14,6 +14,7 @@ import { VivenIQService } from "@/modules/viveniq/service";
 import { CompanionService } from "@/modules/companion/service";
 import { CheckoutService, resolveCheckoutMode } from "@/modules/booking/checkout";
 import { JourneyPassService } from "@/modules/booking/journey-pass";
+import { TasteGenomeService } from "@/modules/taste-genome/service";
 import { findJourney, listCuratedJourneys } from "@/modules/journeys/data";
 import { getLogger } from "@/lib/logger";
 import { AnthropicLlmAdapter } from "@/adapters/llm/anthropic";
@@ -44,6 +45,7 @@ import {
 import { PrismaSlotRepository } from "@/adapters/persistence/prisma/availability-repositories";
 import { createOperationsRepository } from "@/adapters/persistence/prisma/operations-repositories";
 import { createDiscoveryRepository } from "@/adapters/persistence/prisma/discovery-repositories";
+import { createTasteGenomeAccountRepository } from "@/adapters/persistence/prisma/taste-genome-repositories";
 
 /**
  * Composition root.
@@ -119,6 +121,23 @@ export function getUserProfileService(): UserProfileService {
   });
 
   return userProfileService;
+}
+
+let tasteGenomeService: TasteGenomeService | undefined;
+
+/**
+ * Taste Genome: guests in memory, signed-in patrons in
+ * `users.preferences.tasteGenome`. A failed account read or telemetry write
+ * degrades with a warning — personalisation is never a dependency.
+ */
+export function getTasteGenomeService(): TasteGenomeService {
+  tasteGenomeService ??= new TasteGenomeService({
+    accounts: createTasteGenomeAccountRepository(prisma),
+    now: () => new Date(),
+    warn: (message, reason) => getLogger().warn({ reason }, message),
+  });
+
+  return tasteGenomeService;
 }
 
 // ── Hosts and inventory ────────────────────────────────────────────────────

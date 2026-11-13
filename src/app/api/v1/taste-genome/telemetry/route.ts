@@ -1,8 +1,8 @@
 import { env } from "@/lib/env";
 import { assertSameOrigin } from "@/lib/auth-context";
+import { getTasteGenomeService } from "@/lib/container";
 import { jsonResponse, parseJsonBody, withRoute } from "@/lib/http";
 import { enforceIpRateLimit } from "@/lib/rate-limit";
-import { processTelemetry } from "@/modules/taste-genome/service";
 import { resolvePatron, withGuestCookie } from "../_identity";
 import { telemetryBatchSchema } from "../_schemas";
 
@@ -20,7 +20,7 @@ export const POST = withRoute(async (request) => {
 
   const { events } = await parseJsonBody(request, telemetryBatchSchema);
   const identity = await resolvePatron(request);
-  const genome = processTelemetry(identity.patronId, events);
+  const genome = await getTasteGenomeService().processTelemetry(identity.patronId, events);
 
   return withGuestCookie(
     jsonResponse({ accepted: events.length, interactionCount: genome.interactionCount }),

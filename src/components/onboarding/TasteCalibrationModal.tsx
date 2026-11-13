@@ -1,56 +1,83 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useRouter } from "next/navigation";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/feedback";
+import { TextField } from "@/components/ui/field";
+import { ApiError, api } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
-import type { CurationTrack } from "@/modules/discovery/curation";
 import {
+  ACOUSTIC_COMFORTS,
+  ACOUSTIC_LABELS,
+  BEVERAGE_LABELS,
+  BEVERAGE_PALATES,
   CALIBRATED_STORAGE_KEY,
-  COMPANION_LABELS,
-  COMPANION_OPTIONS,
-  DEFAULT_HUB,
-  HUB_LABELS,
-  HUB_OPTIONS,
-  MOOD_LABELS,
-  MOOD_OPTIONS,
-  PALATE_LABELS,
-  PALATE_OPTIONS,
-  UPCOMING_HUBS,
+  DIETARY_LABELS,
+  DIETARY_PHILOSOPHIES,
+  SEATING_LABELS,
+  SEATING_PREFERENCES,
+  type AcousticComfort,
+  type BeveragePalate,
   type CalibrationAnswers,
-  type CompanionProfile,
-  type DestinationHub,
-  type PalatePreference,
+  type DietaryPhilosophy,
+  type SeatingPreference,
 } from "@/modules/taste-genome/types";
 
 /**
  * First-visit Taste Genome calibration.
  *
- * Four quiet micro-steps — mood, palate, companion, hub — that seed the
- * genome so the very first page of results already leans the patron's way.
- * Skippable at every step: exploring immediately is a first-class choice, and
- * a skip is remembered exactly like a calibration so the modal never returns.
+ * Four quiet questions about permanent taste — dietary philosophy, bar
+ * palate, seating, acoustic comfort — then a fifth step that says where the
+ * answers live. Not tonight's mood: that is asked in the moment, by search
+ * and the copilot, and would be the wrong thing to remember.
  *
- * Whether to show is read from localStorage after mount, never during render,
- * so the server and first client render agree and nothing flashes.
+ * Step five has two faces. A signed-in patron's answers are already saved to
+ * their account by the time it appears, so it confirms. A guest's are held
+ * for this device only, so it offers to anchor them to a private patron
+ * profile — name and email, then the emailed code that proves the mailbox —
+ * or to carry on as a guest, which is a first-class choice, not a failure.
+ *
+ * Skippable at every step, and a skip is remembered exactly like a
+ * calibration so the modal never returns. Whether to show is read from
+ * localStorage after mount, never during render, so the server and first
+ * client render agree and nothing flashes.
  */
 
-const STEPS = [
-  { eyebrow: "Your evening", title: "What mood should the evening hold?" },
-  { eyebrow: "Your palate", title: "How do you like to dine?", hint: "Choose any that apply." },
-  { eyebrow: "Your company", title: "Who is the evening with?" },
-  { eyebrow: "Your destination", title: "Where shall we begin?" },
+const QUESTIONS = [
+  { eyebrow: "Your table", title: "How do you dine?" },
+  { eyebrow: "Your bar", title: "What do you reach for?", hint: "Choose any that apply." },
+  { eyebrow: "Your setting", title: "Where do you like to be seated?" },
+  { eyebrow: "Your sound", title: "How should the room sound?" },
 ] as const;
 
+const TOTAL_STEPS = QUESTIONS.length + 1;
+const ANCHOR_STEP = QUESTIONS.length;
+
 interface Draft {
-  mood: CurationTrack | null;
-  palate: PalatePreference[];
-  companion: CompanionProfile | null;
-  hub: DestinationHub;
+  dietary: DietaryPhilosophy | null;
+  beverages: BeveragePalate[];
+  seating: SeatingPreference | null;
+  acoustic: AcousticComfort | null;
 }
 
-const EMPTY_DRAFT: Draft = { mood: null, palate: [], companion: null, hub: DEFAULT_HUB };
+const EMPTY_DRAFT: Draft = { dietary: null, beverages: [], seating: null, acoustic: null };
+
+/** Where step five stands: confirming, collecting details, or awaiting the code. */
+type AnchorPhase = "saved" | "details" | "code";
+
+interface CalibrateResponse {
+  readonly anchored: boolean;
+}
 
 function remember(value: "calibrated" | "skipped"): void {
   try {
@@ -69,11 +96,31 @@ function alreadyCalibrated(): boolean {
   }
 }
 
+function toAnswers(draft: Draft): CalibrationAnswers | null {
+  if (!draft.dietary || draft.beverages.length === 0 || !draft.seating || !draft.acoustic) {
+    return null;
+  }
+  return {
+    dietary: draft.dietary,
+    beverages: draft.beverages,
+    seating: draft.seating,
+    acoustic: draft.acoustic,
+  };
+}
+
+const messageOf = (caught: unknown, fallback: string) =>
+  caught instanceof ApiError ? caught.message : fallback;
+
 export function TasteCalibrationModal() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
-  const [submitting, setSubmitting] = useState(false);
+  const [phase, setPhase] = useState<AnchorPhase>("details");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const titleId = useId();
@@ -98,64 +145,104 @@ export function TasteCalibrationModal() {
   // Move focus to each step's question so a screen reader announces it.
   useEffect(() => {
     if (open) headingRef.current?.focus({ preventScroll: true });
-  }, [open, step]);
+  }, [open, step, phase]);
 
-  const skip = useCallback(() => {
-    remember("skipped");
+  // Past the questions the answers are already saved, so closing is not a skip.
+  const close = useCallback(() => {
+    remember(step === ANCHOR_STEP ? "calibrated" : "skipped");
     setOpen(false);
-  }, []);
+  }, [step]);
 
+  const answers = toAnswers(draft);
   const canContinue =
-    (step === 0 && draft.mood !== null) ||
-    (step === 1 && draft.palate.length > 0) ||
-    (step === 2 && draft.companion !== null) ||
-    step === 3;
+    (step === 0 && draft.dietary !== null) ||
+    (step === 1 && draft.beverages.length > 0) ||
+    (step === 2 && draft.seating !== null) ||
+    (step === 3 && answers !== null);
 
-  async function submit() {
-    if (!draft.mood || !draft.companion) return;
-    const answers: CalibrationAnswers = {
-      mood: draft.mood,
-      palate: draft.palate,
-      companion: draft.companion,
-      hub: draft.hub,
-    };
+  async function calibrate(): Promise<boolean> {
+    if (!answers) return false;
+    const result = await api.post<CalibrateResponse>("/api/v1/taste-genome/calibrate", answers);
+    return result.anchored;
+  }
 
-    setSubmitting(true);
+  async function saveAnswers() {
+    setPending(true);
     setError(null);
     try {
-      const response = await fetch("/api/v1/taste-genome/calibrate", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify(answers),
-      });
-      if (!response.ok) throw new Error(`calibration failed with ${response.status}`);
+      const anchored = await calibrate();
+      // Saved either way — to the account, or to this device's guest session.
       remember("calibrated");
-      setOpen(false);
-    } catch {
-      setError("We couldn’t save your preferences just now. Try again, or skip for now.");
+      setPhase(anchored ? "saved" : "details");
+      setStep(ANCHOR_STEP);
+    } catch (caught) {
+      setError(
+        messageOf(
+          caught,
+          "We couldn’t save your preferences just now. Try again, or skip for now.",
+        ),
+      );
     } finally {
-      setSubmitting(false);
+      setPending(false);
+    }
+  }
+
+  async function requestCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPending(true);
+    setError(null);
+    try {
+      await api.post("/api/v1/taste-genome/anchor", { name, email });
+      setPhase("code");
+    } catch (caught) {
+      setError(messageOf(caught, "We couldn’t send a code just now. Please try again."));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function verifyCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!answers) return;
+    setPending(true);
+    setError(null);
+    try {
+      const result = await api.post<{ anchored: boolean }>("/api/v1/taste-genome/anchor/verify", {
+        name,
+        email,
+        code,
+        answers,
+      });
+      // Signed in now, so the header and every gated control should know it.
+      router.refresh();
+      // The session landed but the genome write did not: save again as the
+      // signed-in patron, which writes to the account.
+      if (!result.anchored && !(await calibrate())) throw new Error("not anchored");
+      setPhase("saved");
+    } catch (caught) {
+      setError(messageOf(caught, "We couldn’t seal your profile just now. Please try again."));
+    } finally {
+      setPending(false);
     }
   }
 
   function next() {
-    if (!canContinue || submitting) return;
-    if (step < STEPS.length - 1) setStep(step + 1);
-    else void submit();
+    if (!canContinue || pending) return;
+    if (step < ANCHOR_STEP - 1) setStep(step + 1);
+    else void saveAnswers();
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape") {
       event.stopPropagation();
-      skip();
+      close();
       return;
     }
     if (event.key !== "Tab" || !panelRef.current) return;
 
     // Keep focus inside the dialog.
     const focusable = panelRef.current.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
     );
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
@@ -171,14 +258,37 @@ export function TasteCalibrationModal() {
 
   if (!open) return null;
 
-  const current = STEPS[step]!;
-  const togglePalate = (palate: PalatePreference) =>
+  const heading =
+    step < ANCHOR_STEP
+      ? QUESTIONS[step]!
+      : phase === "saved"
+        ? { eyebrow: "Your profile", title: "Your taste is anchored." }
+        : phase === "code"
+          ? { eyebrow: "Your profile", title: "Check your inbox." }
+          : {
+              eyebrow: "Your profile",
+              title: "Anchor your taste profile.",
+              hint: "Seal these preferences to a private patron profile, so they follow you to every device.",
+            };
+
+  const toggleBeverage = (beverage: BeveragePalate) =>
     setDraft((value) => ({
       ...value,
-      palate: value.palate.includes(palate)
-        ? value.palate.filter((item) => item !== palate)
-        : [...value.palate, palate],
+      beverages: value.beverages.includes(beverage)
+        ? value.beverages.filter((item) => item !== beverage)
+        : [...value.beverages, beverage],
     }));
+
+  const guestButton = (
+    <button
+      type="button"
+      onClick={close}
+      disabled={pending}
+      className="text-[13px] text-fg-muted transition-colors hover:text-heading focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
+    >
+      Continue as guest on this device
+    </button>
+  );
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center lg:items-center lg:p-6">
@@ -197,7 +307,7 @@ export function TasteCalibrationModal() {
       >
         <header className="flex items-center justify-between gap-4 px-6 pt-6 lg:px-9 lg:pt-8">
           <div className="flex flex-1 items-center gap-1.5" aria-hidden="true">
-            {STEPS.map((_, index) => (
+            {Array.from({ length: TOTAL_STEPS }, (_, index) => (
               <span
                 key={index}
                 className={cn(
@@ -207,18 +317,20 @@ export function TasteCalibrationModal() {
               />
             ))}
           </div>
-          <button
-            type="button"
-            onClick={skip}
-            className="rounded-pill px-3 py-1.5 text-[12px] font-medium tracking-[0.08em] text-fg-muted uppercase transition-colors hover:text-heading focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            Skip
-          </button>
+          {step < ANCHOR_STEP ? (
+            <button
+              type="button"
+              onClick={close}
+              className="rounded-pill px-3 py-1.5 text-[12px] font-medium tracking-[0.08em] text-fg-muted uppercase transition-colors hover:text-heading focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              Skip
+            </button>
+          ) : null}
         </header>
 
         <div className="px-6 pt-6 pb-2 lg:px-9 lg:pt-8">
           <p className="eyebrow text-[10.5px] text-fg-subtle">
-            {current.eyebrow} · Step {step + 1} of {STEPS.length}
+            {heading.eyebrow} · Step {step + 1} of {TOTAL_STEPS}
           </p>
           <h2
             id={titleId}
@@ -226,79 +338,161 @@ export function TasteCalibrationModal() {
             tabIndex={-1}
             className="mt-2 font-display text-[30px] leading-[1.1] font-light text-heading outline-none lg:text-[36px]"
           >
-            {current.title}
+            {heading.title}
           </h2>
-          {"hint" in current ? (
-            <p className="mt-2 text-[13px] font-light text-fg-muted">{current.hint}</p>
+          {"hint" in heading ? (
+            <p className="mt-2 text-[13px] font-light text-fg-muted">{heading.hint}</p>
           ) : null}
         </div>
 
-        <div className="grid gap-2.5 px-6 py-5 sm:grid-cols-2 lg:px-9">
-          {step === 0 &&
-            MOOD_OPTIONS.map((mood) => (
-              <Choice
-                key={mood}
-                label={MOOD_LABELS[mood]}
-                selected={draft.mood === mood}
-                onSelect={() => setDraft((value) => ({ ...value, mood }))}
-              />
-            ))}
-          {step === 1 &&
-            PALATE_OPTIONS.map((palate) => (
-              <Choice
-                key={palate}
-                label={PALATE_LABELS[palate]}
-                selected={draft.palate.includes(palate)}
-                onSelect={() => togglePalate(palate)}
-              />
-            ))}
-          {step === 2 &&
-            COMPANION_OPTIONS.map((companion) => (
-              <Choice
-                key={companion}
-                label={COMPANION_LABELS[companion]}
-                selected={draft.companion === companion}
-                onSelect={() => setDraft((value) => ({ ...value, companion }))}
-              />
-            ))}
-          {step === 3 && (
-            <>
-              {HUB_OPTIONS.map((hub) => (
+        {step < ANCHOR_STEP ? (
+          <div className="grid gap-2.5 px-6 py-5 sm:grid-cols-2 lg:px-9">
+            {step === 0 &&
+              DIETARY_PHILOSOPHIES.map((dietary) => (
                 <Choice
-                  key={hub}
-                  label={HUB_LABELS[hub]}
-                  selected={draft.hub === hub}
-                  onSelect={() => setDraft((value) => ({ ...value, hub }))}
+                  key={dietary}
+                  label={DIETARY_LABELS[dietary]}
+                  selected={draft.dietary === dietary}
+                  onSelect={() => setDraft((value) => ({ ...value, dietary }))}
+                />
+              ))}
+            {step === 1 &&
+              BEVERAGE_PALATES.map((beverage) => (
+                <Choice
+                  key={beverage}
+                  label={BEVERAGE_LABELS[beverage]}
+                  selected={draft.beverages.includes(beverage)}
+                  onSelect={() => toggleBeverage(beverage)}
+                />
+              ))}
+            {step === 2 &&
+              SEATING_PREFERENCES.map((seating) => (
+                <Choice
+                  key={seating}
+                  label={SEATING_LABELS[seating]}
+                  selected={draft.seating === seating}
+                  onSelect={() => setDraft((value) => ({ ...value, seating }))}
+                />
+              ))}
+            {step === 3 &&
+              ACOUSTIC_COMFORTS.map((acoustic) => (
+                <Choice
+                  key={acoustic}
+                  label={ACOUSTIC_LABELS[acoustic]}
+                  selected={draft.acoustic === acoustic}
+                  onSelect={() => setDraft((value) => ({ ...value, acoustic }))}
                   className="sm:col-span-2"
                 />
               ))}
-              <p className="text-[12.5px] font-light text-fg-muted sm:col-span-2">
-                Expanding to {UPCOMING_HUBS.slice(0, -1).join(", ")} &amp; {UPCOMING_HUBS.at(-1)}.
-              </p>
-            </>
-          )}
-        </div>
+          </div>
+        ) : null}
 
         {error ? (
-          <div className="px-6 pb-2 lg:px-9">
+          <div className="px-6 pt-3 pb-2 lg:px-9">
             <Alert tone="danger">{error}</Alert>
           </div>
         ) : null}
 
-        <footer className="flex items-center justify-between gap-3 border-t border-line px-6 py-5 lg:px-9">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setStep(step - 1)}
-            disabled={step === 0 || submitting}
-            className={step === 0 ? "invisible" : undefined}
-          >
-            Back
-          </Button>
-          <Button variant="primary" onClick={next} disabled={!canContinue} loading={submitting}>
-            {step === STEPS.length - 1 ? "Begin exploring" : "Continue"}
-          </Button>
-        </footer>
+        {step < ANCHOR_STEP ? (
+          <footer className="flex items-center justify-between gap-3 border-t border-line px-6 py-5 lg:px-9">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setStep(step - 1)}
+              disabled={step === 0 || pending}
+              className={step === 0 ? "invisible" : undefined}
+            >
+              Back
+            </Button>
+            <Button variant="primary" onClick={next} disabled={!canContinue} loading={pending}>
+              {step === ANCHOR_STEP - 1 ? "Save my taste" : "Continue"}
+            </Button>
+          </footer>
+        ) : phase === "saved" ? (
+          <>
+            <p className="px-6 py-5 text-[14px] leading-[1.6] font-light text-fg-muted lg:px-9">
+              Saved to your patron profile. It travels with you to every device you sign in on, and
+              you can refine it from your profile at any time.
+            </p>
+            <footer className="flex justify-end border-t border-line px-6 py-5 lg:px-9">
+              <Button variant="primary" onClick={close}>
+                Begin exploring
+              </Button>
+            </footer>
+          </>
+        ) : phase === "details" ? (
+          <form onSubmit={requestCode} noValidate>
+            <div className="flex flex-col gap-4 px-6 py-5 lg:px-9">
+              <TextField
+                label="Name"
+                autoComplete="name"
+                required
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+              <TextField
+                label="Email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                help="We’ll email a six-digit code to confirm it’s you. No password, ever."
+              />
+            </div>
+            <footer className="flex flex-col-reverse items-stretch gap-3 border-t border-line px-6 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-9">
+              {guestButton}
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={name.trim().length === 0 || email.trim().length === 0}
+                loading={pending}
+              >
+                Send my code
+              </Button>
+            </footer>
+          </form>
+        ) : (
+          <form onSubmit={verifyCode} noValidate>
+            <div className="flex flex-col gap-4 px-6 py-5 lg:px-9">
+              <p className="text-[14px] leading-[1.6] font-light text-fg-muted">
+                If <span className="font-medium text-heading">{email}</span> can receive a code, a
+                six-digit code is on its way. It expires in ten minutes.
+              </p>
+              <TextField
+                label="Six-digit code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+                value={code}
+                onChange={(event) => setCode(event.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setPhase("details");
+                  setCode("");
+                  setError(null);
+                }}
+                disabled={pending}
+                className="self-start text-[13px] text-fg-muted transition-colors hover:text-heading focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
+              >
+                ← Use a different address
+              </button>
+            </div>
+            <footer className="flex flex-col-reverse items-stretch gap-3 border-t border-line px-6 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-9">
+              {guestButton}
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={code.trim().length === 0}
+                loading={pending}
+              >
+                Seal my profile
+              </Button>
+            </footer>
+          </form>
+        )}
       </div>
     </div>
   );

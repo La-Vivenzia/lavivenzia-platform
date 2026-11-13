@@ -138,7 +138,7 @@ export function Footer() {
           </p>
           <p className="font-display text-[13px] text-fg-muted">{brand.tagline}</p>
           <p className="text-[12px] font-light text-fg-muted">
-            &copy; {new Date().getFullYear()} {brand.name}. Pune Pilot Corridor.
+            &copy; {new Date().getFullYear()} {brand.name}.
           </p>
         </div>
       </div>

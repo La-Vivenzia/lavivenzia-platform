@@ -70,21 +70,25 @@ export function createUserProfileRepository(prisma: PrismaClient): UserProfileRe
 
     async update(userId, changes) {
       const { preferences, ...fields } = changes;
-      const row = await prisma.user.update({
-        where: { id: userId },
-        data: {
-          ...fields,
-          ...(preferences === undefined
-            ? {}
-            : {
-                preferences: {
-                  dietary: [...preferences.dietary],
-                  vibes: [...preferences.vibes],
-                  clusters: [...preferences.clusters],
-                },
-              }),
-        },
-        select: PROFILE_SELECTION,
+      const row = await prisma.$transaction(async (tx) => {
+        if (preferences !== undefined) {
+          // Merge the profile's own keys rather than replacing the column: the
+          // Taste Genome keeps `tasteGenome` in the same JSON, and a settings
+          // save must not erase it.
+          const own = JSON.stringify({
+            dietary: [...preferences.dietary],
+            vibes: [...preferences.vibes],
+            clusters: [...preferences.clusters],
+          });
+          await tx.$executeRaw`
+            UPDATE "users"
+            SET "preferences" =
+              CASE WHEN jsonb_typeof("preferences") = 'object' THEN "preferences" ELSE '{}'::jsonb END
+              || ${own}::jsonb
+            WHERE "id" = ${userId}::uuid
+          `;
+        }
+        return tx.user.update({ where: { id: userId }, data: fields, select: PROFILE_SELECTION });
       });
       return toProfileRecord(row);
     },
