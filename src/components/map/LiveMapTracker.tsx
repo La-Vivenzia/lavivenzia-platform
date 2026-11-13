@@ -16,6 +16,7 @@ import type { DivIcon, Map as LeafletMap, Marker, Polyline, TileLayer } from "le
 import {
   ArrowLeft,
   CarFront,
+  ConciergeBell,
   Footprints,
   KeyRound,
   LocateFixed,
@@ -26,8 +27,10 @@ import {
   SkipForward,
 } from "lucide-react";
 
+import { ButlerDetoursDrawer } from "@/components/map/ButlerDetoursDrawer";
 import { Alert, Skeleton } from "@/components/ui/feedback";
 import { cn } from "@/lib/cn";
+import { chapterNumeral } from "@/modules/booking/journey-chapters";
 import {
   JOURNEY_START,
   MAP_TILES,
@@ -46,7 +49,9 @@ import {
   googleMapsJourneyUrl,
   hasArrived,
   haversineMetres,
+  isKeywordRevealed,
   isOffRoute,
+  legFraction,
   pointAlongRoute,
   remainingMetres,
   routeLengthMetres,
@@ -72,7 +77,9 @@ import {
  * - **Journey** (`stops`): the companion map. Act pins carry status badges,
  *   the active act is routed live from the traveller, the legs still ahead
  *   are drawn faintly, and the act advances on arrival-then-departure — or by
- *   hand. On arrival the HUD repeats the pass's secret keyword.
+ *   hand. Within `KEYWORD_REVEAL_RADIUS_METRES` of the active act a banner
+ *   raises the pass's secret keyword, and a booked traveller can open the
+ *   live butler's "Curated Nearby" detours for the act they are at.
  *
  * Every destination is a listing's stored coordinates; nothing on screen is
  * generated (CLAUDE.md §7). Each external dependency degrades on its own:
@@ -160,14 +167,23 @@ interface SingleDestinationProps extends CommonProps {
   readonly stops?: undefined;
   readonly journeyTitle?: undefined;
   readonly secretKeyword?: undefined;
+  readonly navigating?: undefined;
+  readonly butlerDetours?: undefined;
 }
 
 interface JourneyProps extends CommonProps {
   /** At least one stop, in act order. Keep the array stable between renders. */
   readonly stops: readonly JourneyStop[];
   readonly journeyTitle?: string;
-  /** Repeated on arrival so the traveller has it at the door. */
+  /** Raised in a banner near each act so the traveller has it at the door. */
   readonly secretKeyword?: string;
+  /**
+   * The evening has begun from the pass: the top bar says so. Navigation
+   * itself is the same either way.
+   */
+  readonly navigating?: boolean;
+  /** Offers the live butler's curated detours for stops that carry a slug. */
+  readonly butlerDetours?: boolean;
   readonly destination?: undefined;
   readonly destinationLabel?: undefined;
 }
@@ -220,6 +236,12 @@ export function LiveMapTracker(props: SingleDestinationProps | JourneyProps) {
   const [simMetres, setSimMetres] = useState(0);
   /** Where the simulated walker stands while the next leg's route loads. */
   const [simAnchor, setSimAnchor] = useState<LatLng | null>(null);
+  const [detoursOpen, setDetoursOpen] = useState(false);
+  /** The longest distance seen on the current leg — the progress bar's 0%. */
+  const [leg, setLeg] = useState<{ readonly index: number; readonly metres: number }>({
+    index: -1,
+    metres: 0,
+  });
 
   const activeIndex = journeyMode ? progress.activeIndex : 0;
   const activeStop = stops[activeIndex]!;
@@ -237,6 +259,13 @@ export function LiveMapTracker(props: SingleDestinationProps | JourneyProps) {
     ? progress.arrived || hasArrived(position, destination, STOP_ARRIVAL_RADIUS_METRES)
     : hasArrived(position, destination);
   const metresLeft = arrived ? 0 : remainingMetres(position, route, destination);
+
+  // React's pattern for state derived from a changing input, adjusted while
+  // rendering: a new act, or a longer route than seen, resets the leg's 0%.
+  if (journeyMode && route && !arrived && (leg.index !== activeIndex || metresLeft > leg.metres)) {
+    setLeg({ index: activeIndex, metres: metresLeft });
+  }
+  const legDone = arrived ? 1 : leg.index === activeIndex ? legFraction(metresLeft, leg.metres) : 0;
   const travelMode = journeyMode
     ? travelModeFor(route?.distanceMetres ?? haversineMetres(position, destination))
     : "walking";
@@ -447,6 +476,7 @@ export function LiveMapTracker(props: SingleDestinationProps | JourneyProps) {
 
   const moveTo = useCallback((next: JourneyProgress, from: LatLng) => {
     setProgress(next);
+    setDetoursOpen(false);
     setRoute(null);
     setRouteFrom(from);
     setSimAnchor(from);
@@ -624,7 +654,14 @@ export function LiveMapTracker(props: SingleDestinationProps | JourneyProps) {
   const isLastAct = activeIndex >= stops.length - 1;
   const actsAhead = (legs ?? []).slice(activeIndex);
   const journeyMetresLeft =
-    metresLeft + actsAhead.reduce((sum, leg) => sum + leg.distanceMetres, 0);
+    metresLeft + actsAhead.reduce((sum, ahead) => sum + ahead.distanceMetres, 0);
+  const numeral = chapterNumeral(activeIndex);
+  const showKeyword =
+    journeyMode &&
+    !!props.secretKeyword &&
+    mapStatus !== "error" &&
+    isKeywordRevealed(position, destination, arrived);
+  const detoursSlug = journeyMode && props.butlerDetours ? activeStop.slug : undefined;
 
   return (
     <div
@@ -675,6 +712,12 @@ export function LiveMapTracker(props: SingleDestinationProps | JourneyProps) {
           />
           {statusLabel}
         </span>
+        {journeyMode && props.navigating ? (
+          <span className="pointer-events-auto mt-1.5 inline-flex h-8 items-center gap-1.5 rounded-pill border border-accent/50 bg-panel px-3 text-[12px] font-medium text-panel-fg shadow-card">
+            <Navigation className="h-3.5 w-3.5 text-accent" strokeWidth={1.8} aria-hidden="true" />
+            Evening Journey · Chapter {numeral}
+          </span>
+        ) : null}
       </div>
 
       {tilesFailing ? (
@@ -688,183 +731,247 @@ export function LiveMapTracker(props: SingleDestinationProps | JourneyProps) {
       {/* HUD */}
       <div
         ref={hudRef}
-        className="absolute inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] mx-auto max-w-xl rounded-card border border-line bg-surface p-4 shadow-editorial lg:p-5"
+        className="absolute inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] mx-auto flex max-w-xl flex-col gap-2.5"
       >
-        <p className="eyebrow text-[10.5px] text-fg-subtle">
-          {journeyMode
-            ? `Stop ${activeIndex + 1} of ${stops.length} · Act ${activeIndex + 1}: ${activeStop.role}`
-            : "Live tracking"}
-        </p>
-        <h2
-          id={titleId}
-          className="mt-1 line-clamp-1 font-display text-[17px] leading-snug text-heading"
-        >
-          {destinationLabel}
-        </h2>
-
-        {journeyMode && stops.length > 1 ? (
-          <ol aria-label="Acts" className="mt-3 flex flex-wrap gap-1.5">
-            {stops.map((stop, index) => {
-              const status = stopStatus(index, activeIndex);
-              return (
-                <li
-                  key={`${stop.role}-${index}`}
-                  aria-current={status === "active" ? "step" : undefined}
-                  className={cn(
-                    "inline-flex h-7 items-center gap-1 rounded-pill border px-2.5 text-[11.5px]",
-                    status === "active"
-                      ? "border-transparent bg-panel text-panel-fg"
-                      : status === "next"
-                        ? "border-line-strong text-fg"
-                        : "border-line text-fg-muted",
-                  )}
-                >
-                  <span className="font-medium">
-                    Act {index + 1}: {stop.role}
-                  </span>
-                  <span aria-hidden="true">·</span>
-                  <span className={status === "active" ? "text-accent" : undefined}>
-                    {STOP_STATUS_LABELS[status]}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
+        {detoursOpen && detoursSlug ? (
+          <ButlerDetoursDrawer
+            key={detoursSlug}
+            activeSlug={detoursSlug}
+            actLabel={`Chapter ${numeral} · ${activeStop.role}`}
+            onClose={() => setDetoursOpen(false)}
+          />
         ) : null}
 
-        {mapStatus === "error" ? (
-          <div className="mt-3">
-            <Alert tone="danger" title="The map couldn't load">
-              Open the route in Google Maps instead.
-            </Alert>
-          </div>
-        ) : arrived ? (
-          <div role="status" className="mt-3">
-            <p className="flex items-center gap-2 text-[15px] font-medium text-heading">
-              <PartyPopper
-                className="h-5 w-5 text-accent-ink dark:text-accent"
-                strokeWidth={1.8}
-                aria-hidden="true"
-              />
-              {journeyMode ? `You have arrived at Act ${activeIndex + 1}.` : "You’ve arrived"}
+        {showKeyword ? (
+          <div
+            role="status"
+            className="lv-gold-glow lv-gold-glow--card flex items-start gap-3 bg-panel px-4 py-3 text-panel-fg"
+          >
+            <KeyRound
+              className="mt-0.5 h-5 w-5 shrink-0 text-accent"
+              strokeWidth={1.8}
+              aria-hidden="true"
+            />
+            <p className="text-[13.5px] leading-snug">
+              <span className="text-panel-fg/85">You have arrived. State discreet keyword: </span>
+              <span className="font-display text-[16px] tracking-[0.12em] text-accent">
+                {props.secretKeyword}
+              </span>
             </p>
-            {journeyMode && props.secretKeyword ? (
-              <p className="mt-2 inline-flex items-center gap-2 rounded-pill bg-panel px-3 py-1.5 text-[13px] text-panel-fg">
-                <KeyRound className="h-4 w-4 text-accent" strokeWidth={1.8} aria-hidden="true" />
-                Secret keyword:{" "}
-                <span className="font-semibold tracking-[0.12em] text-accent">
-                  {props.secretKeyword}
-                </span>
+          </div>
+        ) : null}
+
+        <div className="rounded-card border border-line bg-surface p-4 shadow-editorial lg:p-5">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="eyebrow text-[10.5px] text-fg-subtle">
+              {journeyMode ? `Chapter ${numeral} · ${activeStop.role}` : "Live tracking"}
+            </p>
+            {journeyMode ? (
+              <p className="text-[11.5px] text-fg-muted tabular-nums">
+                Leg {activeIndex + 1} of {stops.length}
               </p>
             ) : null}
           </div>
-        ) : (
-          <div className="mt-3 flex items-end gap-5">
-            <div>
-              <div className="font-display text-[26px] leading-none text-heading tabular-nums">
-                {route ? formatDistance(metresLeft) : <Skeleton className="h-6 w-16" />}
-              </div>
-              <p className="mt-1.5 text-[11.5px] text-fg-muted">
-                {route?.source === "straight" ? "as the crow flies" : "to go"}
-              </p>
+          <h2
+            id={titleId}
+            className="mt-1 line-clamp-1 font-display text-[17px] leading-snug text-heading"
+          >
+            {destinationLabel}
+          </h2>
+
+          {journeyMode ? (
+            <div
+              role="progressbar"
+              aria-label={`Leg ${activeIndex + 1} of ${stops.length}`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(legDone * 100)}
+              className="mt-2.5 h-1 overflow-hidden rounded-pill bg-surface-3"
+            >
+              <div
+                className="h-full rounded-pill bg-accent transition-[width] duration-500"
+                style={{ width: `${Math.round(legDone * 100)}%` }}
+              />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5 font-display text-[26px] leading-none text-heading tabular-nums">
-                <ModeIcon
+          ) : null}
+
+          {journeyMode && stops.length > 1 ? (
+            <ol aria-label="Acts" className="mt-3 flex flex-wrap gap-1.5">
+              {stops.map((stop, index) => {
+                const status = stopStatus(index, activeIndex);
+                return (
+                  <li
+                    key={`${stop.role}-${index}`}
+                    aria-current={status === "active" ? "step" : undefined}
+                    className={cn(
+                      "inline-flex h-7 items-center gap-1 rounded-pill border px-2.5 text-[11.5px]",
+                      status === "active"
+                        ? "border-transparent bg-panel text-panel-fg"
+                        : status === "next"
+                          ? "border-line-strong text-fg"
+                          : "border-line text-fg-muted",
+                    )}
+                  >
+                    <span className="font-medium">
+                      Act {index + 1}: {stop.role}
+                    </span>
+                    <span aria-hidden="true">·</span>
+                    <span className={status === "active" ? "text-accent" : undefined}>
+                      {STOP_STATUS_LABELS[status]}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          ) : null}
+
+          {mapStatus === "error" ? (
+            <div className="mt-3">
+              <Alert tone="danger" title="The map couldn't load">
+                Open the route in Google Maps instead.
+              </Alert>
+            </div>
+          ) : arrived ? (
+            <div role="status" className="mt-3">
+              <p className="flex items-center gap-2 text-[15px] font-medium text-heading">
+                <PartyPopper
                   className="h-5 w-5 text-accent-ink dark:text-accent"
                   strokeWidth={1.8}
                   aria-hidden="true"
                 />
-                {route ? etaLabel : <Skeleton className="h-6 w-14" />}
-              </div>
-              <p className="mt-1.5 text-[11.5px] text-fg-muted">{modeLabel}</p>
+                {journeyMode ? `You have arrived at Chapter ${numeral}.` : "You’ve arrived"}
+              </p>
             </div>
-            {journeyMode && !isLastAct && legs ? (
-              <div className="ml-auto text-right">
-                <div className="text-[14px] leading-none text-fg tabular-nums">
-                  {formatDistance(journeyMetresLeft)}
+          ) : (
+            <div className="mt-3 flex items-end gap-5">
+              <div>
+                <div className="font-display text-[26px] leading-none text-heading tabular-nums">
+                  {route ? formatDistance(metresLeft) : <Skeleton className="h-6 w-16" />}
                 </div>
-                <p className="mt-1.5 text-[11.5px] text-fg-muted">whole journey</p>
+                <p className="mt-1.5 text-[11.5px] text-fg-muted">
+                  {route?.source === "straight" ? "as the crow flies" : "to go"}
+                </p>
               </div>
+              <div>
+                <div className="flex items-center gap-1.5 font-display text-[26px] leading-none text-heading tabular-nums">
+                  <ModeIcon
+                    className="h-5 w-5 text-accent-ink dark:text-accent"
+                    strokeWidth={1.8}
+                    aria-hidden="true"
+                  />
+                  {route ? etaLabel : <Skeleton className="h-6 w-14" />}
+                </div>
+                <p className="mt-1.5 text-[11.5px] text-fg-muted">{modeLabel}</p>
+              </div>
+              {journeyMode && !isLastAct && legs ? (
+                <div className="ml-auto text-right">
+                  <div className="text-[14px] leading-none text-fg tabular-nums">
+                    {formatDistance(journeyMetresLeft)}
+                  </div>
+                  <p className="mt-1.5 text-[11.5px] text-fg-muted">whole journey</p>
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {/* Screen-reader summary, announced politely — not every GPS tick. */}
+          <p className="sr-only" aria-live="polite">
+            {route && !arrived
+              ? `${formatDistance(metresLeft)}, about ${etaLabel} ${modeLabel}`
+              : ""}
+          </p>
+
+          {note || route?.source === "straight" ? (
+            <p role="status" className="mt-3 text-[12px] leading-relaxed text-fg-muted">
+              {[
+                note,
+                route?.source === "straight"
+                  ? "Walking route unavailable — showing a straight line."
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            </p>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-pill bg-cta px-4 text-[13px] font-medium text-cta-fg transition-colors duration-200 hover:bg-cta-hover"
+            >
+              <Navigation className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+              Google Maps
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>
+            <button
+              type="button"
+              onClick={recenter}
+              disabled={mapStatus !== "ready"}
+              aria-pressed={follow}
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-pill border border-line-strong px-4 text-[13px] font-medium text-fg transition-colors duration-200 hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <LocateFixed className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+              Recenter
+            </button>
+            {journeyMode && !isLastAct ? (
+              <button
+                type="button"
+                onClick={goToNextAct}
+                className={cn(
+                  "inline-flex h-11 items-center justify-center gap-1.5 rounded-pill border px-4 text-[13px] font-medium transition-colors duration-200",
+                  arrived
+                    ? "border-transparent bg-panel text-panel-fg hover:opacity-90"
+                    : "border-line-strong text-fg hover:bg-surface-2",
+                )}
+              >
+                <SkipForward className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                {arrived ? `On to Act ${activeIndex + 2}` : `Skip to Act ${activeIndex + 2}`}
+              </button>
+            ) : null}
+            {allowSimulation ? (
+              <button
+                type="button"
+                onClick={toggleSimulation}
+                disabled={!route || mapStatus !== "ready"}
+                aria-pressed={simulating}
+                className={cn(
+                  "inline-flex h-11 items-center justify-center gap-1.5 rounded-pill border px-4 text-[13px] font-medium transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50",
+                  simulating
+                    ? "border-transparent bg-surface-3 text-fg"
+                    : "border-dashed border-line-strong text-fg-muted hover:bg-surface-2",
+                )}
+              >
+                {simulating ? (
+                  <Pause className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                ) : (
+                  <Play className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                )}
+                {simulating ? "Stop sim" : "Simulate walk"}
+              </button>
+            ) : null}
+            {detoursSlug ? (
+              <button
+                type="button"
+                onClick={() => setDetoursOpen((open) => !open)}
+                aria-expanded={detoursOpen}
+                className={cn(
+                  "inline-flex h-11 items-center justify-center gap-1.5 rounded-pill border px-4 text-[13px] font-medium transition-colors duration-200",
+                  detoursOpen
+                    ? "border-transparent bg-panel text-panel-fg hover:opacity-90"
+                    : "border-accent/60 text-fg hover:bg-surface-2",
+                )}
+              >
+                <ConciergeBell
+                  className="h-4 w-4 text-accent-ink dark:text-accent"
+                  strokeWidth={1.8}
+                  aria-hidden="true"
+                />
+                Curated Nearby
+              </button>
             ) : null}
           </div>
-        )}
-
-        {/* Screen-reader summary, announced politely — not every GPS tick. */}
-        <p className="sr-only" aria-live="polite">
-          {route && !arrived ? `${formatDistance(metresLeft)}, about ${etaLabel} ${modeLabel}` : ""}
-        </p>
-
-        {note || route?.source === "straight" ? (
-          <p role="status" className="mt-3 text-[12px] leading-relaxed text-fg-muted">
-            {[
-              note,
-              route?.source === "straight"
-                ? "Walking route unavailable — showing a straight line."
-                : null,
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          </p>
-        ) : null}
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <a
-            href={mapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-pill bg-cta px-4 text-[13px] font-medium text-cta-fg transition-colors duration-200 hover:bg-cta-hover"
-          >
-            <Navigation className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            Google Maps
-            <span className="sr-only"> (opens in a new tab)</span>
-          </a>
-          <button
-            type="button"
-            onClick={recenter}
-            disabled={mapStatus !== "ready"}
-            aria-pressed={follow}
-            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-pill border border-line-strong px-4 text-[13px] font-medium text-fg transition-colors duration-200 hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <LocateFixed className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            Recenter
-          </button>
-          {journeyMode && !isLastAct ? (
-            <button
-              type="button"
-              onClick={goToNextAct}
-              className={cn(
-                "inline-flex h-11 items-center justify-center gap-1.5 rounded-pill border px-4 text-[13px] font-medium transition-colors duration-200",
-                arrived
-                  ? "border-transparent bg-panel text-panel-fg hover:opacity-90"
-                  : "border-line-strong text-fg hover:bg-surface-2",
-              )}
-            >
-              <SkipForward className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-              {arrived ? `On to Act ${activeIndex + 2}` : `Skip to Act ${activeIndex + 2}`}
-            </button>
-          ) : null}
-          {allowSimulation ? (
-            <button
-              type="button"
-              onClick={toggleSimulation}
-              disabled={!route || mapStatus !== "ready"}
-              aria-pressed={simulating}
-              className={cn(
-                "inline-flex h-11 items-center justify-center gap-1.5 rounded-pill border px-4 text-[13px] font-medium transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50",
-                simulating
-                  ? "border-transparent bg-surface-3 text-fg"
-                  : "border-dashed border-line-strong text-fg-muted hover:bg-surface-2",
-              )}
-            >
-              {simulating ? (
-                <Pause className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-              ) : (
-                <Play className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-              )}
-              {simulating ? "Stop sim" : "Simulate walk"}
-            </button>
-          ) : null}
         </div>
       </div>
     </div>

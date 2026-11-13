@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Check, Crown, KeyRound, ShieldCheck } from "lucide-react";
+import { Check, Crown, KeyRound, Navigation, ShieldCheck } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/ui/wordmark";
 import { formatClock, formatMoneyMinor } from "@/lib/format";
+import { departureStatus } from "@/modules/booking/journey-chapters";
 import type { JourneyPass } from "@/modules/booking/journey-pass-contract";
 
 const money = (minor: number, currency: string) => formatMoneyMinor(minor, currency) ?? "—";
@@ -21,10 +23,21 @@ const money = (minor: number, currency: string) => formatMoneyMinor(minor, curre
  * privilege carries its own `confirmed` flag, and a simulated pass says so
  * above the fold. "Pay once, show up" is the product's promise; the notice
  * beneath it is the truth about this particular pass.
+ *
+ * With `onStartJourney`, the pass also starts the evening: a "Ready to
+ * Depart" line names the first chapter and "Begin Evening Journey" opens the
+ * companion map in live navigation.
  */
-export function DigitalVipPass({ pass }: { readonly pass: JourneyPass }) {
+export function DigitalVipPass({
+  pass,
+  onStartJourney,
+}: {
+  readonly pass: JourneyPass;
+  readonly onStartJourney?: () => void;
+}) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const { payment } = pass;
+  const firstAct = pass.acts[0];
 
   // Move focus to the result so keyboard and screen-reader users land on it.
   useEffect(() => headingRef.current?.focus(), []);
@@ -77,6 +90,24 @@ export function DigitalVipPass({ pass }: { readonly pass: JourneyPass }) {
             {pass.secretKeyword}
           </p>
         </div>
+
+        {onStartJourney && firstAct ? (
+          <div className="mt-5 flex flex-col gap-3">
+            <p className="flex items-center gap-2 text-[11px] tracking-[0.14em] text-panel-fg/85 uppercase">
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 shrink-0 rounded-full bg-accent motion-safe:animate-pulse"
+              />
+              <span className="min-w-0">{departureStatus(firstAct.title)}</span>
+            </p>
+            <span className="lv-gold-glow block">
+              <Button variant="gold" size="lg" className="w-full" onClick={onStartJourney}>
+                <Navigation className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                Begin Evening Journey
+              </Button>
+            </span>
+          </div>
+        ) : null}
 
         <div className="mt-5 flex items-end justify-between gap-4">
           <div className="min-w-0">

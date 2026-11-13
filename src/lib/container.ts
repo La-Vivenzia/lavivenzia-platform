@@ -14,13 +14,15 @@ import { VivenIQService } from "@/modules/viveniq/service";
 import { CompanionService } from "@/modules/companion/service";
 import { CheckoutService, resolveCheckoutMode } from "@/modules/booking/checkout";
 import { JourneyPassService } from "@/modules/booking/journey-pass";
+import type { JourneyPass } from "@/modules/booking/journey-pass-contract";
+import { sendJourneyPassConfirmation } from "@/modules/booking/journey-pass-email";
 import { TasteGenomeService } from "@/modules/taste-genome/service";
 import { findJourney, listCuratedJourneys } from "@/modules/journeys/data";
 import { getLogger } from "@/lib/logger";
 import { AnthropicLlmAdapter } from "@/adapters/llm/anthropic";
 import { GeminiLlmAdapter, resolveGeminiApiKey } from "@/adapters/llm/gemini";
 import { RazorpayAdapter } from "@/adapters/payments/razorpay";
-import type { EmailPort } from "@/ports/email";
+import type { EmailPort, SendEmailResult } from "@/ports/email";
 import type { StoragePort } from "@/ports/storage";
 import type { MapsPort } from "@/ports/maps";
 import { createEmailAdapter } from "@/adapters/email";
@@ -401,6 +403,15 @@ export function getJourneyPassService(): JourneyPassService {
   });
 
   return journeyPassService;
+}
+
+/**
+ * The patron's journey pass confirmation email, sent through the configured
+ * transactional transport. Delivery failures are the caller's to log; the pass
+ * itself is already issued.
+ */
+export function sendJourneyPassEmail(to: string, pass: JourneyPass): Promise<SendEmailResult> {
+  return sendJourneyPassConfirmation(getEmailPort(), { to, pass, appUrl: env.APP_URL });
 }
 
 let mapsPort: MapsPort | undefined;

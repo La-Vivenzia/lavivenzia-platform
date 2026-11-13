@@ -110,6 +110,14 @@ export const RATE_LIMITS = {
   companionDispatchPerIp: { limit: 10, windowMs: HOUR },
 
   /**
+   * In-journey "Curated Nearby" reads per client.
+   *
+   * No email and no model — two catalogue reads — so far looser than the
+   * dispatch above. The companion map asks once per act, plus a refresh.
+   */
+  companionNearbyPerIp: { limit: 60, windowMs: 15 * MINUTE },
+
+  /**
    * Itinerary generation and swap per client.
    *
    * No model and no database read, but each request is an exhaustive search

@@ -98,7 +98,11 @@ describe("template registry", () => {
   it("exposes exactly the templates the product sends today", () => {
     // Guards against a template being added without a flow that sends it, and
     // against one being renamed out from under a caller.
-    expect([...EMAIL_TEMPLATE_IDS]).toEqual(["auth.login-code", "traveler.in-journey-companion"]);
+    expect([...EMAIL_TEMPLATE_IDS]).toEqual([
+      "auth.login-code",
+      "traveler.in-journey-companion",
+      "traveler.journey-pass-confirmation",
+    ]);
   });
 
   it("narrows a string to a known template id", () => {

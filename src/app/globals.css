@@ -736,6 +736,43 @@
   }
 }
 
+/*
+ * The live-journey glow: a gold hairline ring that breathes slowly around the
+ * one action that starts the evening ("Begin Evening Journey") and around the
+ * arrival keyword banner. Gold stays scarce — this marks a single moment.
+ */
+.lv-gold-glow {
+  border-radius: 9999px;
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--lv-accent) 70%, transparent),
+    0 0 18px 2px color-mix(in oklab, var(--lv-accent) 28%, transparent);
+  animation: lv-gold-breathe 3.2s ease-in-out infinite;
+}
+
+.lv-gold-glow--card {
+  border-radius: var(--radius-card);
+}
+
+@keyframes lv-gold-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--lv-accent) 70%, transparent),
+      0 0 14px 1px color-mix(in oklab, var(--lv-accent) 20%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--lv-accent) 90%, transparent),
+      0 0 26px 4px color-mix(in oklab, var(--lv-accent) 34%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lv-gold-glow {
+    animation: none;
+  }
+}
+
 /* Respect a stated preference for less motion. */
 @media (prefers-reduced-motion: reduce) {
   *,

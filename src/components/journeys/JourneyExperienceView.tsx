@@ -12,6 +12,7 @@ import {
   Crown,
   Map as MapIcon,
   MapPin,
+  Navigation,
   Timer,
 } from "lucide-react";
 
@@ -113,6 +114,8 @@ export function JourneyExperienceView({
   const [holder, setHolder] = useState("");
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [mapOpen, setMapOpen] = useState(initialMapOpen);
+  /** The evening was begun from the pass, not merely previewed on the map. */
+  const [navigating, setNavigating] = useState(false);
 
   const open = checkoutMode !== "off";
   const unavailable = media.some((act) => act.available === false);
@@ -125,6 +128,7 @@ export function JourneyExperienceView({
         role: chapter.label,
         coordinates: chapter.coordinates,
         address: chapter.addressLine,
+        slug: chapter.experienceSlug,
       })),
     [journey],
   );
@@ -141,8 +145,13 @@ export function JourneyExperienceView({
       .catch((error: unknown) => setPhase({ kind: "failed", message: messageOf(error) }));
   };
 
+  const startJourney = () => {
+    setNavigating(true);
+    setMapOpen(true);
+  };
+
   return (
-    <div className="flex flex-col gap-10 lg:gap-14">
+    <div className={cn("flex flex-col gap-10 lg:gap-14", pass && "pb-24 lg:pb-0")}>
       {/* ── Masthead ─────────────────────────────────────────────── */}
       <header className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
         <div className="max-w-[62ch]">
@@ -225,7 +234,7 @@ export function JourneyExperienceView({
         <aside aria-label="Reserve this experience" className="lg:col-span-5 xl:col-span-4">
           <div className="flex flex-col gap-6 rounded-card border border-line bg-surface p-5 shadow-card sm:p-6 lg:sticky lg:top-24">
             {pass ? (
-              <DigitalVipPass pass={pass} />
+              <DigitalVipPass pass={pass} onStartJourney={startJourney} />
             ) : (
               <>
                 <div>
@@ -300,25 +309,56 @@ export function JourneyExperienceView({
             {/* Not Button's `secondary`: its text colour is fixed and vanishes in dark mode. */}
             <button
               type="button"
-              onClick={() => setMapOpen(true)}
+              onClick={pass ? startJourney : () => setMapOpen(true)}
               className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-pill border border-line-strong px-4 text-[13px] font-medium text-fg transition-colors duration-200 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              <MapIcon className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-              Open Companion Map
+              {pass ? (
+                <Navigation className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+              ) : (
+                <MapIcon className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+              )}
+              {pass ? "Launch Live Tracking" : "Open Companion Map"}
             </button>
           </div>
         </aside>
       </div>
+
+      {/*
+       * Booked, on a phone or tablet: the pass scrolls away, so the one action
+       * the evening needs stays in reach. On desktop the pass column is sticky.
+       */}
+      {pass && !mapOpen ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-accent/40 bg-panel/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-panel-fg shadow-editorial backdrop-blur lg:hidden">
+          <div className="mx-auto flex max-w-xl items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="eyebrow text-[9.5px] text-accent">
+                {navigating ? "Evening in progress" : "Ready to depart"}
+              </p>
+              <p className="mt-0.5 truncate text-[13px] text-panel-fg">
+                Chapter I · {pass.acts[0]?.title ?? journey.title}
+              </p>
+            </div>
+            <span className="lv-gold-glow shrink-0">
+              <Button variant="gold" size="md" onClick={startJourney}>
+                <Navigation className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                {navigating ? "Resume" : "Begin"}
+              </Button>
+            </span>
+          </div>
+        </div>
+      ) : null}
 
       {mapOpen ? (
         <div className="fixed inset-0 z-[60]">
           <LiveMapTracker
             stops={stops}
             journeyTitle={journey.title}
-            {...(pass ? { secretKeyword: pass.secretKeyword } : {})}
+            {...(pass
+              ? { secretKeyword: pass.secretKeyword, butlerDetours: true, navigating }
+              : {})}
             fallbackOrigin={fallbackOrigin}
             onClose={() => setMapOpen(false)}
-            closeLabel="Close companion map"
+            closeLabel={navigating ? "Pause live tracking" : "Close companion map"}
           />
         </div>
       ) : null}

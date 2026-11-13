@@ -217,6 +217,8 @@ export interface JourneyStop {
   readonly role: string;
   readonly coordinates: LatLng;
   readonly address: string;
+  /** The act's listing, when known — what the live butler curates around. */
+  readonly slug?: string;
 }
 
 /**
@@ -225,6 +227,29 @@ export interface JourneyStop {
  * the copilot's single pin where a doorstep matters.
  */
 export const STOP_ARRIVAL_RADIUS_METRES = 80;
+
+/**
+ * Within this distance of the active act, the companion raises the pass's
+ * secret keyword into a banner, so it is in hand before the door. Wider than
+ * `STOP_ARRIVAL_RADIUS_METRES`: arrival advances the journey, this only
+ * prepares the traveller for it.
+ */
+export const KEYWORD_REVEAL_RADIUS_METRES = 250;
+
+/** True when the traveller is close enough to the act to need its keyword. */
+export function isKeywordRevealed(position: LatLng, stop: LatLng, arrived: boolean): boolean {
+  return arrived || haversineMetres(position, stop) <= KEYWORD_REVEAL_RADIUS_METRES;
+}
+
+/**
+ * How much of the current leg is behind the traveller, 0 to 1. `legMetres` is
+ * the longest distance seen on this leg, so a reroute that shortens the route
+ * moves the bar forward rather than resetting it.
+ */
+export function legFraction(metresLeft: number, legMetres: number): number {
+  if (!(legMetres > 0)) return metresLeft <= 0 ? 1 : 0;
+  return Math.min(1, Math.max(0, 1 - metresLeft / legMetres));
+}
 
 /** Having arrived, moving this far away means the traveller has left the act. */
 export const STOP_DEPARTURE_METRES = 150;

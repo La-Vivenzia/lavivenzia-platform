@@ -44,6 +44,30 @@ export interface EmailTemplatePayloads {
       readonly experienceUrl: string;
     }[];
   };
+  /** The journey pass, sent when it is issued: the route and the door keyword. */
+  "traveler.journey-pass-confirmation": {
+    readonly holderName: string;
+    readonly journeyTitle: string;
+    readonly reference: string;
+    readonly secretKeyword: string;
+    readonly partySize: number;
+    /** True for a pilot pass: nothing charged, nothing reserved. */
+    readonly simulated: boolean;
+    /** The pass's own notice, printed verbatim when simulated. */
+    readonly notice: string;
+    readonly acts: readonly {
+      /** "Chapter I · Prelude". */
+      readonly heading: string;
+      readonly title: string;
+      /** "19:30". */
+      readonly startsAt: string;
+      readonly addressLine: string;
+      readonly privilege: string;
+      readonly privilegeConfirmed: boolean;
+      readonly directionsUrl: string;
+    }[];
+    readonly journeyUrl: string;
+  };
 }
 
 export type EmailTemplateId = keyof EmailTemplatePayloads;
@@ -195,6 +219,86 @@ function companionHtml(variables: CompanionPayload): string {
   ].join("");
 }
 
+type PassPayload = EmailTemplatePayloads["traveler.journey-pass-confirmation"];
+
+function passActHtml(act: PassPayload["acts"][number]): string {
+  const b = BUTLER;
+  return [
+    `<tr><td style="padding:0 0 14px">`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
+    `style="background:${b.pine};border:1px solid ${b.rule};border-radius:14px">`,
+    `<tr><td style="padding:18px 20px 20px">`,
+    `<p style="margin:0 0 6px;font-family:${b.sans};font-size:10px;letter-spacing:2.5px;`,
+    `text-transform:uppercase;color:${b.gold}">${escapeHtml(act.heading)} &nbsp;·&nbsp; `,
+    `${escapeHtml(act.startsAt)}</p>`,
+    `<h2 style="margin:0 0 8px;font-family:${b.serif};font-size:19px;line-height:1.3;`,
+    `font-weight:normal;color:${b.ivory}">${escapeHtml(act.title)}</h2>`,
+    `<p style="margin:0 0 8px;font-family:${b.sans};font-size:13px;line-height:1.5;color:${b.muted}">`,
+    `${escapeHtml(act.addressLine)}</p>`,
+    `<p style="margin:0 0 14px;font-family:${b.sans};font-size:13px;line-height:1.5;color:${b.ivory}">`,
+    `<span style="color:${b.gold}">&#10022;</span>&nbsp; ${escapeHtml(act.privilege)}`,
+    `<span style="color:${b.muted}"> · ${act.privilegeConfirmed ? "confirmed" : "requested"}</span></p>`,
+    `<a href="${safeHref(act.directionsUrl)}" style="font-family:${b.sans};font-size:12px;`,
+    `letter-spacing:0.5px;color:${b.gold};text-decoration:none">Directions &rarr;</a>`,
+    `</td></tr></table>`,
+    `</td></tr>`,
+  ].join("");
+}
+
+function passHtml(variables: PassPayload): string {
+  const b = BUTLER;
+  const guests = `${variables.partySize} ${variables.partySize === 1 ? "guest" : "guests"}`;
+  return [
+    `<!doctype html><html lang="en"><head><meta charset="utf-8">`,
+    `<meta name="viewport" content="width=device-width,initial-scale=1">`,
+    `<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark">`,
+    `<title>${escapeHtml(EMAIL_SENDER_NAME)}</title></head>`,
+    `<body style="margin:0;padding:0;background:${b.night}">`,
+    `<div style="display:none;max-height:0;overflow:hidden;opacity:0">`,
+    `Your pass for ${escapeHtml(variables.journeyTitle)} · #${escapeHtml(variables.reference)}</div>`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
+    `style="background:${b.night}"><tr><td align="center" style="padding:32px 16px">`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
+    `style="max-width:560px">`,
+    `<tr><td style="padding:0 0 28px;text-align:center">`,
+    `<p style="margin:0;font-family:${b.serif};font-size:15px;letter-spacing:4px;`,
+    `text-transform:uppercase;color:${b.gold}">${escapeHtml(EMAIL_SENDER_NAME)}</p>`,
+    `</td></tr>`,
+    `<tr><td style="padding:0 0 24px">`,
+    `<h1 style="margin:0 0 10px;font-family:${b.serif};font-size:26px;line-height:1.25;`,
+    `font-weight:normal;color:${b.ivory}">${escapeHtml(variables.holderName)}, your evening is set.</h1>`,
+    `<p style="margin:0;font-family:${b.sans};font-size:14px;line-height:1.6;color:${b.muted}">`,
+    `${escapeHtml(variables.journeyTitle)} · ${escapeHtml(guests)} · `,
+    `<span style="font-family:ui-monospace,Menlo,monospace">#${escapeHtml(variables.reference)}</span></p>`,
+    `</td></tr>`,
+    `<tr><td style="padding:0 0 24px">`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
+    `style="border:1px solid ${b.gold};border-radius:14px">`,
+    `<tr><td style="padding:18px 20px;text-align:center">`,
+    `<p style="margin:0 0 6px;font-family:${b.sans};font-size:10px;letter-spacing:3px;`,
+    `text-transform:uppercase;color:${b.muted}">Secret host keyword</p>`,
+    `<p style="margin:0;font-family:${b.serif};font-size:24px;letter-spacing:3px;color:${b.gold}">`,
+    `${escapeHtml(variables.secretKeyword)}</p>`,
+    `</td></tr></table>`,
+    `</td></tr>`,
+    variables.acts.map(passActHtml).join(""),
+    `<tr><td style="padding:10px 0 0;text-align:center">`,
+    `<a href="${safeHref(variables.journeyUrl)}" `,
+    `style="display:inline-block;padding:12px 22px;border-radius:999px;background:${b.gold};`,
+    `color:${b.night};font-family:${b.sans};font-size:13px;font-weight:600;letter-spacing:0.5px;`,
+    `text-decoration:none">Open my journey &rarr;</a>`,
+    `</td></tr>`,
+    `<tr><td style="padding:24px 0 0;border-top:1px solid ${b.rule}">`,
+    variables.simulated
+      ? `<p style="margin:16px 0 0;font-family:${b.sans};font-size:11px;line-height:1.6;color:${b.muted}">${escapeHtml(variables.notice)}</p>`
+      : "",
+    `<p style="margin:12px 0 0;font-family:${b.sans};font-size:11px;line-height:1.6;color:${b.muted}">`,
+    `You received this because you reserved this journey with ${escapeHtml(EMAIL_SENDER_NAME)}.</p>`,
+    `</td></tr>`,
+    `</table></td></tr></table></body></html>`,
+  ].join("");
+}
+
 const TEMPLATES: { [K in EmailTemplateId]: EmailTemplate<K> } = {
   "auth.login-code": {
     subject: ({ code }) => `${code} is your ${EMAIL_SENDER_NAME} login code`,
@@ -251,6 +355,37 @@ const TEMPLATES: { [K in EmailTemplateId]: EmailTemplate<K> } = {
       ].join("\n"),
 
     html: companionHtml,
+  },
+
+  "traveler.journey-pass-confirmation": {
+    subject: ({ journeyTitle, reference, simulated }) =>
+      `${simulated ? "Simulated pass" : "Your pass"}: ${journeyTitle} · #${reference}`,
+
+    text: (variables) =>
+      [
+        `${variables.holderName}, your evening is set.`,
+        "",
+        `${variables.journeyTitle} · ${variables.partySize} ${
+          variables.partySize === 1 ? "guest" : "guests"
+        } · #${variables.reference}`,
+        "",
+        `Secret host keyword: ${variables.secretKeyword}`,
+        "",
+        ...variables.acts.flatMap((act) => [
+          `— ${act.heading} · ${act.startsAt}`,
+          `  ${act.title}`,
+          `  ${act.addressLine}`,
+          `  ${act.privilege} · ${act.privilegeConfirmed ? "confirmed" : "requested"}`,
+          `  Directions: ${act.directionsUrl}`,
+          "",
+        ]),
+        `Open your journey: ${variables.journeyUrl}`,
+        ...(variables.simulated ? ["", variables.notice] : []),
+        "",
+        `${EMAIL_SENDER_NAME}`,
+      ].join("\n"),
+
+    html: passHtml,
   },
 };
 

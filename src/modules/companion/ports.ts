@@ -77,3 +77,10 @@ export interface CompanionDispatchInput extends InJourneyRequest {
 export interface CompanionDispatchResult extends InJourneyRecommendations {
   readonly providerMessageId: string;
 }
+
+/** `GET /api/v1/companion/nearby` — what the companion map's drawer reads. */
+export interface CompanionNearbyResponse {
+  readonly butlerNote: string;
+  readonly zone: string;
+  readonly recommendations: readonly CompanionRecommendation[];
+}
