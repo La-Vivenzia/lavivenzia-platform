@@ -21,9 +21,9 @@ import { MobileHeader } from "@/components/MobileHeader";
  * different navigations, two different logos, two different account controls,
  * on pages one tap apart.
  *
- * `pb-28 lg:pb-0` reserves room for the fixed mobile tab bar. Without it the
- * last element of every page sits underneath it, which is the kind of thing
- * that only shows up on a real phone.
+ * The room the fixed mobile tab bar needs is reserved by `Footer`, which is
+ * the last element on every page. Padding `main` as well left a ~7rem blank
+ * band between the content and the footer on phones.
  */
 export function SiteShell({
   signedIn,
@@ -47,7 +47,7 @@ export function SiteShell({
             <DesktopHeader signedIn={signedIn} accountHref={accountHref} initials={initials} />
           </div>
 
-          <main className="flex-1 pb-28 lg:pb-0">{children}</main>
+          <main className="flex-1">{children}</main>
 
           <Footer />
           <BottomNavigation accountHref={accountHref} />

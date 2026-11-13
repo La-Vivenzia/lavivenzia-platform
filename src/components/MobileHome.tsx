@@ -3,6 +3,7 @@ import { ArrowRight, CalendarCheck, Compass, KeyRound, MapPin, ShieldCheck, Spar
 
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { ExperiencesSection } from "@/components/ExperiencesSection";
+import { Footer } from "@/components/Footer";
 import { Hero } from "@/components/Hero";
 import { JourneyRail } from "@/components/journeys/JourneyRail";
 import { MobileHeader } from "@/components/MobileHeader";
@@ -84,7 +85,7 @@ export function MobileHome(props: HomeData) {
     <div className="lg:hidden bg-bg text-fg">
       <MobileHeader signedIn={signedIn} accountHref={accountHref} initials={initials} />
 
-      <main id="m-top" className="pb-32">
+      <main id="m-top" className="pb-12">
         {/* Section 1: Hero */}
         <Hero images={heroImages ?? [heroImage]} />
 
@@ -236,6 +237,7 @@ export function MobileHome(props: HomeData) {
         </section>
       </main>
 
+      <Footer />
       <BottomNavigation accountHref={accountHref} />
     </div>
   );
