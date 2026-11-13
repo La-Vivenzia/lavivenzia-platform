@@ -31,9 +31,9 @@ export function Logo({ variant = "full", className, priority }: LogoProps) {
   }
 
   return (
-    <span className="inline-flex items-center">
+    <>
       <Image
-        src="/logo-lavivenzia.png"
+        src="/brand/la-vivenzia-logo-light.png"
         alt={`${brand.name} — ${brand.tagline}`}
         width={1213}
         height={254}
@@ -42,7 +42,7 @@ export function Logo({ variant = "full", className, priority }: LogoProps) {
         sizes="(max-width: 1023px) 180px, 260px"
       />
       <Image
-        src="/logo-lavivenzia-dark.png"
+        src="/brand/la-vivenzia-logo-dark.png"
         alt={`${brand.name} — ${brand.tagline}`}
         width={1213}
         height={254}
@@ -50,6 +50,6 @@ export function Logo({ variant = "full", className, priority }: LogoProps) {
         className={cn("hidden w-auto select-none dark:inline-block", className)}
         sizes="(max-width: 1023px) 180px, 260px"
       />
-    </span>
+    </>
   );
 }
