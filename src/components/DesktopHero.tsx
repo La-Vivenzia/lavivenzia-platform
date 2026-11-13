@@ -1,45 +1,38 @@
-import Image from "next/image";
 import Link from "next/link";
 
+import { HeroVisual } from "@/components/HeroVisual";
 import { Reveal } from "@/components/Reveal";
 import { SearchBar } from "@/components/SearchBar";
 import { brand } from "@/data/content";
-import type { HeroImage } from "@/lib/home-content";
+import { resolveHeroSlides, type HeroImage } from "@/lib/home-content";
 
 /**
  * Desktop hero. An editorial spread rather than a landing-page banner: the type
  * holds the left half at full scale, the photograph runs off the right edge of
- * the viewport behind the same deep top-left radius used on mobile.
+ * the viewport behind the same deep top-left radius used on mobile, slowly
+ * crossfading between published listings.
  */
-export function DesktopHero({ image }: { readonly image: HeroImage }) {
+export function DesktopHero({
+  images,
+  image,
+}: {
+  readonly images?: readonly HeroImage[];
+  readonly image?: HeroImage;
+}) {
+  const slides = resolveHeroSlides(images, image);
+
+
   return (
     <section aria-labelledby="lv-hero-heading-desktop" className="relative pt-4 pb-20 xl:pb-24">
       {/* Photograph — bleeds to the viewport edge, independent of the grid. */}
       <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[46%] pt-4 pb-20 lg:block xl:w-[47%] xl:pb-24 2xl:w-[46%]">
         <div className="relative h-full w-full overflow-hidden rounded-tl-[7rem] xl:rounded-tl-[9rem]">
-          <Image
-            src={image.src}
-            alt={image.alt}
-            fill
-            priority
-            sizes="50vw"
-            className="object-cover"
-            style={{ objectPosition: "58% 46%" }}
+          <HeroVisual
+            images={slides}
+            objectPosition="58% 46%"
+            size="lg"
+            indicatorClassName="right-10 bottom-10 xl:right-14 xl:bottom-14"
           />
-          <div
-            aria-hidden="true"
-            className="absolute inset-0"
-            style={{ background: "var(--lv-scrim)" }}
-          />
-          <figcaption className="absolute right-10 bottom-10 text-right xl:right-14 xl:bottom-14">
-            <p className="text-[13px] leading-tight font-medium tracking-[0.18em] text-white uppercase xl:text-sm">
-              {image.place}
-            </p>
-            <p className="mt-1.5 text-[10.5px] leading-tight tracking-[0.22em] text-white/70 uppercase xl:text-[11.5px]">
-              {image.caption}
-            </p>
-            <span aria-hidden="true" className="mt-4 ml-auto block h-px w-28 bg-accent/70" />
-          </figcaption>
         </div>
       </div>
 

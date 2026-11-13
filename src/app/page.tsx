@@ -10,6 +10,7 @@ import {
   toDestinationCard,
   toExperienceCard,
   toHeroImage,
+  toHeroImages,
   toQuickAccess,
 } from "@/lib/home-content";
 import { listCuratedJourneys } from "@/modules/journeys/data";
@@ -71,6 +72,8 @@ export default async function HomePage() {
     .filter((card): card is NonNullable<typeof card> => card !== null)
     .slice(0, 8);
 
+  const heroImages = toHeroImages(featured);
+
   const session = {
     signedIn: principal !== null,
     accountHref: principal ? destinationForRoles(principal.roles) : "/sign-in",
@@ -79,7 +82,8 @@ export default async function HomePage() {
     popular,
     stories,
     quickAccess: toQuickAccess(categories),
-    heroImage: toHeroImage(featured),
+    heroImages,
+    heroImage: heroImages[0] ?? toHeroImage(featured),
     journeys: listCuratedJourneys(),
     trips: filterTripsByRating(listTrips()),
   };

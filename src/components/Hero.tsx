@@ -1,14 +1,22 @@
-import Image from "next/image";
-
+import { HeroVisual } from "@/components/HeroVisual";
 import { brand } from "@/data/content";
-import type { HeroImage } from "@/lib/home-content";
+import { resolveHeroSlides, type HeroImage } from "@/lib/home-content";
 
 /**
  * Mobile hero. Editorial text column on the left, the destination photograph
  * bleeding off the right edge behind a deep top-left radius — the search bar
- * that follows rides up over its lower edge.
+ * that follows rides up over its lower edge. The photograph crossfades between
+ * published listings; see `HeroVisual`.
  */
-export function Hero({ image }: { readonly image: HeroImage }) {
+export function Hero({
+  images,
+  image,
+}: {
+  readonly images?: readonly HeroImage[];
+  readonly image?: HeroImage;
+}) {
+  const slides = resolveHeroSlides(images, image);
+
   return (
     <section aria-labelledby="lv-hero-heading" className="relative px-5 pt-3 pb-7">
       {/* Photograph — matches the text column's height and escapes the gutter. */}
@@ -16,32 +24,11 @@ export function Hero({ image }: { readonly image: HeroImage }) {
         className="absolute inset-y-0 right-0 w-[43%] min-w-[140px] overflow-hidden rounded-tl-[3rem] xs:w-[44%] sm:w-[46%] sm:rounded-tl-[4rem]"
         aria-hidden="false"
       >
-        <Image
-          src={image.src}
-          alt={image.alt}
-          fill
-          priority
-          sizes="50vw"
-          className="object-cover"
-          style={{ objectPosition: "62% 45%" }}
+        <HeroVisual
+          images={slides}
+          objectPosition="62% 45%"
+          indicatorClassName="right-3 bottom-9 sm:right-5 sm:bottom-11"
         />
-        <div
-          aria-hidden="true"
-          className="absolute inset-0"
-          style={{ background: "var(--lv-scrim)" }}
-        />
-        <figcaption className="absolute right-3.5 bottom-9 left-2 text-right sm:right-5 sm:bottom-11">
-          <p className="text-[9.5px] leading-tight font-medium tracking-[0.1em] text-white uppercase xs:text-[10.5px] xs:tracking-[0.12em] sm:text-[11.5px] sm:tracking-[0.16em]">
-            {image.place}
-          </p>
-          <p className="mt-1 text-[7.5px] leading-tight tracking-[0.1em] text-white/70 uppercase xs:text-[8px] sm:text-[9.5px] sm:tracking-[0.16em]">
-            {image.caption}
-          </p>
-          <span
-            aria-hidden="true"
-            className="mt-2 ml-auto block h-px w-16 bg-accent/70 sm:mt-2.5 sm:w-20"
-          />
-        </figcaption>
       </div>
 
       {/* Editorial text column */}
@@ -70,3 +57,4 @@ export function Hero({ image }: { readonly image: HeroImage }) {
     </section>
   );
 }
+

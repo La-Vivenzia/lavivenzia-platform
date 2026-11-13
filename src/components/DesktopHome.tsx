@@ -66,7 +66,7 @@ const standards = [
  * 6. Closing VivenIQ Invitation
  */
 export function DesktopHome(props: HomeData) {
-  const { signedIn, accountHref, initials, stories, heroImage, journeys } = props;
+  const { signedIn, accountHref, initials, stories, heroImage, heroImages, journeys } = props;
 
   return (
     <div className="hidden lg:block bg-bg text-fg">
@@ -74,7 +74,7 @@ export function DesktopHome(props: HomeData) {
 
       <main id="d-top">
         {/* Section 1: Hero */}
-        <DesktopHero image={heroImage} />
+        <DesktopHero images={heroImages ?? [heroImage]} />
 
         {/* Section 2: Signature Journeys */}
         {journeys.length > 0 ? (

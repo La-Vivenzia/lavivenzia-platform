@@ -151,29 +151,58 @@ export function initialsFor(email: string): string {
   return local.slice(0, 2).toUpperCase() || "·";
 }
 
-/**
- * The hero photograph.
- *
- * The newest published listing that actually has one. The brand's Positano
- * image is the fallback, not the default: it is a stock photograph of a place
- * La Vivenzia does not sell, so a real listing outranks it whenever one exists.
- */
-export function toHeroImage(experiences: readonly ExperienceSummary[]): HeroImage {
-  const withPhoto = experiences.find((experience) => experience.coverUrl !== null);
+/** The brand photograph, for a catalogue with no listing photos yet. */
+const FALLBACK_HERO_IMAGE: HeroImage = {
+  src: "/images/hero-positano.jpg",
+  alt: "The cliffside town of Positano at golden hour, terracotta houses stacked above a calm sea.",
+  place: "La Vivenzia",
+  caption: "Experiences beyond destinations",
+};
 
-  if (!withPhoto?.coverUrl) {
-    return {
-      src: "/images/hero-positano.jpg",
-      alt: "The cliffside town of Positano at golden hour, terracotta houses stacked above a calm sea.",
-      place: "La Vivenzia",
-      caption: "Experiences beyond destinations",
-    };
+/** How many photographs the hero cycles through. */
+const HERO_SLIDE_LIMIT = 5;
+
+/**
+ * The hero photographs, in catalogue order.
+ *
+ * Up to five published listings that actually have a cover, one slide per
+ * distinct photograph. The brand's Positano image is the fallback, not the
+ * default: it is a stock photograph of a place La Vivenzia does not sell, so
+ * real listings outrank it whenever one exists. Never empty.
+ */
+export function toHeroImages(experiences: readonly ExperienceSummary[]): readonly HeroImage[] {
+  const seen = new Set<string>();
+  const images: HeroImage[] = [];
+
+  for (const experience of experiences) {
+    if (images.length >= HERO_SLIDE_LIMIT) break;
+    if (!experience.coverUrl || seen.has(experience.coverUrl)) continue;
+
+    seen.add(experience.coverUrl);
+    images.push({
+      src: experience.coverUrl,
+      alt: experience.coverAlt ?? "",
+      place: [experience.city, experience.region].filter(Boolean).join(", ") || experience.title,
+      caption: experience.categoryName ?? "A different perspective",
+    });
   }
 
-  return {
-    src: withPhoto.coverUrl,
-    alt: withPhoto.coverAlt ?? "",
-    place: [withPhoto.city, withPhoto.region].filter(Boolean).join(", ") || withPhoto.title,
-    caption: withPhoto.categoryName ?? "A different perspective",
-  };
+  return images.length > 0 ? images : [FALLBACK_HERO_IMAGE];
+}
+
+/** The single hero photograph — the first of `toHeroImages`. */
+export function toHeroImage(experiences: readonly ExperienceSummary[]): HeroImage {
+  return toHeroImages(experiences)[0]!;
+}
+
+/**
+ * The slides a hero renders: the list when one was given, else the single
+ * image, else the brand fallback — so a hero is never an empty frame.
+ */
+export function resolveHeroSlides(
+  images: readonly HeroImage[] | undefined,
+  image: HeroImage | undefined,
+): readonly HeroImage[] {
+  if (images && images.length > 0) return images;
+  return [image ?? FALLBACK_HERO_IMAGE];
 }

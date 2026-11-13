@@ -76,6 +76,7 @@ export function MobileHome(props: HomeData) {
     initials,
     stories,
     heroImage,
+    heroImages,
     journeys,
   } = props;
 
@@ -85,7 +86,7 @@ export function MobileHome(props: HomeData) {
 
       <main id="m-top" className="pb-32">
         {/* Section 1: Hero */}
-        <Hero image={heroImage} />
+        <Hero images={heroImages ?? [heroImage]} />
 
         {/* Search bar riding over hero edge */}
         <div className="relative z-20 -mt-7 px-5">
@@ -250,6 +251,8 @@ export interface HomeData {
   readonly stories: readonly LinkedExperience[];
   readonly quickAccess: readonly QuickAccessItem[];
   readonly heroImage: HeroImage;
+  /** The crossfading hero slides; falls back to `heroImage` alone. */
+  readonly heroImages?: readonly HeroImage[];
   readonly journeys: readonly Journey[];
   readonly trips: readonly Trip[];
 }
