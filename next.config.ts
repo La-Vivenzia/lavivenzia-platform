@@ -71,6 +71,17 @@ const nextConfig: NextConfig = {
       { source: "/become-a-host", destination: HOST_PORTAL_URL, permanent: false },
       // `:path*` matches zero or more segments, so this covers `/host` itself.
       { source: "/host/:path*", destination: HOST_PORTAL_URL, permanent: false },
+
+      // Step 1 Consolidation: absorb duplicate search into VivenIQ, trips into Journeys,
+      // and taxonomy index pages into the unified collection view.
+      { source: "/concierge", destination: "/viveniq", permanent: true },
+      { source: "/concierge/:path*", destination: "/viveniq", permanent: true },
+      { source: "/trips/architect", destination: "/journeys", permanent: true },
+      { source: "/trips/:path*", destination: "/journeys", permanent: true },
+      { source: "/destinations", destination: "/experiences", permanent: true },
+      { source: "/destinations/:slug", destination: "/experiences?city=:slug", permanent: true },
+      { source: "/categories", destination: "/experiences", permanent: true },
+      { source: "/categories/:key", destination: "/experiences?category=:key", permanent: true },
     ];
   },
 };

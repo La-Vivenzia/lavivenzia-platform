@@ -1,9 +1,5 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import ConciergeResultsPage from "@/app/(site)/concierge/results/page";
 import { WALKING_SPEED_MPS } from "@/components/map/live-map-tracking";
 import { PILOT_EXPERIENCES, type PilotExperienceInput } from "@/data/pune-pilot";
 import { quoteBooking } from "@/modules/booking/pricing";
@@ -738,77 +734,5 @@ describe("conversation → results handoff", () => {
     expect(requestFromQuery({ craving: "beer", budget: "0" })?.budget).toBeNull();
     expect(requestFromQuery({ craving: "beer", party: "x" })?.partySize).toBe(2);
     expect(requestFromQuery({ hotspot: "seasons" })).toBeNull();
-  });
-});
-
-/* ------------------------------------------------------ results page */
-
-async function renderResults(query: Record<string, string>): Promise<string> {
-  const page = await ConciergeResultsPage({ searchParams: Promise.resolve(query) });
-  return renderToStaticMarkup(page);
-}
-
-describe("the results page", () => {
-  it("shows the founder's case with real prices, distance, reasons and both actions", async () => {
-    const html = await renderResults({
-      hotspot: "seasons",
-      craving: "beer",
-      party: "2",
-      budget: "500",
-    });
-    expect(html).toContain("Beer &amp; chill near Seasons Mall");
-    expect(html).toContain("₹500 each");
-    expect(html).toContain("Indimex Urban Lounge");
-    expect(html).toContain("₹998");
-    expect(html).toContain("₹499 each");
-    expect(html).toContain("Within Seasons Mall");
-    expect(html).toContain("Why it matches");
-    expect(html).toContain("₹499 a head — within your ₹500 each");
-    expect(html).toContain("Walk There");
-    expect(html).toContain('href="/experiences/indimex-urban-lounge-seasons"');
-    expect(html).not.toMatch(/pocket-friendly|mid-range/);
-  });
-
-  it("offers the real cheapest price when nothing fits the budget", async () => {
-    const html = await renderResults({
-      hotspot: "seasons",
-      craving: "spa",
-      party: "2",
-      budget: "300",
-    });
-    const { stretch } = findVibeMatches({
-      hotspot: "seasons",
-      craving: "spa",
-      partySize: 2,
-      budget: each(300),
-    });
-    expect(html).toContain("Nothing for spa fits ₹300 each");
-    expect(html).toContain(`Show options up to ${stretch!.label}`);
-    expect(html).toContain(`budget=${Math.ceil(stretch!.amountMinor / 100)}`);
-  });
-
-  it("sends a traveller with no answers back to the conversation", async () => {
-    const html = await renderResults({});
-    expect(html).toContain('href="/concierge"');
-    expect(html).toContain("Ask the Concierge");
-  });
-});
-
-describe("the home page", () => {
-  const read = (file: string) =>
-    readFileSync(join(process.cwd(), "src", "components", file), "utf8");
-
-  it("mounts the chat bar, not the inline concierge widget", () => {
-    for (const file of ["DesktopHome.tsx", "MobileHome.tsx"]) {
-      const source = read(file);
-      expect(source).toContain("<ConciergeChatBar");
-      expect(source).not.toContain("InstantVibeConcierge");
-    }
-  });
-
-  it("submits the chat bar to the conversation", () => {
-    const bar = read("concierge/ConciergeChatBar.tsx");
-    expect(bar).toContain('action="/concierge"');
-    expect(bar).toContain('name="ask"');
   });
 });

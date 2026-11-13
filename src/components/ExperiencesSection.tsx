@@ -12,9 +12,9 @@ export function ExperiencesSection({ items }: { readonly items: readonly LinkedE
       <Reveal className="px-5">
         <SectionHeader
           id="lv-experiences"
-          title="Signature Experiences"
+          title="The Collection"
           action="View All"
-          href="#m-experiences"
+          href="/experiences"
         />
       </Reveal>
 
@@ -27,7 +27,7 @@ export function ExperiencesSection({ items }: { readonly items: readonly LinkedE
             >
               <ExperienceCard
                 experience={experience}
-                href="#m-experiences"
+                href={experience.href}
                 className="h-full w-full"
                 sizes="(max-width: 640px) 80vw, 320px"
               />

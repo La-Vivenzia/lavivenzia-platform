@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 import type { JourneyStop, LatLng } from "@/components/map/live-map-tracking";
-import { PartyStepper } from "@/components/trips/PartyStepper";
+import { PartyStepper } from "@/components/ui/PartyStepper";
 import { Button } from "@/components/ui/button";
 import { Alert, Skeleton } from "@/components/ui/feedback";
 import { TextField } from "@/components/ui/field";

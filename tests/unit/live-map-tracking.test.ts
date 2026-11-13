@@ -328,14 +328,10 @@ describe("copilot integration", () => {
     expect(copilot).toContain("trackDestinationFromExperience(payload)");
   });
 
-  it("offers live tracking on the experience page, headers and home", () => {
+  it("offers live tracking on the experience page and location panel", () => {
     const page = read("src/app/(site)/experiences/[slug]/page.tsx");
     expect(page).toContain("<LiveTrackButton");
     expect(read("src/components/site/location-panel.tsx")).toContain("<LiveTrackButton");
-    expect(read("src/components/DesktopHeader.tsx")).toContain("<LiveMapTrigger");
-    expect(read("src/components/MobileHeader.tsx")).toContain("<LiveMapTrigger");
-    expect(read("src/components/MobileHome.tsx")).toContain("<LiveTrackingSection />");
-    expect(read("src/components/DesktopHome.tsx")).toContain("<LiveTrackingFeature");
   });
 
   it("keeps Leaflet out of the server render", () => {

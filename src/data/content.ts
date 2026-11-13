@@ -19,7 +19,7 @@ export const brand = {
   tagline: "Experience Every Journey Through Its Soul",
   eyebrow: "Experiences Beyond Destinations",
   headline: ["Journeys", "Designed", "Around You."],
-  supporting: "Curated stays, unique experiences and intelligent planning — all in one place.",
+  supporting: "Choreographed multi-venue evenings and verified experiences across Pune — reserved in one touch with VIP privileges.",
   searchPlaceholder: "Describe the moment (e.g. poolside brunch, sunset craft brews)...",
 } as const;
 
@@ -244,9 +244,9 @@ export const liveTracking = {
  * host portal, and `next.config.ts` redirects the old host routes there.
  */
 export const desktopNav = [
-  { label: "Experiences", href: "/experiences" },
-  { label: "Destinations", href: "/destinations" },
-  { label: "Collections", href: "/categories" },
+  { label: "The Collection", href: "/experiences" },
+  { label: "Journeys", href: "/journeys" },
+  { label: "VivenIQ", href: "/viveniq" },
 ];
 
 export const bottomNav = [

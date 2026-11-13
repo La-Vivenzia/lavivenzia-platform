@@ -23,8 +23,8 @@ import { cn } from "@/lib/cn";
 
 const TABS = [
   { id: "home", label: "Home", icon: "home", href: "/" },
-  { id: "explore", label: "Explore", icon: "compass", href: "/experiences" },
-  { id: "trips", label: "Trips", icon: "calendar", href: "/destinations" },
+  { id: "explore", label: "Collection", icon: "compass", href: "/experiences" },
+  { id: "viveniq", label: "VivenIQ", icon: "genie", href: "/viveniq" },
   { id: "profile", label: "Profile", icon: "user", href: "/sign-in" },
 ] as const;
 

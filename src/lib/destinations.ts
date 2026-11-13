@@ -19,7 +19,6 @@ const OPERATIONS_ROLES: readonly RoleKey[] = [
 
 export function destinationForRoles(roles: readonly RoleKey[]): string {
   if (roles.some((role) => OPERATIONS_ROLES.includes(role))) return "/ops";
-  if (roles.includes("host")) return "/host";
-  // Travellers land on their account profile and settings.
+  // Hosts and patrons land on their patron profile in the main app
   return "/profile";
 }

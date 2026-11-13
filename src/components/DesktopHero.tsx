@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 import { Reveal } from "@/components/Reveal";
 import { SearchBar } from "@/components/SearchBar";
@@ -76,25 +77,15 @@ export function DesktopHero({ image }: { readonly image: HeroImage }) {
           </Reveal>
 
           <Reveal delay={310}>
-            <dl className="mt-10 flex items-center gap-8 border-t border-line pt-7 xl:gap-10">
-              {[
-                ["112", "Destinations"],
-                ["840+", "Curated stays"],
-                ["1:1", "Human planners"],
-              ].map(([value, label]) => (
-                <div key={label}>
-                  <dt className="sr-only">{label}</dt>
-                  <dd>
-                    <span className="block font-display text-[26px] leading-none text-heading xl:text-[30px]">
-                      {value}
-                    </span>
-                    <span className="mt-2 block text-[11px] tracking-[0.16em] text-fg-subtle uppercase">
-                      {label}
-                    </span>
-                  </dd>
-                </div>
-              ))}
-            </dl>
+            <div className="mt-8 flex items-center gap-3 text-xs tracking-wide text-fg-muted">
+              <span>Pune Pilot Corridor</span>
+              <span className="text-gold">•</span>
+              <span>Verified Curation</span>
+              <span className="text-gold">•</span>
+              <Link href="/experiences" className="text-gold hover:underline">
+                Explore The Collection →
+              </Link>
+            </div>
           </Reveal>
         </div>
       </div>

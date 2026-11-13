@@ -705,7 +705,7 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             <Link
-              href="/trips"
+              href="/journeys"
               className="group flex flex-col justify-between rounded-2xl border border-line bg-surface-1 p-6 transition-all duration-200 hover:border-gold/50 hover:bg-surface-2/60"
             >
               <div className="flex flex-col gap-3">
@@ -713,15 +713,15 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
                   <CalendarDays className="h-6 w-6" />
                 </div>
                 <h3 className="font-display text-lg text-text group-hover:text-gold transition-colors">
-                  My Booked Journeys
+                  Signature Journeys
                 </h3>
                 <p className="text-[13px] text-text-subtle leading-relaxed font-light">
-                  Review upcoming reservations, host coordinates, private arrival guides, and
-                  booking vouchers.
+                  Choreographed multi-venue evening arcs in Pune with single VIP pass entry and
+                  companion routing.
                 </p>
               </div>
               <span className="mt-6 inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gold">
-                View Reservations →
+                View Journeys →
               </span>
             </Link>
 
@@ -763,10 +763,10 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
             </div>
 
             <Link
-              href="/experiences"
+              href="/viveniq"
               className="shrink-0 rounded-pill bg-gold px-6 py-2.5 text-xs font-medium tracking-wider uppercase text-ink transition-transform hover:scale-[1.02] shadow-sm"
             >
-              Explore With AI
+              Curate With VivenIQ
             </Link>
           </div>
         </div>

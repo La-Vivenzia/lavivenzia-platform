@@ -182,7 +182,7 @@ describe("route structure", () => {
     // `toQuickAccess`. Both must offer a route into the taxonomy.
     const nav = readFileSync(join(process.cwd(), "src", "data", "content.ts"), "utf8");
     const shortcuts = readFileSync(join(process.cwd(), "src", "lib", "home-content.ts"), "utf8");
-    expect(nav).toContain("/categories");
+    expect(nav).toContain("/experiences");
     expect(shortcuts).toContain("/categories");
   });
 
@@ -201,10 +201,14 @@ describe("route structure", () => {
 
   it("forwards the old host routes to the host portal, but not the host API", async () => {
     const redirects = (await nextConfig.redirects?.()) ?? [];
-    const sources = redirects.map((r) => r.source);
 
-    expect(sources).toEqual(expect.arrayContaining(["/become-a-host", "/host/:path*"]));
-    for (const redirect of redirects) {
+    const hostRedirects = redirects.filter(
+      (r) => r.source === "/become-a-host" || r.source.startsWith("/host"),
+    );
+    expect(hostRedirects.map((r) => r.source)).toEqual(
+      expect.arrayContaining(["/become-a-host", "/host/:path*"]),
+    );
+    for (const redirect of hostRedirects) {
       expect(redirect.destination).toMatch(/^https:\/\/host\.lavivenzia\.com/);
       // Read APIs and slot availability stay on this app.
       expect(redirect.source.startsWith("/api")).toBe(false);
