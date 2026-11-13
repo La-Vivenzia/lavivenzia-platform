@@ -17,6 +17,9 @@ import type { PriceQuote } from "./pricing";
  * - `razorpay_test` — hosted Razorpay Checkout against **test** keys. The
  *   server creates the order and verifies the payment signature.
  *
+ * With `BOOKING_CHECKOUT` unset the keys decide: a test pair means
+ * `razorpay_test`, no keys means `demo` (`resolveCheckoutMode`).
+ *
  * There is deliberately no live mode yet: no table records a booking, so live
  * money could be taken with nothing to show for it. See ADR-0016.
  */

@@ -96,6 +96,13 @@ export function loadRazorpay(timeoutMs = SCRIPT_TIMEOUT_MS): Promise<RazorpayCon
   return loading;
 }
 
+/** The brand green for Razorpay's frame, read from the token rather than restated. */
+export function brandThemeColor(): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const value = getComputedStyle(document.documentElement).getPropertyValue("--lv-primary").trim();
+  return /^#[0-9a-f]{3,8}$/i.test(value) ? value : undefined;
+}
+
 export type RazorpayOutcome =
   | { readonly kind: "paid"; readonly payment: RazorpayPaymentResult }
   | { readonly kind: "dismissed" }

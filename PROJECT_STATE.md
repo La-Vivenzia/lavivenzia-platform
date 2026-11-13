@@ -147,9 +147,11 @@ embeddings provider fixes the column dimension and remains unresolved (A-006).
 **Booking is interactive, with demo and test checkout only (ADR-0016, 2026-10-28).**
 The experience page's `BookingPanel` lets a traveller pick a date, a time
 (shown in IST) and a party size, shows an INR price breakdown, and completes
-checkout in one of three modes set by `BOOKING_CHECKOUT`: `off` (the production
-default), `demo` (the default elsewhere) or `razorpay_test` (hosted Checkout,
-`rzp_test_` keys only; live keys are refused). The server prices and checks every
+checkout in one of three modes set by `BOOKING_CHECKOUT`: `off`, `demo` or
+`razorpay_test` (hosted Checkout, `rzp_test_` keys only; live keys are refused).
+Unset follows the keys in every environment: a test pair opens Razorpay test
+checkout, and no keys means the zero-key `demo` simulation (ADR-0016 amendment,
+2026-11-14). The journey pass follows the same mode and flow. The server prices and checks every
 request. Confirmation is verified on the server and is the only place the venue
 is shown. **No seat is reserved and no booking is persisted.** That waits for the
 Booking/Payment aggregate.

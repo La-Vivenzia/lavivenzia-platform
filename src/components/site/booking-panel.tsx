@@ -5,11 +5,13 @@ import { useEffect, useReducer, useRef, type ReactNode } from "react";
 import { CalendarDays, Check, Clock, MapPin, Minus, Plus, Printer, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, Skeleton } from "@/components/ui/feedback";
+import { PaymentProcessing } from "@/components/site/payment-processing";
 import { ApiError, api } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
 import { signInHref } from "@/lib/destinations";
 import { formatMoneyMinor } from "@/lib/format";
-import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
+import { SIMULATED_PROCESSING_MS, holdAtLeast } from "@/lib/hold";
+import { brandThemeColor, openRazorpayCheckout } from "@/lib/razorpay-checkout";
 import type {
   BookingConfirmation,
   CheckoutIntent,
@@ -91,12 +93,6 @@ function messageOf(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error && error.message) return error.message;
   return "Something went wrong. Please try again.";
-}
-
-/** The brand green for Razorpay's frame, read from the token rather than restated. */
-function themeColor(): string | undefined {
-  const value = getComputedStyle(document.documentElement).getPropertyValue("--lv-primary").trim();
-  return /^#[0-9a-f]{3,8}$/i.test(value) ? value : undefined;
 }
 
 export function BookingPanel({
@@ -211,7 +207,7 @@ export function BookingPanel({
       currency: intent.razorpay.currency,
       title,
       reference: intent.reference,
-      themeColor: themeColor(),
+      themeColor: brandThemeColor(),
     })
       .then((outcome) => {
         if (outcome.kind === "paid") {
@@ -230,11 +226,13 @@ export function BookingPanel({
     const intent = state.intent;
     if (state.phase !== "confirming" || !intent) return;
 
-    api
-      .post<BookingConfirmation>(`${base}/checkout/confirm`, {
-        intent: intent.intent,
-        ...(payment.current ? { razorpay: payment.current } : {}),
-      })
+    const confirming = api.post<BookingConfirmation>(`${base}/checkout/confirm`, {
+      intent: intent.intent,
+      ...(payment.current ? { razorpay: payment.current } : {}),
+    });
+    // The demo has no provider to wait on, so it holds "Processing payment…"
+    // long enough to read. A real Razorpay verification is never padded.
+    (intent.mode === "demo" ? holdAtLeast(confirming, SIMULATED_PROCESSING_MS) : confirming)
       .then((confirmation) => dispatch({ type: "CONFIRMED", confirmation }))
       .catch((error: unknown) => dispatch({ type: "FAILED", message: messageOf(error) }));
   }, [state.phase, state.intent, base]);
@@ -481,16 +479,21 @@ export function BookingPanel({
           >
             {preview ? `Reserve · ${money(preview.totalMinor, preview.currency)}` : "Reserve"}
           </Button>
-          <span className="sr-only" role="status">
-            {state.phase === "preparing"
-              ? "Preparing your booking"
-              : state.phase === "paying"
-                ? "Payment window open"
-                : state.phase === "confirming"
-                  ? "Confirming your booking"
-                  : ""}
-          </span>
-          <ModeNote mode={checkoutMode} />
+          {/* Announced by the processing card's own status region. */}
+          {busy ? (
+            <PaymentProcessing
+              mode={state.intent?.mode ?? checkoutMode}
+              stage={
+                state.phase === "paying"
+                  ? "paying"
+                  : state.phase === "confirming"
+                    ? "confirming"
+                    : "preparing"
+              }
+            />
+          ) : (
+            <ModeNote mode={checkoutMode} />
+          )}
         </div>
       ) : null}
     </div>

@@ -21,15 +21,27 @@ const PassBody = z.object({
     .string()
     .max(JOURNEY_HOLDER_MAX * 2)
     .optional(),
+  /** From `POST …/pass/checkout`. Required in Razorpay test mode. */
+  intent: z.string().min(1).max(4096).optional(),
+  razorpay: z
+    .object({
+      orderId: z.string().min(1).max(64),
+      paymentId: z.string().min(1).max(64),
+      signature: z.string().min(1).max(256),
+    })
+    .optional(),
 });
 
 /**
  * POST /api/v1/journeys/:id/pass — one combined checkout for every act of a
  * curated journey, answered with a digital VIP pass.
  *
- * Follows the checkout mode (ADR-0016): closed when `BOOKING_CHECKOUT` is
- * `off`, the production default. No money moves and nothing is held in any
- * mode; the response says so in `simulated`, `payment.chargedMinor` and
+ * Follows the checkout mode (ADR-0016, amended Phase 4): closed when
+ * `BOOKING_CHECKOUT` is `off`; a zero-key simulation in `demo`; and in
+ * `razorpay_test` it issues only after the Razorpay payment signature verifies
+ * server-side against the order `POST …/pass/checkout` created. The browser's
+ * "payment succeeded" callback proves nothing on its own. Nothing is held with
+ * any venue in any mode; the response says so in `simulated`, `payment` and
  * `notice`.
  *
  * Once issued, the route and secret keyword are emailed to the signed-in

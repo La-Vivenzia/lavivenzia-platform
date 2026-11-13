@@ -101,49 +101,70 @@ const sign = (orderId: string, paymentId: string) =>
 
 describe("resolveCheckoutMode", () => {
   const keys = { razorpayKeyId: undefined, razorpayKeySecret: undefined };
+  const testKeys = { razorpayKeyId: "rzp_test_x", razorpayKeySecret: "secret" };
 
-  it("defaults to demo outside production and off in production", () => {
-    expect(resolveCheckoutMode({ configured: undefined, isProduction: false, ...keys })).toBe(
+  it("falls back to the zero-key demo in every environment when no keys are set", () => {
+    for (const isProduction of [false, true]) {
+      expect(resolveCheckoutMode({ configured: undefined, isProduction, ...keys })).toBe("demo");
+    }
+  });
+
+  it("honours an explicit off or demo, even with keys present", () => {
+    expect(resolveCheckoutMode({ configured: "off", isProduction: true, ...testKeys })).toBe("off");
+    expect(resolveCheckoutMode({ configured: "demo", isProduction: true, ...testKeys })).toBe(
       "demo",
     );
-    expect(resolveCheckoutMode({ configured: undefined, isProduction: true, ...keys })).toBe("off");
   });
 
-  it("honours an explicit choice", () => {
-    expect(resolveCheckoutMode({ configured: "off", isProduction: false, ...keys })).toBe("off");
+  it("opens Razorpay test checkout from a test key pair, configured or not", () => {
+    for (const configured of [undefined, "razorpay_test"] as const) {
+      expect(resolveCheckoutMode({ configured, isProduction: true, ...testKeys })).toBe(
+        "razorpay_test",
+      );
+    }
   });
 
-  it("requires a full key pair for test mode", () => {
-    expect(() =>
-      resolveCheckoutMode({
-        configured: "razorpay_test",
-        isProduction: false,
-        razorpayKeyId: "rzp_test_x",
-        razorpayKeySecret: undefined,
-      }),
-    ).toThrow(ValidationError);
-  });
-
-  it("refuses live keys", () => {
-    expect(() =>
-      resolveCheckoutMode({
-        configured: "razorpay_test",
-        isProduction: true,
-        razorpayKeyId: "rzp_live_x",
-        razorpayKeySecret: "secret",
-      }),
-    ).toThrow(/test keys only/);
-  });
-
-  it("accepts test keys", () => {
+  it("degrades a missing or half key pair to demo, and says why", () => {
+    const warn = vi.fn();
     expect(
-      resolveCheckoutMode({
-        configured: "razorpay_test",
-        isProduction: false,
-        razorpayKeyId: "rzp_test_x",
-        razorpayKeySecret: "secret",
-      }),
-    ).toBe("razorpay_test");
+      resolveCheckoutMode({ configured: "razorpay_test", isProduction: false, ...keys }, warn),
+    ).toBe("demo");
+    expect(
+      resolveCheckoutMode(
+        {
+          configured: "razorpay_test",
+          isProduction: false,
+          razorpayKeyId: "rzp_test_x",
+          razorpayKeySecret: undefined,
+        },
+        warn,
+      ),
+    ).toBe("demo");
+    expect(
+      resolveCheckoutMode(
+        {
+          configured: undefined,
+          isProduction: false,
+          razorpayKeyId: "nonsense",
+          razorpayKeySecret: "s",
+        },
+        warn,
+      ),
+    ).toBe("demo");
+    expect(warn).toHaveBeenCalledTimes(3);
+  });
+
+  it("refuses live keys rather than taking unrecorded money", () => {
+    for (const configured of [undefined, "razorpay_test"] as const) {
+      expect(() =>
+        resolveCheckoutMode({
+          configured,
+          isProduction: true,
+          razorpayKeyId: "rzp_live_x",
+          razorpayKeySecret: "secret",
+        }),
+      ).toThrow(ValidationError);
+    }
   });
 });
 

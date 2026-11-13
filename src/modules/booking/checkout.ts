@@ -22,8 +22,9 @@ import { quoteBooking, type PriceQuote } from "./pricing";
  *
  * **What this is not.** A booking record. No Booking or Payment table exists
  * yet, so nothing here reserves a seat or persists a payment; the intent is a
- * signed, short-lived token instead of a row. That is exactly why live keys
- * are refused (`resolveCheckoutMode`): taking real money with no row to show
+ * signed, short-lived token instead of a row. With no Razorpay keys the
+ * deployment runs the zero-key `demo` simulation; with `rzp_test_` keys it runs
+ * hosted test checkout. Live keys are refused (`resolveCheckoutMode`): taking real money with no row to show
  * for it is the one outcome this design must make impossible. When the
  * booking aggregate lands, `prepare` becomes "create pending booking + hold"
  * and `confirm` becomes a state transition, and the contract to the panel does
@@ -103,34 +104,62 @@ interface IntentPayload {
   readonly exp: number;
 }
 
-/**
- * Decide the checkout mode from configuration, refusing anything unsafe.
- *
- * Unset means demo outside production and off in production, so a production
- * deployment never shows a demonstration confirmation unless someone chose to.
- */
-export function resolveCheckoutMode(input: {
-  readonly configured: CheckoutMode | undefined;
-  readonly isProduction: boolean;
-  readonly razorpayKeyId: string | undefined;
-  readonly razorpayKeySecret: string | undefined;
-}): CheckoutMode {
-  const mode = input.configured ?? (input.isProduction ? "off" : "demo");
-  if (mode !== "razorpay_test") return mode;
+const RAZORPAY_TEST_KEY = /^rzp_test_[A-Za-z0-9]+$/;
+const RAZORPAY_LIVE_KEY = /^rzp_live_[A-Za-z0-9]+$/;
 
-  if (!input.razorpayKeyId || !input.razorpayKeySecret) {
+/**
+ * Decide the checkout mode from configuration (ADR-0016, amended Phase 4).
+ *
+ * - `off` and `demo` are honoured exactly as configured.
+ * - Unset or `razorpay_test`: a complete `rzp_test_` key pair opens hosted
+ *   Razorpay test checkout; no keys, or half a pair, falls back to the
+ *   zero-key `demo` simulation — in every environment — and `warn` is told
+ *   why, so a half-configured deployment is visible in the logs rather than
+ *   silently demoing.
+ * - An `rzp_live_` key is **refused**, in every mode but `off`/`demo`. Live
+ *   money with no Booking or Payment row behind it, and no webhook to settle
+ *   it, is the outcome this module exists to prevent (CLAUDE.md §6). The
+ *   experience page degrades that refusal to a closed reserve button.
+ */
+export function resolveCheckoutMode(
+  input: {
+    readonly configured: CheckoutMode | undefined;
+    readonly isProduction: boolean;
+    readonly razorpayKeyId: string | undefined;
+    readonly razorpayKeySecret: string | undefined;
+  },
+  warn: (message: string) => void = () => {},
+): CheckoutMode {
+  if (input.configured === "off" || input.configured === "demo") return input.configured;
+
+  const keyId = input.razorpayKeyId?.trim() ?? "";
+  const keySecret = input.razorpayKeySecret?.trim() ?? "";
+
+  if (RAZORPAY_LIVE_KEY.test(keyId)) {
     throw new ValidationError(
-      "BOOKING_CHECKOUT=razorpay_test requires RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.",
+      "Razorpay live keys (rzp_live_…) are configured, but live checkout is blocked until " +
+        "bookings and payments are persisted and settled by webhook (ADR-0016). " +
+        "Use rzp_test_ keys, or set BOOKING_CHECKOUT=demo.",
     );
   }
-  if (!input.razorpayKeyId.startsWith("rzp_test_")) {
-    // Live keys would move real money with no booking record behind it.
-    throw new ValidationError(
-      "BOOKING_CHECKOUT=razorpay_test accepts Razorpay test keys only (rzp_test_…). " +
-        "Live checkout is blocked until bookings are persisted (ADR-0016).",
-    );
+
+  if (!keyId && !keySecret) {
+    if (input.configured === "razorpay_test") {
+      warn("BOOKING_CHECKOUT=razorpay_test but no Razorpay keys are set; using demo checkout.");
+    }
+    return "demo";
   }
-  return mode;
+  if (!keyId || !keySecret) {
+    warn(
+      "Only one of RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET is set; using demo checkout until both are.",
+    );
+    return "demo";
+  }
+  if (!RAZORPAY_TEST_KEY.test(keyId)) {
+    warn("RAZORPAY_KEY_ID is not a recognised Razorpay key id; using demo checkout.");
+    return "demo";
+  }
+  return "razorpay_test";
 }
 
 export function formatReference(bytes: Uint8Array, mode: Exclude<CheckoutMode, "off">): string {

@@ -188,10 +188,14 @@ export function DigitalVipPass({
           value={money(payment.perPersonMinor, payment.currency)}
         />
         <PassRow
-          label={pass.simulated ? "Total (not charged)" : "Total"}
+          label={payment.status === "SIMULATED" ? "Total (not charged)" : "Total"}
           value={money(payment.amountMinor, payment.currency)}
         />
-        <PassRow label="Charged" value={money(payment.chargedMinor, payment.currency)} />
+        <PassRow
+          label={payment.status === "PAID_TEST" ? "Paid (Razorpay test)" : "Charged"}
+          value={money(payment.chargedMinor, payment.currency)}
+        />
+        {payment.paymentId ? <PassRow label="Payment ID" value={payment.paymentId} /> : null}
       </dl>
 
       {pass.simulated ? (

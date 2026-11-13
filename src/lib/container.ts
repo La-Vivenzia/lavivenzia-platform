@@ -14,6 +14,7 @@ import { VivenIQService } from "@/modules/viveniq/service";
 import { CompanionService } from "@/modules/companion/service";
 import { CheckoutService, resolveCheckoutMode } from "@/modules/booking/checkout";
 import { JourneyPassService } from "@/modules/booking/journey-pass";
+import type { CheckoutMode } from "@/modules/booking/contract";
 import type { JourneyPass } from "@/modules/booking/journey-pass-contract";
 import { sendJourneyPassConfirmation } from "@/modules/booking/journey-pass-email";
 import { TasteGenomeService } from "@/modules/taste-genome/service";
@@ -310,13 +311,42 @@ export function getCompanionService(): CompanionService {
 }
 
 let checkoutService: CheckoutService | undefined;
+let paymentGateway: RazorpayAdapter | null | undefined;
+
+/**
+ * The checkout mode and, in `razorpay_test`, the one gateway both checkouts
+ * share (ADR-0016, amended Phase 4).
+ *
+ * No keys means the zero-key demo simulation; an `rzp_test_` pair means hosted
+ * Razorpay test checkout. `resolveCheckoutMode` refuses live keys, so that
+ * misconfiguration fails here with a message naming the variable — never by
+ * charging someone — and the pages degrade it to a closed reserve button.
+ */
+function checkoutPayments(): { mode: CheckoutMode; gateway: RazorpayAdapter | null } {
+  const mode = resolveCheckoutMode(
+    {
+      configured: env.BOOKING_CHECKOUT,
+      isProduction,
+      razorpayKeyId: env.RAZORPAY_KEY_ID,
+      razorpayKeySecret: env.RAZORPAY_KEY_SECRET,
+    },
+    (message) => getLogger().warn({ component: "checkout" }, message),
+  );
+
+  paymentGateway ??=
+    mode === "razorpay_test"
+      ? new RazorpayAdapter({
+          keyId: env.RAZORPAY_KEY_ID,
+          keySecret: env.RAZORPAY_KEY_SECRET,
+          webhookSecret: env.RAZORPAY_WEBHOOK_SECRET,
+        })
+      : null;
+
+  return { mode, gateway: paymentGateway };
+}
 
 /**
  * Booking checkout (FR-09, ADR-0016).
- *
- * `resolveCheckoutMode` refuses live Razorpay keys and an incomplete key pair,
- * so a misconfiguration fails here, on the first checkout request, with a
- * message naming the variable — never by charging someone.
  *
  * The intent signing key is derived from SESSION_SECRET with a purpose label,
  * so a value signed for checkout can never be replayed as a session and the
@@ -325,12 +355,7 @@ let checkoutService: CheckoutService | undefined;
 export function getCheckoutService(): CheckoutService {
   if (checkoutService) return checkoutService;
 
-  const mode = resolveCheckoutMode({
-    configured: env.BOOKING_CHECKOUT,
-    isProduction,
-    razorpayKeyId: env.RAZORPAY_KEY_ID,
-    razorpayKeySecret: env.RAZORPAY_KEY_SECRET,
-  });
+  const { mode, gateway } = checkoutPayments();
 
   checkoutService = new CheckoutService({
     mode,
@@ -356,15 +381,8 @@ export function getCheckoutService(): CheckoutService {
       };
     },
     listBookableSlots: (experienceId) => getAvailabilityService().listBookable(experienceId),
-    gateway:
-      mode === "razorpay_test"
-        ? new RazorpayAdapter({
-            keyId: env.RAZORPAY_KEY_ID,
-            keySecret: env.RAZORPAY_KEY_SECRET,
-            webhookSecret: env.RAZORPAY_WEBHOOK_SECRET,
-          })
-        : null,
-    razorpayKeyId: mode === "razorpay_test" ? (env.RAZORPAY_KEY_ID ?? null) : null,
+    gateway,
+    razorpayKeyId: gateway ? (env.RAZORPAY_KEY_ID ?? null) : null,
     signingKey: createHmac("sha256", env.SESSION_SECRET)
       .update("lv.booking-intent.v1")
       .digest("hex"),
@@ -376,16 +394,22 @@ export function getCheckoutService(): CheckoutService {
 let journeyPassService: JourneyPassService | undefined;
 
 /**
- * Unified journey checkout and VIP pass. Follows the booking checkout mode, so
- * it is closed wherever checkout is. Each act's listing is re-read through
- * discovery (PostgreSQL) at issue, so the combined price is the live one.
+ * Unified journey checkout and VIP pass. Follows the booking checkout mode —
+ * demo simulation with no keys, Razorpay test checkout with test keys, closed
+ * where checkout is. Each act's listing is re-read through discovery
+ * (PostgreSQL) at prepare and at issue, so the combined price is the live one.
  *
- * The QR signing key is derived from SESSION_SECRET with its own purpose
- * label, so a pass signature can never be replayed as a checkout intent.
+ * The QR and intent signing keys are derived from SESSION_SECRET with their own
+ * purpose labels, so neither can be replayed as the other or as a checkout
+ * intent.
  */
 export function getJourneyPassService(): JourneyPassService {
-  journeyPassService ??= new JourneyPassService({
-    mode: getCheckoutService().mode,
+  if (journeyPassService) return journeyPassService;
+
+  const { mode, gateway } = checkoutPayments();
+
+  journeyPassService = new JourneyPassService({
+    mode,
     findJourney,
     findListing: async (slug) => {
       const experience = await getDiscoveryService().getExperience(slug);
@@ -399,7 +423,12 @@ export function getJourneyPassService(): JourneyPassService {
         maxGuests: experience.maxGuests,
       };
     },
+    gateway,
+    razorpayKeyId: gateway ? (env.RAZORPAY_KEY_ID ?? null) : null,
     signingKey: createHmac("sha256", env.SESSION_SECRET).update("lv.journey-pass.v1").digest("hex"),
+    intentSigningKey: createHmac("sha256", env.SESSION_SECRET)
+      .update("lv.journey-pass-intent.v1")
+      .digest("hex"),
   });
 
   return journeyPassService;

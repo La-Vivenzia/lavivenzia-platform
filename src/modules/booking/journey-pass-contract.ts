@@ -18,6 +18,26 @@ export const JOURNEY_HOLDER_MAX = 60;
 /** Every act on a simulated pass is in this state, and only this state. */
 export const JOURNEY_ACT_STATUS = "PRE_ARRANGED_SIMULATED";
 
+/**
+ * Response to `POST /journeys/:id/pass/checkout`: the server-priced total and a
+ * signed, short-lived intent the client returns untouched to issue the pass.
+ */
+export interface JourneyPassIntent {
+  readonly mode: Exclude<CheckoutMode, "off">;
+  readonly intent: string;
+  readonly partySize: number;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly expiresAt: string;
+  /** Present only in `razorpay_test`: what the hosted checkout needs. */
+  readonly razorpay?: {
+    readonly keyId: string;
+    readonly orderId: string;
+    readonly amountMinor: number;
+    readonly currency: string;
+  };
+}
+
 export interface JourneyPassAct {
   readonly role: ChapterRole;
   readonly label: string;
@@ -52,16 +72,34 @@ export interface JourneyPass {
     readonly tagline: string;
   };
   readonly acts: readonly JourneyPassAct[];
-  /** One combined transaction for every act — "pay once, just show up". */
-  readonly payment: {
-    readonly status: "SIMULATED";
-    readonly provider: "none";
-    readonly perPersonMinor: number;
-    readonly amountMinor: number;
-    /** Always zero. The field exists so no reader has to infer it. */
-    readonly chargedMinor: 0;
-    readonly currency: string;
-  };
+  /**
+   * One combined transaction for every act — "pay once, just show up".
+   *
+   * `SIMULATED` (demo): no provider, `chargedMinor` is zero. `PAID_TEST`
+   * (Razorpay test mode): the server verified the payment signature against
+   * the order it created; test money only, so nothing real moved.
+   */
+  readonly payment:
+    | {
+        readonly status: "SIMULATED";
+        readonly provider: "none";
+        readonly perPersonMinor: number;
+        readonly amountMinor: number;
+        /** Always zero. The field exists so no reader has to infer it. */
+        readonly chargedMinor: 0;
+        readonly currency: string;
+        readonly paymentId: null;
+      }
+    | {
+        readonly status: "PAID_TEST";
+        readonly provider: "razorpay";
+        readonly perPersonMinor: number;
+        readonly amountMinor: number;
+        /** Test-mode money: what the verified Razorpay order was for. */
+        readonly chargedMinor: number;
+        readonly currency: string;
+        readonly paymentId: string;
+      };
   readonly qr: {
     /** Signed; `verifyPassPayload` on the server checks it. */
     readonly payload: string;

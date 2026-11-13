@@ -73,3 +73,31 @@ The booking aggregate is built. At that point:
 
 The contract between the panel and the API (`src/modules/booking/contract.ts`)
 should not need to change.
+
+## Amendment — 2026-11-14 (Phase 4: zero-key simulation)
+
+**Changed.** `BOOKING_CHECKOUT` unset no longer means `off` in production. The keys
+decide, in every environment:
+
+| `BOOKING_CHECKOUT`      | Razorpay keys        | Mode                                        |
+| ----------------------- | -------------------- | ------------------------------------------- |
+| `off` / `demo`          | any                  | as configured                               |
+| unset / `razorpay_test` | none, or half a pair | `demo` (a half pair is logged as a warning) |
+| unset / `razorpay_test` | `rzp_test_` pair     | `razorpay_test`                             |
+| unset / `razorpay_test` | `rzp_live_` key      | refused; the pages show reserve closed      |
+
+A production deployment with no keys therefore shows the demo checkout. Every
+demo surface still says no money moved and no seat was held, and references keep
+their `DEMO-` prefix. Set `BOOKING_CHECKOUT=off` to close reserving instead.
+
+The journey pass now uses the same two-step flow as experience checkout:
+`POST /journeys/:id/pass/checkout` prices the party from the live listings and
+returns a signed, 30-minute intent. In test mode it also creates the Razorpay
+order. `POST /journeys/:id/pass` issues the pass. In test mode it issues only
+after the HMAC-SHA256 payment signature verifies against the order recorded in
+that intent.
+
+**Unchanged.** Live keys are still refused. The "Revisit when" conditions above
+still hold: there is no Booking or Payment row and no webhook settlement, so
+accepting `rzp_live_` would take real money with nothing to reconcile, refund or
+honour.

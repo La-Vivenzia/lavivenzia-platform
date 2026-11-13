@@ -79,10 +79,11 @@ const providerSchema = z.object({
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
 
   /**
-   * How the booking panel completes checkout (ADR-0016): `off`, `demo` (no
-   * provider, no money) or `razorpay_test` (hosted checkout, test keys only).
-   * Unset means `demo` outside production and `off` in production. There is no
-   * live value: live checkout waits for persisted bookings.
+   * How the booking panel completes checkout (ADR-0016, amended Phase 4):
+   * `off`, `demo` (no provider, no money) or `razorpay_test` (hosted checkout,
+   * test keys only). Unset follows the keys: an `rzp_test_` pair opens test
+   * checkout, no keys means `demo` — in every environment. `rzp_live_` keys are
+   * refused: live checkout waits for persisted bookings.
    */
   BOOKING_CHECKOUT: z.enum(CHECKOUT_MODES).optional(),
 

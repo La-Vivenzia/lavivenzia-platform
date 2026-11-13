@@ -22,15 +22,19 @@ import { Button } from "@/components/ui/button";
 import { Alert, Skeleton } from "@/components/ui/feedback";
 import { TextField } from "@/components/ui/field";
 import { DigitalVipPass } from "@/components/journeys/DigitalVipPass";
+import { PaymentProcessing } from "@/components/site/payment-processing";
 import { ApiError, api } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
 import { currentPath, signInHref } from "@/lib/destinations";
 import { formatClock, formatDuration, formatMoneyMinor } from "@/lib/format";
-import type { CheckoutMode } from "@/modules/booking/contract";
+import { SIMULATED_PROCESSING_MS, holdAtLeast } from "@/lib/hold";
+import { brandThemeColor, openRazorpayCheckout } from "@/lib/razorpay-checkout";
+import type { CheckoutMode, RazorpayPaymentResult } from "@/modules/booking/contract";
 import {
   JOURNEY_HOLDER_MAX,
   JOURNEY_PARTY_MAX,
   type JourneyPass,
+  type JourneyPassIntent,
 } from "@/modules/booking/journey-pass-contract";
 import type { Journey, JourneyChapter } from "@/modules/journeys/data";
 
@@ -51,8 +55,10 @@ export interface JourneyActMedia {
 }
 
 type Phase =
-  | { readonly kind: "idle" }
-  | { readonly kind: "booking" }
+  | { readonly kind: "idle"; readonly notice?: string }
+  | { readonly kind: "preparing" }
+  | { readonly kind: "paying"; readonly mode: Exclude<CheckoutMode, "off"> }
+  | { readonly kind: "confirming"; readonly mode: Exclude<CheckoutMode, "off"> }
   | { readonly kind: "failed"; readonly message: string }
   | { readonly kind: "booked"; readonly pass: JourneyPass };
 
@@ -134,15 +140,62 @@ export function JourneyExperienceView({
   );
   const fallbackOrigin = useMemo(() => nearestAnchor(stops[0]!.coordinates), [stops]);
 
-  const reserve = () => {
-    setPhase({ kind: "booking" });
-    api
-      .post<JourneyPass>(`/api/v1/journeys/${encodeURIComponent(journey.id)}/pass`, {
+  const busy = phase.kind === "preparing" || phase.kind === "paying" || phase.kind === "confirming";
+
+  /**
+   * Prepare → (Razorpay, when keys are configured) → issue. The server prices
+   * the party and, in test mode, creates the order; the pass is issued only
+   * after the server verifies the payment signature. The browser's "paid"
+   * callback is a prompt to ask, never the proof.
+   */
+  const reserve = async () => {
+    const base = `/api/v1/journeys/${encodeURIComponent(journey.id)}/pass`;
+    setPhase({ kind: "preparing" });
+    try {
+      const intent = await api.post<JourneyPassIntent>(`${base}/checkout`, { partySize: party });
+
+      let razorpay: RazorpayPaymentResult | undefined;
+      if (intent.razorpay) {
+        setPhase({ kind: "paying", mode: intent.mode });
+        const outcome = await openRazorpayCheckout({
+          keyId: intent.razorpay.keyId,
+          orderId: intent.razorpay.orderId,
+          amountMinor: intent.razorpay.amountMinor,
+          currency: intent.razorpay.currency,
+          title: journey.title,
+          reference: journey.id,
+          themeColor: brandThemeColor(),
+        });
+        if (outcome.kind === "dismissed") {
+          setPhase({
+            kind: "idle",
+            notice: "Payment was cancelled. Nothing was charged — reserve again when you're ready.",
+          });
+          return;
+        }
+        if (outcome.kind === "failed") {
+          setPhase({ kind: "failed", message: outcome.message });
+          return;
+        }
+        razorpay = outcome.payment;
+      }
+
+      setPhase({ kind: "confirming", mode: intent.mode });
+      const issuing = api.post<JourneyPass>(base, {
         partySize: party,
         ...(holder.trim() ? { holderName: holder.trim() } : {}),
-      })
-      .then((issued) => setPhase({ kind: "booked", pass: issued }))
-      .catch((error: unknown) => setPhase({ kind: "failed", message: messageOf(error) }));
+        intent: intent.intent,
+        ...(razorpay ? { razorpay } : {}),
+      });
+      // The demo has no provider to wait on, so it holds "Processing payment…"
+      // long enough to read. A real verification is never padded.
+      const issued = await (intent.mode === "demo"
+        ? holdAtLeast(issuing, SIMULATED_PROCESSING_MS)
+        : issuing);
+      setPhase({ kind: "booked", pass: issued });
+    } catch (error: unknown) {
+      setPhase({ kind: "failed", message: messageOf(error) });
+    }
   };
 
   const startJourney = () => {
@@ -255,21 +308,26 @@ export function JourneyExperienceView({
                   maxLength={JOURNEY_HOLDER_MAX}
                   autoComplete="name"
                   value={holder}
-                  disabled={phase.kind === "booking"}
+                  disabled={busy}
                   onChange={(event) => setHolder(event.target.value)}
                 />
 
                 <PartyStepper
                   value={party}
                   max={JOURNEY_PARTY_MAX}
-                  disabled={phase.kind === "booking"}
+                  disabled={busy}
                   hint={`One pass covers up to ${JOURNEY_PARTY_MAX} guests.`}
                   onChange={(next) => {
                     setParty(next);
-                    if (phase.kind === "failed") setPhase({ kind: "idle" });
+                    if (phase.kind === "failed" || phase.kind === "idle") {
+                      setPhase({ kind: "idle" });
+                    }
                   }}
                 />
 
+                {phase.kind === "idle" && phase.notice ? (
+                  <Alert tone="info">{phase.notice}</Alert>
+                ) : null}
                 {phase.kind === "failed" ? (
                   <Alert tone="danger" title="The experience was not reserved">
                     {phase.message}
@@ -286,16 +344,29 @@ export function JourneyExperienceView({
                     variant="primary"
                     size="lg"
                     className="w-full"
-                    loading={phase.kind === "booking"}
+                    loading={busy}
                     disabled={!open || unavailable}
-                    onClick={signedIn ? reserve : () => router.push(signInHref(currentPath()))}
+                    onClick={
+                      signedIn ? () => void reserve() : () => router.push(signInHref(currentPath()))
+                    }
                   >
                     {signedIn ? "Reserve Experience" : "Sign in to Reserve Experience"}
                   </Button>
-                  {open ? (
+                  {busy && open ? (
+                    <PaymentProcessing
+                      mode={
+                        phase.kind === "paying" || phase.kind === "confirming"
+                          ? phase.mode
+                          : checkoutMode
+                      }
+                      stage={phase.kind}
+                      issuing="Issuing your Digital VIP Pass"
+                    />
+                  ) : open ? (
                     <p className="text-[12px] leading-relaxed text-fg-muted">
-                      Pay once, just show up. This pilot issues a simulated pass: nothing is charged
-                      and nothing is reserved with any venue yet.
+                      {checkoutMode === "razorpay_test"
+                        ? "Pay once, just show up. Razorpay test mode: use a test card or UPI ID — no real money moves, and nothing is reserved with any venue yet."
+                        : "Pay once, just show up. This pilot issues a simulated pass: nothing is charged and nothing is reserved with any venue yet."}
                     </p>
                   ) : (
                     <Alert tone="info">
