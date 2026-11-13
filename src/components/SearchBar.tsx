@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { brand } from "@/data/content";
 import { cn } from "@/lib/cn";
+import { trackSearch } from "@/lib/telemetry";
 
 /**
  * The destination search. `floating` is the mobile treatment that overlaps the
@@ -32,7 +33,13 @@ export function SearchBar({
   const isInline = variant === "inline";
 
   return (
-    <form role="search" method="get" action="/viveniq" className={cn("relative w-full", className)}>
+    <form
+      role="search"
+      method="get"
+      action="/viveniq"
+      onSubmit={() => trackSearch(value)}
+      className={cn("relative w-full", className)}
+    >
       <label htmlFor={`lv-search-${variant}`} className="sr-only">
         Search destinations
       </label>

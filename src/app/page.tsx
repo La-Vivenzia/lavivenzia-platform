@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AuthProvider } from "@/components/auth/AuthContext";
 import { DesktopHome } from "@/components/DesktopHome";
 import { MobileHome } from "@/components/MobileHome";
+import { TasteCalibrationModal } from "@/components/onboarding/TasteCalibrationModal";
 import { getDiscoveryService } from "@/lib/container";
 import { getPrincipal } from "@/lib/auth-context";
 import { destinationForRoles } from "@/lib/destinations";
@@ -99,6 +100,8 @@ export default async function HomePage() {
     >
       <MobileHome {...session} />
       <DesktopHome {...session} />
+      {/* The home screen composes its own chrome rather than SiteShell, so it mounts this itself. */}
+      <TasteCalibrationModal />
     </AuthProvider>
   );
 }

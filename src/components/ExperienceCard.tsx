@@ -30,7 +30,10 @@ export function ExperienceCard({
     : "";
 
   return (
-    <article className={cn("group relative flex flex-col", className)}>
+    <article
+      data-lv-experience={experience.id}
+      className={cn("group relative flex flex-col", className)}
+    >
       {/* 1. Immersive, Unobscured Photography */}
       <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-surface-2 shadow-card">
         <Image

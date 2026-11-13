@@ -128,6 +128,16 @@ export const RATE_LIMITS = {
   checkoutPerIp: { limit: 30, windowMs: 15 * MINUTE },
 
   /**
+   * Taste Genome calibration and telemetry per client.
+   *
+   * Unauthenticated writes into a capped in-memory store. The client batches
+   * telemetry every few seconds while a tab is visible, so a long browsing
+   * session sends perhaps a hundred batches; a script is stopped well before
+   * it can churn the session cap.
+   */
+  tasteGenomePerIp: { limit: 300, windowMs: 15 * MINUTE },
+
+  /**
    * Media upload per host.
    *
    * Each accepted upload is up to 8 MB of stored bytes, so this is a storage

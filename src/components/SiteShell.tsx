@@ -6,6 +6,7 @@ import { BottomNavigation } from "@/components/BottomNavigation";
 import { DesktopHeader } from "@/components/DesktopHeader";
 import { Footer } from "@/components/Footer";
 import { MobileHeader } from "@/components/MobileHeader";
+import { TasteCalibrationModal } from "@/components/onboarding/TasteCalibrationModal";
 
 /**
  * The chrome every public page wears.
@@ -52,6 +53,7 @@ export function SiteShell({
           <Footer />
           <BottomNavigation accountHref={accountHref} />
         </div>
+        <TasteCalibrationModal />
       </CopilotProvider>
     </AuthProvider>
   );
