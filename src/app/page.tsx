@@ -12,7 +12,7 @@ import {
   toHeroImage,
   toQuickAccess,
 } from "@/lib/home-content";
-import { listJourneys } from "@/modules/journeys/data";
+import { listCuratedJourneys } from "@/modules/journeys/data";
 import { filterTripsByRating, listTrips } from "@/modules/trips/data";
 
 export const metadata: Metadata = {
@@ -80,7 +80,7 @@ export default async function HomePage() {
     stories,
     quickAccess: toQuickAccess(categories),
     heroImage: toHeroImage(featured),
-    journeys: listJourneys(),
+    journeys: listCuratedJourneys(),
     trips: filterTripsByRating(listTrips()),
   };
 
