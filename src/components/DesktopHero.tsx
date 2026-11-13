@@ -53,7 +53,7 @@ export function DesktopHero({ image }: { readonly image: HeroImage }) {
           <Reveal delay={90}>
             <h1
               id="lv-hero-heading-desktop"
-              className="mt-6 font-display text-[clamp(3rem,4.6vw,4.75rem)] leading-[1.05] font-normal tracking-[-0.015em] text-heading"
+              className="mt-6 font-cinzel text-[clamp(3rem,4.6vw,4.75rem)] leading-[1.05] font-normal tracking-[-0.015em] text-heading"
             >
               {brand.headline.map((line) => (
                 <span key={line} className="block">

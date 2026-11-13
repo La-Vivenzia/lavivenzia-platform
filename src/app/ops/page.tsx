@@ -84,7 +84,7 @@ export default async function OpsOverviewPage() {
           {/* ── Context ───────────────────────────────────────────────── */}
           <section className="flex flex-col gap-5">
             <span className="eyebrow">Inventory</span>
-            <dl className="border-line grid grid-cols-3 gap-8 border-y py-6">
+            <dl className="border-line grid grid-cols-1 gap-6 border-y py-6 sm:grid-cols-3 sm:gap-8">
               <ContextFigure
                 label="Published"
                 value={summary.experiencesPublished}

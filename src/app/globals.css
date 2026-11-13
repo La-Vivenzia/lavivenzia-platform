@@ -256,7 +256,8 @@
 
 /* Expose tokens to Tailwind as `bg-surface`, `text-fg-muted`, `font-display`, … */
 @theme inline {
-  --font-display: var(--font-cinzel), ui-serif, Georgia, "Times New Roman", serif;
+  --font-display:
+    var(--font-figtree), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-sans: var(--font-sora), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
   --color-bg: var(--lv-bg);
@@ -492,6 +493,10 @@
   font-family: var(--font-display);
   letter-spacing: 0.02em;
   font-weight: 500;
+}
+
+.font-cinzel {
+  font-family: var(--font-cinzel), ui-serif, Georgia, "Times New Roman", serif;
 }
 
 /* Small uppercase labels — the editorial device used for eyebrows and section marks. */

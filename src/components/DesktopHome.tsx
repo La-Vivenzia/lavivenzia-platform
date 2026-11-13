@@ -1,7 +1,6 @@
 import { AIGenieFeature } from "@/components/AIGenieFeature";
 import { TasteArchetypeFinder } from "@/components/archetypes/TasteArchetypeFinder";
 import { CategoryNavigation } from "@/components/CategoryNavigation";
-import { ConciergeChatBar } from "@/components/concierge/ConciergeChatBar";
 import { DesktopHeader } from "@/components/DesktopHeader";
 import { DesktopHero } from "@/components/DesktopHero";
 import { DestinationCard } from "@/components/DestinationCard";
@@ -15,6 +14,7 @@ import { SectionHeader } from "@/components/SectionHeader";
 import { CuratedTripsSection } from "@/components/trips/CuratedTripsSection";
 import { pillars } from "@/data/content";
 import type { HomeData } from "@/components/MobileHome";
+import type { QuickAccessItem } from "@/lib/home-content";
 import { cn } from "@/lib/cn";
 
 const shell = "mx-auto w-full max-w-[1440px] px-8 xl:px-12 3xl:max-w-[1680px]";
@@ -47,22 +47,40 @@ export function DesktopHome(props: HomeData) {
     trips,
   } = props;
 
+  const desktopQuickAccess: readonly QuickAccessItem[] = quickAccess.map(
+    (item): QuickAccessItem => {
+      const resolved: QuickAccessItem =
+        item.id === "collections"
+          ? { id: "ai-genie", label: "AI Genie", icon: "genie", href: "#copilot" }
+          : item;
+
+      if (
+        resolved.id === "experiences" ||
+        resolved.id === "destinations" ||
+        resolved.id === "ai-genie"
+      ) {
+        return resolved;
+      }
+
+      const ampersandIndex = resolved.label.indexOf(" &");
+      const label =
+        ampersandIndex === -1 ? resolved.label : resolved.label.slice(0, ampersandIndex).trim();
+
+      return { ...resolved, label };
+    },
+  );
+
+  const desktopCurated = curated.map((item) => {
+    const colonIndex = item.name.indexOf(":");
+    return colonIndex === -1 ? item : { ...item, name: item.name.slice(0, colonIndex).trim() };
+  });
+
   return (
     <div className="hidden lg:block">
       <DesktopHeader signedIn={signedIn} accountHref={accountHref} initials={initials} />
 
       <main id="d-top">
         <DesktopHero image={heroImage} />
-
-        <section
-          id="d-concierge"
-          aria-label="Ask the Concierge"
-          className={cn(shell, "scroll-mt-24 pt-4 pb-24")}
-        >
-          <Reveal>
-            <ConciergeChatBar id="lv-concierge-desktop" className="max-w-[720px]" />
-          </Reveal>
-        </section>
 
         {/* Quick discovery */}
         <section aria-labelledby="lv-discovery" className={cn(shell, "pb-24")}>
@@ -75,16 +93,9 @@ export function DesktopHome(props: HomeData) {
             </h2>
           </Reveal>
           <Reveal delay={80}>
-            <CategoryNavigation items={quickAccess} variant="expanded" className="mt-8" />
+            <CategoryNavigation items={desktopQuickAccess} variant="expanded" className="mt-8" />
           </Reveal>
         </section>
-
-        <CuratedTripsSection
-          trips={trips}
-          variant="desktop"
-          id="d-trips"
-          className={cn(shell, "pb-28")}
-        />
 
         {/* Curated for you */}
         <section id="d-curated" aria-labelledby="lv-curated-desktop" className={cn(shell, "pb-28")}>
@@ -105,17 +116,59 @@ export function DesktopHome(props: HomeData) {
           </Reveal>
 
           <ul className="mt-12 grid grid-cols-2 gap-6 xl:grid-cols-4 xl:gap-7">
-            {curated.map((destination, index) => (
-              <Reveal as="li" key={destination.id} delay={index * 70}>
+            {desktopCurated.map((destination, index) => (
+              <Reveal as="li" key={destination.id} delay={index * 70} className="flex">
                 <DestinationCard
                   destination={destination}
                   href={destination.href}
                   sizes="(max-width: 1279px) 45vw, 22vw"
+                  className="h-full w-full"
                 />
               </Reveal>
             ))}
           </ul>
         </section>
+
+        <AIGenieFeature />
+
+        {/* Popular destinations — editorial mosaic */}
+        <section id="d-popular" aria-labelledby="lv-popular-desktop" className={cn(shell, "py-28")}>
+          <Reveal>
+            <SectionHeader
+              id="lv-popular-desktop"
+              title="Popular Destinations"
+              action="View All"
+              href="/destinations"
+              size="lg"
+            />
+          </Reveal>
+
+          <ul className="mt-12 grid grid-cols-12 gap-6">
+            {popular.map((destination, index) => (
+              <Reveal
+                as="li"
+                key={destination.id}
+                delay={(index % 3) * 70}
+                className={cn("col-span-4 h-[340px] xl:h-[420px]", mosaic[index])}
+              >
+                <DestinationCard
+                  destination={destination}
+                  variant="overlay"
+                  href={destination.href}
+                  className="h-full w-full"
+                  sizes="(max-width: 1279px) 33vw, 40vw"
+                />
+              </Reveal>
+            ))}
+          </ul>
+        </section>
+
+        <CuratedTripsSection
+          trips={trips}
+          variant="desktop"
+          id="d-trips"
+          className={cn(shell, "pb-28")}
+        />
 
         {journeys.length > 0 ? (
           <>
@@ -155,41 +208,7 @@ export function DesktopHome(props: HomeData) {
           </>
         ) : null}
 
-        <AIGenieFeature />
-
         <LiveTrackingFeature className={cn(shell, "pt-28")} />
-
-        {/* Popular destinations — editorial mosaic */}
-        <section id="d-popular" aria-labelledby="lv-popular-desktop" className={cn(shell, "py-28")}>
-          <Reveal>
-            <SectionHeader
-              id="lv-popular-desktop"
-              title="Popular Destinations"
-              action="View All"
-              href="/destinations"
-              size="lg"
-            />
-          </Reveal>
-
-          <ul className="mt-12 grid grid-cols-12 gap-6">
-            {popular.map((destination, index) => (
-              <Reveal
-                as="li"
-                key={destination.id}
-                delay={(index % 3) * 70}
-                className={cn("col-span-4 h-[340px] xl:h-[420px]", mosaic[index])}
-              >
-                <DestinationCard
-                  destination={destination}
-                  variant="overlay"
-                  href={destination.href}
-                  className="h-full w-full"
-                  sizes="(max-width: 1279px) 33vw, 40vw"
-                />
-              </Reveal>
-            ))}
-          </ul>
-        </section>
 
         {/* Signature experiences */}
         <section

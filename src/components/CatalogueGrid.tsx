@@ -36,13 +36,14 @@ export function CatalogueGrid({
   return (
     <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-6">
       {items.map((item, index) => (
-        <li key={item.id}>
+        <li key={item.id} className="flex">
           <DestinationCard
             destination={item}
             href={item.href}
             sizes="(max-width: 640px) 46vw, (max-width: 1024px) 30vw, 22vw"
             /* Only the first row is eager: below the fold, lazy is correct. */
             priority={index < 4}
+            className="h-full w-full"
           />
         </li>
       ))}

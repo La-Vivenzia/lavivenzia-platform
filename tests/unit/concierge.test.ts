@@ -798,12 +798,19 @@ describe("the home page", () => {
   const read = (file: string) =>
     readFileSync(join(process.cwd(), "src", "components", file), "utf8");
 
-  it("mounts the chat bar, not the inline concierge widget", () => {
+  it("does not mount the inline concierge widget", () => {
     for (const file of ["DesktopHome.tsx", "MobileHome.tsx"]) {
       const source = read(file);
-      expect(source).toContain("<ConciergeChatBar");
       expect(source).not.toContain("InstantVibeConcierge");
     }
+  });
+
+  it("does not contain ConciergeChatBar in DesktopHome", () => {
+    expect(read("DesktopHome.tsx")).not.toContain("<ConciergeChatBar");
+  });
+
+  it("still contains SearchBar in DesktopHero", () => {
+    expect(read("DesktopHero.tsx")).toContain("<SearchBar");
   });
 
   it("submits the chat bar to the conversation", () => {

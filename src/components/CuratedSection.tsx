@@ -30,7 +30,7 @@ export function CuratedSection({ items }: { readonly items: readonly LinkedDesti
           {items.map((destination, index) => (
             <li
               key={destination.id}
-              className="rail-item flex h-full w-[156px] xs:w-[164px] sm:w-[188px]"
+              className="rail-item flex w-[156px] self-stretch xs:w-[164px] sm:w-[188px]"
             >
               <DestinationCard
                 destination={destination}

@@ -84,13 +84,13 @@ export function DestinationCard({
     <article
       className={cn(
         "group relative flex h-full flex-col overflow-hidden rounded-card",
-        "border border-line bg-surface p-1.5 shadow-card",
+        "border border-line bg-surface shadow-card",
         "transition-[transform,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
         "hover:-translate-y-1 hover:border-line-strong hover:shadow-raised",
         className,
       )}
     >
-      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-[calc(var(--radius-card)-0.375rem)]">
+      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden">
         <Image
           src={image}
           alt={alt}
@@ -108,7 +108,7 @@ export function DestinationCard({
         <FavouriteButton label={name} className="absolute top-2.5 right-2.5" size="sm" />
       </div>
 
-      <div className="flex flex-1 flex-col px-2 pt-3 pb-2.5 lg:px-3 lg:pt-4 lg:pb-3.5">
+      <div className="flex flex-1 flex-col px-3 pt-3 pb-3.5 lg:px-4 lg:pt-4 lg:pb-4">
         <h3 className="line-clamp-2 h-[42px] font-sans text-[15px] leading-snug font-semibold text-heading lg:h-[48px] lg:text-[17px]">
           {/* Stretched link keeps the whole card clickable while leaving the
               favourite button (z-20) on top of it. */}
@@ -116,18 +116,12 @@ export function DestinationCard({
             {name}
           </a>
         </h3>
-        <p className="mt-0.5 line-clamp-1 text-[13px] font-light text-fg-muted lg:mt-1 lg:text-[14px]">
+        <p className="mt-1 line-clamp-1 text-[13px] font-light text-fg-muted lg:text-[14px]">
           {country}
         </p>
-        <span
-          className={cn(
-            "mt-auto inline-flex w-fit items-center rounded-lg px-2.5 py-1.5",
-            "bg-surface-2 text-[10px] font-medium tracking-[0.14em] text-fg uppercase lg:text-[10.5px]",
-            "transition-colors duration-300 group-hover:bg-surface-3",
-          )}
-        >
+        <p className="mt-1 line-clamp-1 text-[11px] font-normal text-fg-subtle lg:text-[11.5px]">
           {badge}
-        </span>
+        </p>
       </div>
     </article>
   );

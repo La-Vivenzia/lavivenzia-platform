@@ -1,11 +1,9 @@
-import { AIGenieSection } from "@/components/AIGenieSection";
 import { TasteArchetypeFinder } from "@/components/archetypes/TasteArchetypeFinder";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { CategoryNavigation } from "@/components/CategoryNavigation";
 import { CuratedSection } from "@/components/CuratedSection";
 import { ExperiencesSection } from "@/components/ExperiencesSection";
 import { Hero } from "@/components/Hero";
-import { JourneyArcView } from "@/components/journeys/JourneyArcView";
 import { LiveTrackingSection } from "@/components/LiveTrackingFeature";
 import { MobileHeader } from "@/components/MobileHeader";
 import { PopularDestinations } from "@/components/PopularDestinations";
@@ -101,43 +99,25 @@ export function MobileHome(props: HomeData) {
 
         <CuratedSection items={mobileCurated} />
 
-        <AIGenieSection />
+        {/* <AIGenieSection /> hidden on mobile */}
 
         <PopularDestinations items={popular} />
 
         <CuratedTripsSection trips={trips} variant="mobile" id="m-trips" className="px-5 pt-10" />
 
         {journeys.length > 0 ? (
-          <>
-            <section
-              id="m-journeys"
-              aria-labelledby="lv-journeys"
-              className="scroll-mt-20 px-5 pt-10"
-            >
-              <Reveal>
-                <SectionHeader id="lv-journeys" title="Curated Journeys" />
-                <p className="mt-2 text-[13px] leading-relaxed font-light text-fg-muted">
-                  Three chapters, one evening in East Pune — each with a privilege of its own.
-                </p>
-              </Reveal>
-              <Reveal delay={80}>
-                <JourneyArcView journeys={journeys} className="mt-5" />
-              </Reveal>
-            </section>
-
-            <section id="m-taste" aria-labelledby="lv-taste" className="px-5 pt-10">
-              <Reveal>
-                <SectionHeader id="lv-taste" title="Find Your Taste" />
-              </Reveal>
-              <Reveal delay={80}>
-                <TasteArchetypeFinder
-                  journeys={journeys}
-                  arcTargetId="m-journeys"
-                  className="mt-5 rounded-card border border-line bg-surface p-5 shadow-card"
-                />
-              </Reveal>
-            </section>
-          </>
+          <section id="m-taste" aria-labelledby="lv-taste" className="px-5 pt-10">
+            <Reveal>
+              <SectionHeader id="lv-taste" title="Find Your Taste" />
+            </Reveal>
+            <Reveal delay={80}>
+              <TasteArchetypeFinder
+                journeys={journeys}
+                arcTargetId="m-journeys"
+                className="mt-5 rounded-card border border-line bg-surface p-5 shadow-card"
+              />
+            </Reveal>
+          </section>
         ) : null}
 
         <LiveTrackingSection />

@@ -13,7 +13,7 @@ export function Hero({ image }: { readonly image: HeroImage }) {
     <section aria-labelledby="lv-hero-heading" className="relative px-5 pt-3 pb-7">
       {/* Photograph — matches the text column's height and escapes the gutter. */}
       <div
-        className="absolute inset-y-0 right-0 w-[43%] min-w-[140px] overflow-hidden rounded-tl-[3rem] xs:w-[44%] sm:w-[46%] sm:rounded-tl-[4rem]"
+        className="absolute inset-y-0 right-0 w-[42%] overflow-hidden rounded-tl-[3rem] xs:w-[44%] sm:w-[46%] sm:rounded-tl-[4rem]"
         aria-hidden="false"
       >
         <Image
@@ -46,15 +46,13 @@ export function Hero({ image }: { readonly image: HeroImage }) {
 
       {/* Editorial text column */}
       <div className="relative z-10 w-[58%] min-w-0 pt-1 sm:w-[55%]">
-        {/* Runs slightly wider than the headline column so it holds one line
-            at 375px, matching the reference. */}
-        <p className="eyebrow w-[108%] text-[8px] tracking-[0.09em] text-fg-subtle xs:text-[8.5px] xs:tracking-[0.12em] sm:w-full sm:text-[10.5px] sm:tracking-[0.2em] dark:text-accent-ink">
+        <p className="eyebrow w-full text-[8px] leading-snug tracking-[0.07em] text-fg-subtle xs:text-[8.5px] xs:tracking-[0.1em] sm:text-[10.5px] sm:tracking-[0.2em] dark:text-accent-ink">
           {brand.eyebrow}
         </p>
 
         <h1
           id="lv-hero-heading"
-          className="mt-3 font-display text-[clamp(1.6rem,7.5vw,3.5rem)] leading-[1.12] font-normal tracking-[-0.015em] text-heading"
+          className="mt-3 font-cinzel text-[clamp(1.6rem,7.5vw,3.5rem)] leading-[1.12] font-normal tracking-[-0.015em] text-heading"
         >
           {brand.headline.map((line) => (
             <span key={line} className="block">

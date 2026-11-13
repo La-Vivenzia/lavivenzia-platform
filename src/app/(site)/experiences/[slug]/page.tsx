@@ -174,8 +174,8 @@ export default async function ExperienceDetailPage({
       />
 
       {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <header className="bg-ink text-text-inverse relative isolate">
-        <div className="relative aspect-[16/10] w-full overflow-hidden sm:aspect-[21/9]">
+      <header className="bg-ink text-text-inverse relative isolate grid">
+        <div className="relative col-start-1 row-start-1 aspect-[16/10] h-full min-h-[280px] w-full overflow-hidden sm:aspect-[21/9]">
           {cover ? (
             <Image
               src={cover.url}
@@ -198,8 +198,8 @@ export default async function ExperienceDetailPage({
           />
         </div>
 
-        <div className="absolute inset-x-0 bottom-0">
-          <div className="mx-auto w-full max-w-[1200px] px-6 pb-10 sm:px-10 sm:pb-14">
+        <div className="relative z-10 col-start-1 row-start-1 w-full self-end pt-20 sm:pt-24">
+          <div className="mx-auto w-full max-w-[1200px] px-6 pb-8 sm:px-10 sm:pb-14">
             <nav aria-label="Breadcrumb" className="mb-4">
               <ol className="text-text-inverse-muted flex flex-wrap gap-2 text-[11px] tracking-[0.14em] uppercase">
                 <li>
@@ -403,7 +403,7 @@ export default async function ExperienceDetailPage({
 
 function Row({ label, value }: { readonly label: string; readonly value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-4">
+    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
       <dt className="text-text-subtle">{label}</dt>
       <dd className="text-text text-right">{value}</dd>
     </div>
