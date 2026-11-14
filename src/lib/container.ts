@@ -229,9 +229,11 @@ let discoveryService: DiscoveryService | undefined;
  * that could widen what the public site can see.
  */
 export function getDiscoveryService(): DiscoveryService {
-  // Offline fallback: see DISCOVERY_OFFLINE_FALLBACK in env.ts. Never implied
-  // in production — only an explicit flag turns it on there.
-  const offlineFallback = env.DISCOVERY_OFFLINE_FALLBACK ?? !isProduction;
+  // Offline fallback: see DISCOVERY_OFFLINE_FALLBACK in env.ts. On by default
+  // in every environment so a saturated connection pool degrades discovery to
+  // the in-memory catalogue instead of a 500; set the flag to `false` to make
+  // an outage surface as one.
+  const offlineFallback = env.DISCOVERY_OFFLINE_FALLBACK ?? true;
 
   discoveryService ??= new DiscoveryService({
     discovery: createDiscoveryRepository(prisma, (key) => getStorage().publicUrl(key), {

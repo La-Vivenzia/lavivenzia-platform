@@ -62,6 +62,20 @@ describe("isDatabaseUnreachable", () => {
     expect(isDatabaseUnreachable({ cause: { kind: "DatabaseNotReachable" } })).toBe(true);
   });
 
+  it("recognises a saturated connection pool", () => {
+    expect(
+      isDatabaseUnreachable(
+        new Error(
+          "(EMAXCONNSESSION) max clients reached in session mode - max clients are limited to pool_size: 15",
+        ),
+      ),
+    ).toBe(true);
+    expect(isDatabaseUnreachable(new Error("sorry, too many clients already"))).toBe(true);
+    for (const code of ["XX000", "53300", "53400"]) {
+      expect(isDatabaseUnreachable({ cause: { code } })).toBe(true);
+    }
+  });
+
   it("does not treat misconfiguration or query errors as an outage", () => {
     expect(isDatabaseUnreachable({ code: "P1000" })).toBe(false); // bad credentials
     expect(isDatabaseUnreachable({ code: "P1003" })).toBe(false); // no such database

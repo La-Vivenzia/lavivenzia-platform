@@ -1,4 +1,3 @@
-import { after } from "next/server";
 import { z } from "zod";
 
 import { requirePrincipal } from "@/lib/auth-context";
@@ -45,7 +44,7 @@ const PassBody = z.object({
  * `notice`.
  *
  * Once issued, the route and secret keyword are emailed to the signed-in
- * account's own address. The send runs after the response (`after`), so the
+ * account's own address. The send is fire-and-forget (not awaited), so the
  * patron is never kept waiting on a mail provider, and a delivery failure is
  * logged rather than turned into a failed booking — the pass is on screen.
  */
@@ -59,18 +58,14 @@ export const POST = withRoute<RouteContext>(async (request, { params }) => {
   const body = await parseJsonBody(request, PassBody);
   const pass = await getJourneyPassService().issue({ journeyId: id, ...body });
 
-  after(async () => {
-    try {
-      await sendJourneyPassEmail(principal.email, pass);
-    } catch (error) {
-      getLogger().warn(
-        {
-          reference: pass.reference,
-          reason: error instanceof Error ? error.message : "unknown error",
-        },
-        "journey pass confirmation email was not sent",
-      );
-    }
+  void sendJourneyPassEmail(principal.email, pass).catch((error: unknown) => {
+    getLogger().warn(
+      {
+        reference: pass.reference,
+        reason: error instanceof Error ? error.message : "unknown error",
+      },
+      "journey pass confirmation email was not sent",
+    );
   });
 
   return jsonResponse(pass, 201);

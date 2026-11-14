@@ -53,9 +53,9 @@ const baseSchema = z.object({
    * Serve the Pune pilot catalogue from memory when PostgreSQL is unreachable,
    * so the homepage and copilot render without a database.
    *
-   * Unset means "on outside production, off in production". Set `true` only on
-   * a preview that runs with NODE_ENV=production and has no database; never on
-   * the real production deployment, where an outage must look like one.
+   * Unset means "on" in every environment, so pool saturation degrades to the
+   * in-memory catalogue rather than a 500. Set `false` where an outage must
+   * surface as one.
    */
   DISCOVERY_OFFLINE_FALLBACK: z
     .enum(["true", "false"])

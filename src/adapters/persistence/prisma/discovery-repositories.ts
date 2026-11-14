@@ -164,6 +164,13 @@ const UNREACHABLE_SOCKET_CODES: ReadonlySet<string> = new Set([
   "EAI_AGAIN",
 ]);
 
+/**
+ * SQLSTATEs a saturated pooler or server answers with: `53300`
+ * too_many_connections, `53400` configuration_limit_exceeded, and `XX000`,
+ * which Supavisor uses for EMAXCONNSESSION.
+ */
+const CONNECTION_LIMIT_SQLSTATES: ReadonlySet<string> = new Set(["XX000", "53300", "53400"]);
+
 /** The driver-adapter error kinds Prisma itself maps to the codes above. */
 const UNREACHABLE_ADAPTER_KINDS: ReadonlySet<string> = new Set([
   "DatabaseNotReachable",
@@ -201,7 +208,13 @@ export function isDatabaseUnreachable(error: unknown, depth = 0): boolean {
       msg.includes("connection timeout") ||
       msg.includes("econnrefused") ||
       msg.includes("etimedout") ||
-      msg.includes("can't reach database server")
+      msg.includes("can't reach database server") ||
+      // Pool exhaustion: the server is up but will not take another session.
+      msg.includes("emaxconnsession") ||
+      msg.includes("max clients reached") ||
+      msg.includes("pool_size") ||
+      msg.includes("too many clients") ||
+      msg.includes("remaining connection slots")
     ) {
       return true;
     }
@@ -210,7 +223,9 @@ export function isDatabaseUnreachable(error: unknown, depth = 0): boolean {
   for (const code of [candidate.code, candidate.errorCode]) {
     if (
       typeof code === "string" &&
-      (UNREACHABLE_PRISMA_CODES.has(code) || UNREACHABLE_SOCKET_CODES.has(code))
+      (UNREACHABLE_PRISMA_CODES.has(code) ||
+        UNREACHABLE_SOCKET_CODES.has(code) ||
+        CONNECTION_LIMIT_SQLSTATES.has(code))
     ) {
       return true;
     }
@@ -243,11 +258,11 @@ export interface DiscoveryRepositoryOptions {
   /**
    * Serve the Pune pilot catalogue from memory when PostgreSQL is unreachable.
    *
-   * **Off unless the caller turns it on, and the container never turns it on
-   * in production.** It exists so local development and previews work
-   * without a database. A production outage must surface as an outage, not
-   * as a site that keeps quietly showing a catalogue the database may no
-   * longer agree with.
+   * **Off unless the caller turns it on.** The container turns it on by
+   * default (`DISCOVERY_OFFLINE_FALLBACK=false` opts out), so local
+   * development works without a database and a saturated production pool
+   * degrades discovery instead of failing it. The trade-off: during an outage
+   * the site shows a catalogue the database may no longer agree with.
    *
    * Only connection failures fall back — see `isDatabaseUnreachable`. A query
    * error, a constraint violation or a bad credential still throws.

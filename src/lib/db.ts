@@ -9,8 +9,11 @@ import { env, isProduction } from "@/lib/env";
  * the pool is configured here — one place, shared by the Next.js server and the
  * worker process.
  *
- * The singleton guard matters in development, where hot reload would otherwise
- * create a new pool on every edit and exhaust Postgres connections.
+ * The singleton is pinned on `globalThis` in every environment. In development
+ * hot reload would otherwise create a new pool on every edit; in production a
+ * module evaluated more than once (separate route bundles) would do the same,
+ * and Supabase's session pooler (pool_size 15) rejects the overflow with
+ * EMAXCONNSESSION.
  */
 
 const globalForPrisma = globalThis as unknown as {
@@ -22,11 +25,11 @@ function createPrismaClient(): PrismaClient {
     connectionString: env.DATABASE_URL,
     ssl: env.DATABASE_URL.includes("supabase.co") ? { rejectUnauthorized: false } : undefined,
     // Bounded pool: the web service and the worker both draw from the same
-    // database, so an unbounded pool per process is how connection limits get
-    // exhausted under load.
-    max: 10,
+    // Supabase session pooler (pool_size 15), so each process keeps a small
+    // pool and releases idle connections quickly.
+    max: 4,
     connectionTimeoutMillis: 5_000,
-    idleTimeoutMillis: 30_000,
+    idleTimeoutMillis: 10_000,
   });
 
   return new PrismaClient({
@@ -35,10 +38,6 @@ function createPrismaClient(): PrismaClient {
   });
 }
 
-export const prisma: PrismaClient = globalForPrisma.prisma ?? createPrismaClient();
-
-if (!isProduction) {
-  globalForPrisma.prisma = prisma;
-}
+export const prisma: PrismaClient = (globalForPrisma.prisma ??= createPrismaClient());
 
 export type { PrismaClient };
