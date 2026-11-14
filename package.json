@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "worker": "tsx src/worker.ts",
     "worker:dev": "tsx watch src/worker.ts",
