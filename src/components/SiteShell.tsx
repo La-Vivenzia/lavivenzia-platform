@@ -6,7 +6,6 @@ import { BottomNavigation } from "@/components/BottomNavigation";
 import { DesktopHeader } from "@/components/DesktopHeader";
 import { Footer } from "@/components/Footer";
 import { MobileHeader } from "@/components/MobileHeader";
-import { TasteCalibrationModal } from "@/components/onboarding/TasteCalibrationModal";
 
 /**
  * The chrome every public page wears.
@@ -25,6 +24,9 @@ import { TasteCalibrationModal } from "@/components/onboarding/TasteCalibrationM
  * The room the fixed mobile tab bar needs is reserved by `Footer`, which is
  * the last element on every page. Padding `main` as well left a ~7rem blank
  * band between the content and the footer on phones.
+ *
+ * The Taste Genome modal is deliberately not mounted here: it belongs to the
+ * home page's first visit only, and must never open over a deep link.
  */
 export function SiteShell({
   signedIn,
@@ -53,7 +55,6 @@ export function SiteShell({
           <Footer />
           <BottomNavigation accountHref={accountHref} />
         </div>
-        <TasteCalibrationModal />
       </CopilotProvider>
     </AuthProvider>
   );

@@ -100,7 +100,7 @@ export default async function HomePage() {
     >
       <MobileHome {...session} />
       <DesktopHome {...session} />
-      {/* The home screen composes its own chrome rather than SiteShell, so it mounts this itself. */}
+      {/* The only mount: first-visit onboarding belongs to the home page alone. */}
       <TasteCalibrationModal />
     </AuthProvider>
   );

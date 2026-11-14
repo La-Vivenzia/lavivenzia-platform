@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -11,6 +11,7 @@ import {
   type KeyboardEvent,
 } from "react";
 
+import { useAuth } from "@/components/auth/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/feedback";
 import { TextField } from "@/components/ui/field";
@@ -21,7 +22,6 @@ import {
   ACOUSTIC_LABELS,
   BEVERAGE_LABELS,
   BEVERAGE_PALATES,
-  CALIBRATED_STORAGE_KEY,
   DIETARY_LABELS,
   DIETARY_PHILOSOPHIES,
   SEATING_LABELS,
@@ -31,7 +31,15 @@ import {
   type CalibrationAnswers,
   type DietaryPhilosophy,
   type SeatingPreference,
+  type TasteGenome,
 } from "@/modules/taste-genome/types";
+import {
+  browserStores,
+  hasCalibrated,
+  isOnboardingPath,
+  rememberCalibration,
+  type CalibrationOutcome,
+} from "./calibration-memory";
 
 /**
  * First-visit Taste Genome calibration.
@@ -47,10 +55,12 @@ import {
  * profile — name and email, then the emailed code that proves the mailbox —
  * or to carry on as a guest, which is a first-class choice, not a failure.
  *
- * Skippable at every step, and a skip is remembered exactly like a
- * calibration so the modal never returns. Whether to show is read from
- * localStorage after mount, never during render, so the server and first
- * client render agree and nothing flashes.
+ * Skippable at every step, and a skip — or Escape, or a tap on the backdrop
+ * — is remembered exactly like a calibration so the modal never returns. It
+ * opens itself only on the home page, never over a deep link, and only when
+ * neither this browser nor the patron's saved genome says they have already
+ * answered. Whether to show is decided after mount, never during render, so
+ * the server and first client render agree and nothing flashes.
  */
 
 const QUESTIONS = [
@@ -79,20 +89,36 @@ interface CalibrateResponse {
   readonly anchored: boolean;
 }
 
-function remember(value: "calibrated" | "skipped"): void {
-  try {
-    localStorage.setItem(CALIBRATED_STORAGE_KEY, value);
-  } catch {
-    // Private browsing or a full quota: the modal may return next visit, nothing worse.
-  }
+interface GenomeResponse {
+  readonly genome: TasteGenome;
+}
+
+/** How long the saved-genome check may take before the browser's answer stands. */
+const GENOME_CHECK_TIMEOUT_MS = 4000;
+
+function remember(value: CalibrationOutcome): void {
+  rememberCalibration(browserStores(), value);
 }
 
 function alreadyCalibrated(): boolean {
+  return hasCalibrated(browserStores());
+}
+
+/** Whether the patron's saved genome is calibrated; null when the server could not say. */
+async function serverCalibrated(): Promise<boolean | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    return localStorage.getItem(CALIBRATED_STORAGE_KEY) !== null;
+    const result = await Promise.race([
+      api.get<GenomeResponse>("/api/v1/taste-genome"),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), GENOME_CHECK_TIMEOUT_MS);
+      }),
+    ]);
+    return typeof result?.genome?.calibrated === "boolean" ? result.genome.calibrated : null;
   } catch {
-    // Unreadable storage means we cannot remember a skip; do not nag on every page.
-    return true;
+    return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -113,6 +139,8 @@ const messageOf = (caught: unknown, fallback: string) =>
 
 export function TasteCalibrationModal() {
   const router = useRouter();
+  const pathname = usePathname();
+  const { signedIn } = useAuth();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
@@ -127,9 +155,26 @@ export function TasteCalibrationModal() {
   const panelRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
+  // Decided once, on the home page: browser memory first, then the saved genome.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after mount
-    if (!alreadyCalibrated()) setOpen(true);
+    if (!isOnboardingPath(pathname) || alreadyCalibrated()) return;
+    let cancelled = false;
+    void serverCalibrated().then((calibrated) => {
+      if (cancelled) return;
+      if (calibrated) {
+        // Answered on another device or before storage was cleared.
+        remember("calibrated");
+        return;
+      }
+      // A signed-in patron is not interrupted on a guess; they are asked next visit.
+      if (calibrated === null && signedIn) return;
+      if (!alreadyCalibrated()) setOpen(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Only the first decision matters; client navigation must not re-ask.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Hold the page still behind the dialog.
@@ -292,7 +337,11 @@ export function TasteCalibrationModal() {
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center lg:items-center lg:p-6">
-      <div aria-hidden="true" className="absolute inset-0 bg-bg/60 backdrop-blur-sm" />
+      <div
+        aria-hidden="true"
+        onClick={pending ? undefined : close}
+        className="absolute inset-0 bg-bg/60 backdrop-blur-sm"
+      />
 
       <div
         ref={panelRef}
