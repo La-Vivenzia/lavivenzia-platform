@@ -9,10 +9,10 @@ import {
 } from "@/components/journeys/JourneyExperienceView";
 import { GUEST_COOKIE, guestPatronIdOf } from "@/app/api/v1/taste-genome/_identity";
 import { getPrincipal } from "@/lib/auth-context";
-import { getCheckoutService, getDiscoveryService, getTasteGenomeService } from "@/lib/container";
+import { getDiscoveryService, getTasteGenomeService } from "@/lib/container";
 import { NotFoundError } from "@/lib/errors";
 import { getLogger } from "@/lib/logger";
-import type { CheckoutMode } from "@/modules/booking/contract";
+import type { Principal } from "@/modules/auth/authorization";
 import { findJourney, type Journey } from "@/modules/journeys/data";
 import {
   computeSensoryMatch,
@@ -22,24 +22,24 @@ import {
 
 /**
  * A curated journey as one experience (Signature Curated Experiences): the
- * arc, its sensory profile, the Digital VIP Pass and the companion map.
+ * arc, its sensory profile, saving it to My Curations and the companion map.
  *
  * The journey itself is static curation, so an unknown id is a 404 decided
  * before anything streams. Each act's cover and availability are read from the
  * live catalogue; if the catalogue cannot be read the page still renders,
- * without covers, and the pass endpoint re-checks every act at issue.
+ * without covers.
  */
 
-/** The checkout mode, degrading to "off" rather than taking the page down (ADR-0016). */
-function checkoutMode(): CheckoutMode {
+/** The signed-in principal, or null — a failed session read renders the guest page. */
+async function currentPrincipal(): Promise<Principal | null> {
   try {
-    return getCheckoutService().mode;
+    return await getPrincipal();
   } catch (error) {
-    getLogger().error(
+    getLogger().warn(
       { err: error },
-      "booking checkout is misconfigured; journey booking is closed",
+      "journey page could not read the session; rendering as a guest",
     );
-    return "off";
+    return null;
   }
 }
 
@@ -68,9 +68,11 @@ async function actMedia(journey: Journey): Promise<JourneyActMedia[]> {
  * genome to compare against. Personalisation is never a dependency: a failed
  * session or genome read renders the page without it.
  */
-async function sensoryMatch(journey: Journey): Promise<SensoryMatch | null> {
+async function sensoryMatch(
+  journey: Journey,
+  principal: Principal | null,
+): Promise<SensoryMatch | null> {
   try {
-    const principal = await getPrincipal();
     const patronId = principal
       ? `user:${principal.userId}`
       : guestPatronIdOf((await cookies()).get(GUEST_COOKIE)?.value);
@@ -116,7 +118,8 @@ export default async function JourneyPage({
   const journey = findJourney(id);
   if (!journey) notFound();
 
-  const [media, match] = await Promise.all([actMedia(journey), sensoryMatch(journey)]);
+  const principal = await currentPrincipal();
+  const [media, match] = await Promise.all([actMedia(journey), sensoryMatch(journey, principal)]);
 
   return (
     <PageBody>
@@ -125,7 +128,7 @@ export default async function JourneyPage({
         media={media}
         sensory={describeSensoryProfile(journey.sensoryProfile)}
         sensoryMatch={match}
-        checkoutMode={checkoutMode()}
+        signedIn={principal !== null}
         initialMapOpen={map === "1"}
       />
     </PageBody>

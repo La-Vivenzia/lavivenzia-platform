@@ -18,7 +18,8 @@ import type { CheckoutMode } from "@/modules/booking/contract";
 import type { JourneyPass } from "@/modules/booking/journey-pass-contract";
 import { sendJourneyPassConfirmation } from "@/modules/booking/journey-pass-email";
 import { TasteGenomeService } from "@/modules/taste-genome/service";
-import { findJourney, listCuratedJourneys } from "@/modules/journeys/data";
+import { findJourney, listCuratedJourneys, type Journey } from "@/modules/journeys/data";
+import { sendCuratedItinerary } from "@/modules/journeys/curated-itinerary-email";
 import { getLogger } from "@/lib/logger";
 import { AnthropicLlmAdapter } from "@/adapters/llm/anthropic";
 import { GeminiLlmAdapter, resolveGeminiApiKey } from "@/adapters/llm/gemini";
@@ -443,6 +444,18 @@ export function getJourneyPassService(): JourneyPassService {
  */
 export function sendJourneyPassEmail(to: string, pass: JourneyPass): Promise<SendEmailResult> {
   return sendJourneyPassConfirmation(getEmailPort(), { to, pass, appUrl: env.APP_URL });
+}
+
+/**
+ * The itinerary email for a journey saved to My Curations. Delivery failures
+ * are the caller's to log; the curation is already saved.
+ */
+export function sendCuratedItineraryEmail(
+  to: string,
+  journey: Journey,
+  partySize: number | null,
+): Promise<SendEmailResult> {
+  return sendCuratedItinerary(getEmailPort(), { to, journey, partySize, appUrl: env.APP_URL });
 }
 
 let mapsPort: MapsPort | undefined;

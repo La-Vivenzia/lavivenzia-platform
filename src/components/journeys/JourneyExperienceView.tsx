@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   AudioLines,
+  BookmarkCheck,
   Clock,
   Crown,
   KeyRound,
@@ -21,22 +22,13 @@ import {
 } from "lucide-react";
 
 import type { JourneyStop, LatLng } from "@/components/map/live-map-tracking";
-import { PartyStepper } from "@/components/ui/PartyStepper";
 import { Button } from "@/components/ui/button";
 import { Alert, Skeleton } from "@/components/ui/feedback";
 import { TextField } from "@/components/ui/field";
-import { DigitalVipPass } from "@/components/journeys/DigitalVipPass";
 import { ApiError, api } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
 import { formatClock, formatDuration } from "@/lib/format";
-import { brandThemeColor, openRazorpayCheckout } from "@/lib/razorpay-checkout";
-import type { CheckoutMode, RazorpayPaymentResult } from "@/modules/booking/contract";
-import {
-  JOURNEY_HOLDER_MAX,
-  JOURNEY_PARTY_MAX,
-  type JourneyPass,
-  type JourneyPassIntent,
-} from "@/modules/booking/journey-pass-contract";
+import { addSavedCuration, isCurationSaved, subscribeSavedCurations } from "@/lib/saved-curations";
 import type { Journey, JourneyChapter } from "@/modules/journeys/data";
 import type { SensoryDescription, SensoryMatch } from "@/modules/viveniq/sensory-vector";
 
@@ -56,13 +48,12 @@ export interface JourneyActMedia {
   readonly available: boolean | null;
 }
 
-type Phase =
-  | { readonly kind: "idle"; readonly notice?: string }
-  | { readonly kind: "preparing" }
-  | { readonly kind: "paying" }
-  | { readonly kind: "confirming" }
+type SaveState =
+  | { readonly kind: "idle" }
+  | { readonly kind: "saving" }
+  /** Saved on the device; the server could not record it or send the itinerary. */
   | { readonly kind: "failed"; readonly message: string }
-  | { readonly kind: "booked"; readonly pass: JourneyPass };
+  | { readonly kind: "saved"; readonly emailed: boolean };
 
 const NUMERALS = ["I", "II", "III"] as const;
 
@@ -89,21 +80,15 @@ function messageOf(error: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
-const STAGE_LABEL: Readonly<Record<"preparing" | "paying" | "confirming", string>> = {
-  preparing: "Preparing your evening…",
-  paying: "Completing in the secure window…",
-  confirming: "Issuing your Digital VIP Pass…",
-};
-
 /**
  * A curated journey as one experience: the arc, how the evening feels, every
- * act and — once unlocked — the VIP pass and the companion map.
+ * act and the companion map.
  *
- * No price is shown here. "Unlock Evening Pass" asks the server for a pass and
- * renders what it issues; guests need no account. The server still decides
- * whether a pass can be issued: in `razorpay_test` it refuses without a
- * verified payment, so the hosted window opens when — and only when — the
- * server's intent carries an order (CLAUDE.md §6).
+ * No price and no pass. "Add to My Curations" saves the journey on this device
+ * and asks the server to email its itinerary — to the account's own address,
+ * or to one a guest types. Once saved, every return to the page says so and
+ * offers "Start My Journey", which opens the companion HUD. Saving reserves
+ * nothing with any venue (CLAUDE.md §7).
  *
  * The sensory profile is the curators' editorial read, shown in words and never
  * as measured figures. The match is VivenIQ's deterministic comparison against
@@ -114,7 +99,7 @@ export function JourneyExperienceView({
   media,
   sensory,
   sensoryMatch,
-  checkoutMode,
+  signedIn,
   initialMapOpen = false,
 }: {
   readonly journey: Journey;
@@ -122,20 +107,30 @@ export function JourneyExperienceView({
   readonly sensory: SensoryDescription;
   /** Null when the visitor's genome declares nothing comparable. */
   readonly sensoryMatch: SensoryMatch | null;
-  readonly checkoutMode: CheckoutMode;
+  /** Signed in: the itinerary goes to the account's address, so none is asked for. */
+  readonly signedIn: boolean;
   /** Opens the companion map on arrival, e.g. from VivenIQ's journey card. */
   readonly initialMapOpen?: boolean;
 }) {
-  const [party, setParty] = useState(2);
-  const [holder, setHolder] = useState("");
-  const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  const [save, setSave] = useState<SaveState>({ kind: "idle" });
+  const [email, setEmail] = useState("");
   const [mapOpen, setMapOpen] = useState(initialMapOpen);
-  /** The evening was begun from the pass, not merely previewed on the map. */
-  const [navigating, setNavigating] = useState(false);
+  /**
+   * The evening was begun, not merely previewed on the map. Arriving with the
+   * map open (My Curations' "Start My Journey") counts; it only takes effect
+   * once the journey is known to be saved.
+   */
+  const [navigating, setNavigating] = useState(initialMapOpen);
 
-  const open = checkoutMode !== "off";
+  // Read from the device once hydrated; the server always renders "not saved".
+  const storedSaved = useSyncExternalStore(
+    subscribeSavedCurations,
+    () => isCurationSaved(journey.id),
+    () => false,
+  );
+  const saving = save.kind === "saving";
+  const saved = !saving && (storedSaved || save.kind === "saved");
   const unavailable = media.some((act) => act.available === false);
-  const pass = phase.kind === "booked" ? phase.pass : null;
 
   const stops = useMemo<readonly JourneyStop[]>(
     () =>
@@ -150,55 +145,23 @@ export function JourneyExperienceView({
   );
   const fallbackOrigin = useMemo(() => nearestAnchor(stops[0]!.coordinates), [stops]);
 
-  const busy = phase.kind === "preparing" || phase.kind === "paying" || phase.kind === "confirming";
-
   /**
-   * Prepare → (hosted checkout, only if the server's intent carries an order)
-   * → issue. The server decides whether a payment is needed; the browser's
-   * "paid" callback is a prompt to ask, never the proof.
+   * Saved on the device first, so a server or mail failure never loses the
+   * traveller's choice; the server then records it in the cookie and sends
+   * the itinerary.
    */
-  const unlock = async () => {
-    const base = `/api/v1/journeys/${encodeURIComponent(journey.id)}/pass`;
-    setPhase({ kind: "preparing" });
+  const addToCurations = async () => {
+    setSave({ kind: "saving" });
+    addSavedCuration(journey.id);
     try {
-      const intent = await api.post<JourneyPassIntent>(`${base}/checkout`, { partySize: party });
-
-      let razorpay: RazorpayPaymentResult | undefined;
-      if (intent.razorpay) {
-        setPhase({ kind: "paying" });
-        const outcome = await openRazorpayCheckout({
-          keyId: intent.razorpay.keyId,
-          orderId: intent.razorpay.orderId,
-          amountMinor: intent.razorpay.amountMinor,
-          currency: intent.razorpay.currency,
-          title: journey.title,
-          reference: journey.id,
-          themeColor: brandThemeColor(),
-        });
-        if (outcome.kind === "dismissed") {
-          setPhase({
-            kind: "idle",
-            notice: "Your pass is still waiting. Unlock it whenever you're ready.",
-          });
-          return;
-        }
-        if (outcome.kind === "failed") {
-          setPhase({ kind: "failed", message: outcome.message });
-          return;
-        }
-        razorpay = outcome.payment;
-      }
-
-      setPhase({ kind: "confirming" });
-      const issued = await api.post<JourneyPass>(base, {
-        partySize: party,
-        ...(holder.trim() ? { holderName: holder.trim() } : {}),
-        intent: intent.intent,
-        ...(razorpay ? { razorpay } : {}),
-      });
-      setPhase({ kind: "booked", pass: issued });
+      const guestEmail = signedIn ? "" : email.trim();
+      const result = await api.post<{ readonly itineraryEmailed: boolean }>(
+        "/api/v1/user/curations",
+        { journeyId: journey.id, ...(guestEmail ? { email: guestEmail } : {}) },
+      );
+      setSave({ kind: "saved", emailed: result.itineraryEmailed });
     } catch (error: unknown) {
-      setPhase({ kind: "failed", message: messageOf(error) });
+      setSave({ kind: "failed", message: messageOf(error) });
     }
   };
 
@@ -208,7 +171,7 @@ export function JourneyExperienceView({
   };
 
   return (
-    <div className={cn("flex flex-col gap-10 lg:gap-14", pass && "pb-24 lg:pb-0")}>
+    <div className={cn("flex flex-col gap-10 lg:gap-14", saved && "pb-24 lg:pb-0")}>
       {/* ── Masthead ─────────────────────────────────────────────── */}
       <header className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
         <div className="max-w-[62ch]">
@@ -290,53 +253,34 @@ export function JourneyExperienceView({
           </li>
         </ol>
 
-        {/* ── Unlock / pass ────────────────────────────────────── */}
-        <aside aria-label="Unlock this evening" className="lg:col-span-5 xl:col-span-4">
+        {/* ── My Curations ─────────────────────────────────────── */}
+        <aside aria-label="Save this journey" className="lg:col-span-5 xl:col-span-4">
           <div className="flex flex-col gap-6 rounded-card border border-line bg-surface p-5 shadow-card sm:p-6 lg:sticky lg:top-24">
-            {pass ? (
-              <DigitalVipPass pass={pass} onStartJourney={startJourney} />
-            ) : (
+            {saved ? (
               <>
                 <div>
-                  <p className="eyebrow text-[10px] text-fg-subtle">One pass, every act</p>
-                  <p className="mt-2 font-display text-[24px] leading-tight text-heading">
-                    Your Evening Pass
+                  <p className="inline-flex min-h-8 items-center gap-1.5 rounded-pill border border-accent/45 bg-surface-2 px-3 py-1 text-[12.5px] font-medium text-fg">
+                    <BookmarkCheck
+                      className="h-4 w-4 shrink-0 text-accent-ink dark:text-accent"
+                      strokeWidth={1.8}
+                      aria-hidden="true"
+                    />
+                    Saved to Your Curations
                   </p>
-                  <p className="mt-1.5 text-[12.5px] text-fg-muted">
-                    {journey.chapters.length === 2 ? "Both acts" : "All three acts"} and their
-                    privileges, opened with a single keyword.
+                  <p className="mt-4 font-display text-[24px] leading-tight text-heading">
+                    Your evening awaits
+                  </p>
+                  <p className="mt-1.5 text-[12.5px] text-fg-muted" aria-live="polite">
+                    {save.kind === "saved" && save.emailed
+                      ? "The itinerary is on its way to your inbox. "
+                      : ""}
+                    Begin whenever you&rsquo;re ready &mdash; the companion guides you act by act.
                   </p>
                 </div>
 
-                <TextField
-                  label="Name on the pass"
-                  placeholder="As the host should greet you"
-                  maxLength={JOURNEY_HOLDER_MAX}
-                  autoComplete="name"
-                  value={holder}
-                  disabled={busy}
-                  onChange={(event) => setHolder(event.target.value)}
-                />
-
-                <PartyStepper
-                  value={party}
-                  max={JOURNEY_PARTY_MAX}
-                  disabled={busy}
-                  hint={`One pass covers up to ${JOURNEY_PARTY_MAX} guests.`}
-                  onChange={(next) => {
-                    setParty(next);
-                    if (phase.kind === "failed" || phase.kind === "idle") {
-                      setPhase({ kind: "idle" });
-                    }
-                  }}
-                />
-
-                {phase.kind === "idle" && phase.notice ? (
-                  <Alert tone="info">{phase.notice}</Alert>
-                ) : null}
-                {phase.kind === "failed" ? (
-                  <Alert tone="danger" title="Your pass could not be unlocked">
-                    {phase.message}
+                {save.kind === "failed" ? (
+                  <Alert tone="warning" title="Saved on this device">
+                    We couldn&rsquo;t send the itinerary just now. {save.message}
                   </Alert>
                 ) : null}
                 {unavailable ? (
@@ -345,68 +289,90 @@ export function JourneyExperienceView({
                   </Alert>
                 ) : null}
 
-                <div className="flex flex-col gap-3">
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    className="w-full"
-                    loading={busy}
-                    disabled={!open || unavailable}
-                    onClick={() => void unlock()}
-                  >
-                    Unlock Evening Pass
+                <span className="lv-gold-glow block">
+                  <Button variant="primary" size="lg" className="w-full" onClick={startJourney}>
+                    <Navigation className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                    Start My Journey
                   </Button>
-                  {open ? (
-                    <p className="text-[12px] leading-relaxed text-fg-muted" aria-live="polite">
-                      {busy
-                        ? STAGE_LABEL[phase.kind as keyof typeof STAGE_LABEL]
-                        : "Keep your pass to hand and say its keyword at each door. Should anything need arranging before you set out, our concierge team is quietly at your service."}
-                    </p>
-                  ) : (
-                    <Alert tone="info">
-                      Journey booking opens soon. Each act can still be explored on its own page.
-                    </Alert>
-                  )}
+                </span>
+              </>
+            ) : (
+              <>
+                <div>
+                  <p className="eyebrow text-[10px] text-fg-subtle">My Curations</p>
+                  <p className="mt-2 font-display text-[24px] leading-tight text-heading">
+                    Keep this evening
+                  </p>
+                  <p className="mt-1.5 text-[12.5px] text-fg-muted">
+                    Save it and we&rsquo;ll send the full itinerary &mdash;{" "}
+                    {journey.chapters.length === 2 ? "both acts" : "all three acts"}, their
+                    privileges and directions to each door.
+                  </p>
                 </div>
+
+                {signedIn ? null : (
+                  <TextField
+                    label="Email the itinerary to"
+                    type="email"
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    hint="Optional. Without it, the journey is saved on this device only."
+                    value={email}
+                    disabled={saving}
+                    onChange={(event) => setEmail(event.target.value)}
+                  />
+                )}
+
+                {unavailable ? (
+                  <Alert tone="warning">
+                    One of this journey&rsquo;s venues isn&rsquo;t taking bookings right now.
+                  </Alert>
+                ) : null}
+
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="w-full"
+                  loading={saving}
+                  onClick={() => void addToCurations()}
+                >
+                  Add to My Curations
+                </Button>
+
+                {/* Not Button's `secondary`: its text colour is fixed and vanishes in dark mode. */}
+                <button
+                  type="button"
+                  onClick={() => setMapOpen(true)}
+                  className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-pill border border-line-strong px-4 text-[13px] font-medium text-fg transition-colors duration-200 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  <MapIcon className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                  Open Companion Map
+                </button>
               </>
             )}
-
-            {/* Not Button's `secondary`: its text colour is fixed and vanishes in dark mode. */}
-            <button
-              type="button"
-              onClick={pass ? startJourney : () => setMapOpen(true)}
-              className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-pill border border-line-strong px-4 text-[13px] font-medium text-fg transition-colors duration-200 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              {pass ? (
-                <Navigation className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-              ) : (
-                <MapIcon className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-              )}
-              {pass ? "Launch Live Tracking" : "Open Companion Map"}
-            </button>
           </div>
         </aside>
       </div>
 
       {/*
-       * Booked, on a phone or tablet: the pass scrolls away, so the one action
-       * the evening needs stays in reach. On desktop the pass column is sticky.
+       * Saved, on a phone or tablet: the card scrolls away, so the one action
+       * the evening needs stays in reach. On desktop the card is sticky.
        */}
-      {pass && !mapOpen ? (
+      {saved && !mapOpen ? (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-accent/40 bg-panel/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-panel-fg shadow-editorial backdrop-blur lg:hidden">
           <div className="mx-auto flex max-w-xl items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="eyebrow text-[9.5px] text-accent">
-                {navigating ? "Evening in progress" : "Ready to depart"}
+                {navigating ? "Evening in progress" : "Saved to your curations"}
               </p>
               <p className="mt-0.5 truncate text-[13px] text-panel-fg">
-                Chapter I · {pass.acts[0]?.title ?? journey.title}
+                Chapter I · {journey.chapters[0]?.experienceTitle ?? journey.title}
               </p>
             </div>
             <span className="lv-gold-glow shrink-0">
               <Button variant="gold" size="md" onClick={startJourney}>
                 <Navigation className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-                {navigating ? "Resume" : "Begin"}
+                {navigating ? "Resume" : "Start"}
               </Button>
             </span>
           </div>
@@ -418,9 +384,7 @@ export function JourneyExperienceView({
           <LiveMapTracker
             stops={stops}
             journeyTitle={journey.title}
-            {...(pass
-              ? { secretKeyword: pass.secretKeyword, butlerDetours: true, navigating }
-              : {})}
+            {...(saved ? { butlerDetours: true, navigating } : {})}
             fallbackOrigin={fallbackOrigin}
             onClose={() => setMapOpen(false)}
             closeLabel={navigating ? "Pause live tracking" : "Close companion map"}

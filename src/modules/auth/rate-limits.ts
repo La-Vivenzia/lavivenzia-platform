@@ -135,6 +135,18 @@ export const RATE_LIMITS = {
    */
   checkoutPerIp: { limit: 30, windowMs: 15 * MINUTE },
 
+  /** Saving a journey to My Curations per client. Cheap; bounds a script, not a person. */
+  curationSavePerIp: { limit: 60, windowMs: 15 * MINUTE },
+
+  /**
+   * Curated itinerary emails per client.
+   *
+   * Every one is a real email, and a guest may name any address, so this is as
+   * tight as the live butler's: no traveller saves ten journeys an hour, and a
+   * script cannot turn the endpoint into a mail cannon.
+   */
+  curationDispatchPerIp: { limit: 10, windowMs: HOUR },
+
   /**
    * Taste Genome calibration and telemetry per client.
    *

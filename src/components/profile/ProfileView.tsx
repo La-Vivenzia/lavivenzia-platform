@@ -4,7 +4,6 @@ import { useState, type FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  CalendarDays,
   Check,
   Compass,
   Laptop,
@@ -18,6 +17,7 @@ import {
   Utensils,
 } from "lucide-react";
 
+import { SavedCurations } from "@/components/profile/SavedCurations";
 import { Alert } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
 import { TextAreaField, TextField } from "@/components/ui/field";
@@ -698,54 +698,11 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
           <div className="flex flex-col gap-1">
             <h2 className="font-display text-xl text-text">Your Curations & Journeys</h2>
             <p className="text-[13px] text-text-subtle font-light">
-              Direct access to your scheduled Pune experiences, private bookings, and custom
-              itineraries.
+              The evenings you have saved, each ready to begin with the companion at your side.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <Link
-              href="/journeys"
-              className="group flex flex-col justify-between rounded-2xl border border-line bg-surface-1 p-6 transition-all duration-200 hover:border-gold/50 hover:bg-surface-2/60"
-            >
-              <div className="flex flex-col gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-gold/30 bg-gold-light/20 text-gold">
-                  <CalendarDays className="h-6 w-6" />
-                </div>
-                <h3 className="font-display text-lg text-text group-hover:text-gold transition-colors">
-                  Signature Journeys
-                </h3>
-                <p className="text-[13px] text-text-subtle leading-relaxed font-light">
-                  Choreographed multi-venue evening arcs in Pune with single VIP pass entry and
-                  companion routing.
-                </p>
-              </div>
-              <span className="mt-6 inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-gold">
-                View Journeys →
-              </span>
-            </Link>
-
-            <Link
-              href="/experiences"
-              className="group flex flex-col justify-between rounded-2xl border border-line bg-surface-1 p-6 transition-all duration-200 hover:border-gold/50 hover:bg-surface-2/60"
-            >
-              <div className="flex flex-col gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-line bg-surface-2 text-text">
-                  <Compass className="h-6 w-6" />
-                </div>
-                <h3 className="font-display text-lg text-text group-hover:text-gold transition-colors">
-                  Explore Curated Pune
-                </h3>
-                <p className="text-[13px] text-text-subtle leading-relaxed font-light">
-                  Browse third-wave roasters, private heritage walks, micro-vineyards, and sunset
-                  retreats.
-                </p>
-              </div>
-              <span className="mt-6 inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-text-muted group-hover:text-gold transition-colors">
-                Discover More →
-              </span>
-            </Link>
-          </div>
+          <SavedCurations />
 
           {/* VivenIQ Concierge Callout */}
           <div className="rounded-2xl border border-gold/30 bg-surface-1 p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">

@@ -55,19 +55,38 @@ export interface EmailTemplatePayloads {
     readonly simulated: boolean;
     /** The pass's own notice, printed verbatim when simulated. */
     readonly notice: string;
-    readonly acts: readonly {
-      /** "Chapter I · Prelude". */
-      readonly heading: string;
-      readonly title: string;
-      /** "19:30". */
-      readonly startsAt: string;
-      readonly addressLine: string;
-      readonly privilege: string;
-      readonly privilegeConfirmed: boolean;
-      readonly directionsUrl: string;
-    }[];
+    readonly acts: readonly JourneyActPayload[];
     readonly journeyUrl: string;
   };
+  /**
+   * A journey the traveller saved to "My Curations": the running order, sent
+   * so they have it to hand. Nothing is booked, held or charged.
+   */
+  "traveler.curated-itinerary": {
+    readonly journeyTitle: string;
+    readonly mood: string;
+    readonly tagline: string;
+    /** "2 hr 45 min". */
+    readonly duration: string;
+    /** Absent when the traveller did not say how many are going. */
+    readonly partySize: number | null;
+    readonly acts: readonly JourneyActPayload[];
+    /** Opens the journey with the companion map. */
+    readonly journeyUrl: string;
+  };
+}
+
+/** One act as both journey emails print it. */
+interface JourneyActPayload {
+  /** "Chapter I · Prelude". */
+  readonly heading: string;
+  readonly title: string;
+  /** "19:30". */
+  readonly startsAt: string;
+  readonly addressLine: string;
+  readonly privilege: string;
+  readonly privilegeConfirmed: boolean;
+  readonly directionsUrl: string;
 }
 
 export type EmailTemplateId = keyof EmailTemplatePayloads;
@@ -221,7 +240,7 @@ function companionHtml(variables: CompanionPayload): string {
 
 type PassPayload = EmailTemplatePayloads["traveler.journey-pass-confirmation"];
 
-function passActHtml(act: PassPayload["acts"][number]): string {
+function passActHtml(act: JourneyActPayload): string {
   const b = BUTLER;
   return [
     `<tr><td style="padding:0 0 14px">`,
@@ -294,6 +313,65 @@ function passHtml(variables: PassPayload): string {
       : "",
     `<p style="margin:12px 0 0;font-family:${b.sans};font-size:11px;line-height:1.6;color:${b.muted}">`,
     `You received this because you reserved this journey with ${escapeHtml(EMAIL_SENDER_NAME)}.</p>`,
+    `</td></tr>`,
+    `</table></td></tr></table></body></html>`,
+  ].join("");
+}
+
+type ItineraryPayload = EmailTemplatePayloads["traveler.curated-itinerary"];
+
+function guestsLabel(partySize: number): string {
+  return `${partySize} ${partySize === 1 ? "guest" : "guests"}`;
+}
+
+function itineraryHtml(variables: ItineraryPayload): string {
+  const b = BUTLER;
+  const meta = [
+    variables.mood,
+    variables.duration,
+    ...(variables.partySize ? [guestsLabel(variables.partySize)] : []),
+  ].join(" · ");
+  return [
+    `<!doctype html><html lang="en"><head><meta charset="utf-8">`,
+    `<meta name="viewport" content="width=device-width,initial-scale=1">`,
+    `<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark">`,
+    `<title>${escapeHtml(EMAIL_SENDER_NAME)}</title></head>`,
+    `<body style="margin:0;padding:0;background:${b.night}">`,
+    `<div style="display:none;max-height:0;overflow:hidden;opacity:0">`,
+    `${escapeHtml(variables.journeyTitle)} — ${escapeHtml(variables.tagline)}</div>`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
+    `style="background:${b.night}"><tr><td align="center" style="padding:32px 16px">`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
+    `style="max-width:560px">`,
+    `<tr><td style="padding:0 0 28px;text-align:center">`,
+    `<p style="margin:0 0 18px;font-family:${b.serif};font-size:15px;letter-spacing:4px;`,
+    `text-transform:uppercase;color:${b.gold}">${escapeHtml(EMAIL_SENDER_NAME)}</p>`,
+    `<span style="display:inline-block;padding:6px 14px;border:1px solid ${b.gold};border-radius:999px;`,
+    `font-family:${b.sans};font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${b.gold}">`,
+    `Saved to your curations</span>`,
+    `</td></tr>`,
+    `<tr><td style="padding:0 0 24px">`,
+    `<h1 style="margin:0 0 10px;font-family:${b.serif};font-size:26px;line-height:1.25;`,
+    `font-weight:normal;color:${b.ivory}">${escapeHtml(variables.journeyTitle)}</h1>`,
+    `<p style="margin:0 0 10px;font-family:${b.sans};font-size:15px;line-height:1.6;color:${b.ivory}">`,
+    `${escapeHtml(variables.tagline)}</p>`,
+    `<p style="margin:0;font-family:${b.sans};font-size:12px;letter-spacing:1px;color:${b.muted}">`,
+    `${escapeHtml(meta)}</p>`,
+    `</td></tr>`,
+    variables.acts.map(passActHtml).join(""),
+    `<tr><td style="padding:10px 0 0;text-align:center">`,
+    `<a href="${safeHref(variables.journeyUrl)}" `,
+    `style="display:inline-block;padding:12px 22px;border-radius:999px;background:${b.gold};`,
+    `color:${b.night};font-family:${b.sans};font-size:13px;font-weight:600;letter-spacing:0.5px;`,
+    `text-decoration:none">Start my journey &rarr;</a>`,
+    `</td></tr>`,
+    `<tr><td style="padding:24px 0 0;border-top:1px solid ${b.rule}">`,
+    `<p style="margin:16px 0 0;font-family:${b.sans};font-size:11px;line-height:1.6;color:${b.muted}">`,
+    `Start times are a suggested running order. Nothing has been booked or held with any venue; `,
+    `each experience page confirms times and tables live.</p>`,
+    `<p style="margin:12px 0 0;font-family:${b.sans};font-size:11px;line-height:1.6;color:${b.muted}">`,
+    `You received this because this journey was saved to My Curations at `,
+    `${escapeHtml(EMAIL_SENDER_NAME)}.</p>`,
     `</td></tr>`,
     `</table></td></tr></table></body></html>`,
   ].join("");
@@ -386,6 +464,38 @@ const TEMPLATES: { [K in EmailTemplateId]: EmailTemplate<K> } = {
       ].join("\n"),
 
     html: passHtml,
+  },
+  "traveler.curated-itinerary": {
+    subject: ({ journeyTitle }) => `Your curated itinerary: ${journeyTitle}`,
+
+    text: (variables) =>
+      [
+        variables.journeyTitle,
+        variables.tagline,
+        "",
+        [
+          variables.mood,
+          variables.duration,
+          ...(variables.partySize ? [guestsLabel(variables.partySize)] : []),
+        ].join(" · "),
+        "",
+        ...variables.acts.flatMap((act) => [
+          `— ${act.heading} · ${act.startsAt}`,
+          `  ${act.title}`,
+          `  ${act.addressLine}`,
+          `  ${act.privilege} · ${act.privilegeConfirmed ? "confirmed" : "requested"}`,
+          `  Directions: ${act.directionsUrl}`,
+          "",
+        ]),
+        `Start your journey: ${variables.journeyUrl}`,
+        "",
+        "Start times are a suggested running order. Nothing has been booked or held with any",
+        "venue; each experience page confirms times and tables live.",
+        "",
+        `${EMAIL_SENDER_NAME}`,
+      ].join("\n"),
+
+    html: itineraryHtml,
   },
 };
 

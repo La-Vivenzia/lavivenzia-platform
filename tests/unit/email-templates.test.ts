@@ -102,6 +102,7 @@ describe("template registry", () => {
       "auth.login-code",
       "traveler.in-journey-companion",
       "traveler.journey-pass-confirmation",
+      "traveler.curated-itinerary",
     ]);
   });
 
