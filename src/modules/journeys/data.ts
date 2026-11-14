@@ -65,6 +65,44 @@ export const JOURNEY_OCCASIONS: readonly JourneyOccasion[] = [
  */
 export const TRANSITION_MINUTES = { min: 15, max: 30 } as const;
 
+/** How shielded a party is from the rest of the room, most open first. */
+export type SeatingPrivacy = "open" | "semi-private" | "secluded" | "private";
+
+export const SEATING_PRIVACY_LEVELS: readonly SeatingPrivacy[] = [
+  "open",
+  "semi-private",
+  "secluded",
+  "private",
+];
+
+/**
+ * How an evening feels across its acts — what VivenIQ's sensory match
+ * compares against a patron's Taste Genome.
+ *
+ * **Editorial estimates, not measurements.** Nobody has metered these rooms;
+ * the figures are the curators' read of a typical evening, so the interface
+ * may describe them ("conversation-quiet", "candle-dim") but must never print
+ * them as a measured fact. Like privileges, the secret ritual is something the
+ * traveller does, never a service a venue has agreed to provide.
+ */
+export interface SensoryProfile {
+  /** Typical ambient level across the acts, dB(A). */
+  readonly acousticDecibels: number;
+  /** Typical light at the table, lux. */
+  readonly lightingLux: number;
+  readonly seatingPrivacy: SeatingPrivacy;
+  /** How sharply the acts differ from one another, 0 (one mood) to 1 (a swing). */
+  readonly sensoryContrast: number;
+  /** A small, traveller-led ritual that threads the evening together. */
+  readonly secretRitual: string;
+}
+
+/** Sanity bounds for an editorial estimate — outside them a value is a typo. */
+export const SENSORY_BOUNDS = {
+  acousticDecibels: { min: 30, max: 100 },
+  lightingLux: { min: 1, max: 2000 },
+} as const;
+
 interface ChapterDefinition {
   readonly role: ChapterRole;
   readonly experienceSlug: string;
@@ -79,6 +117,7 @@ interface JourneyDefinition {
   readonly mood: string;
   readonly tagline: string;
   readonly occasions: readonly JourneyOccasion[];
+  readonly sensoryProfile: SensoryProfile;
   /** Two acts (prelude, centerpiece) or three (prelude, centerpiece, epilogue). */
   readonly chapters:
     | readonly [ChapterDefinition, ChapterDefinition]
@@ -97,6 +136,13 @@ const FEATURED_DEFINITIONS: readonly JourneyDefinition[] = [
     mood: "Indulgent",
     tagline: "From a slow pour-over to starlit cocktails, one unhurried evening of taste.",
     occasions: ["connoisseur", "date"],
+    sensoryProfile: {
+      acousticDecibels: 68,
+      lightingLux: 120,
+      seatingPrivacy: "semi-private",
+      sensoryContrast: 0.55,
+      secretRitual: "Ask the barista which origin they would drink themselves, and order that one.",
+    },
     chapters: [
       {
         role: "prelude",
@@ -136,6 +182,13 @@ const FEATURED_DEFINITIONS: readonly JourneyDefinition[] = [
     mood: "Thrilling",
     tagline: "Crack the code, own the lanes, then toast the win.",
     occasions: ["celebration", "weekend"],
+    sensoryProfile: {
+      acousticDecibels: 82,
+      lightingLux: 250,
+      seatingPrivacy: "open",
+      sensoryContrast: 0.8,
+      secretRitual: "Whoever loses the bowling frame gives the toast at the taps.",
+    },
     chapters: [
       {
         role: "prelude",
@@ -175,6 +228,13 @@ const FEATURED_DEFINITIONS: readonly JourneyDefinition[] = [
     mood: "Restorative",
     tagline: "Golden hour by the water, stillness in the spa, supper under the trees.",
     occasions: ["unwind", "weekend"],
+    sensoryProfile: {
+      acousticDecibels: 42,
+      lightingLux: 60,
+      seatingPrivacy: "private",
+      sensoryContrast: 0.25,
+      secretRitual: "Leave your phone face-down from the lakefront until the first course.",
+    },
     chapters: [
       {
         role: "prelude",
@@ -214,6 +274,13 @@ const FEATURED_DEFINITIONS: readonly JourneyDefinition[] = [
     mood: "Romantic",
     tagline: "Garden afternoon, a private screen, and a fire-lit table for two.",
     occasions: ["date", "celebration"],
+    sensoryProfile: {
+      acousticDecibels: 62,
+      lightingLux: 90,
+      seatingPrivacy: "secluded",
+      sensoryContrast: 0.6,
+      secretRitual: "Each of you saves one scene from the film to talk about over the grill.",
+    },
     chapters: [
       {
         role: "prelude",
@@ -260,6 +327,13 @@ const SIGNATURE_DEFINITIONS: readonly JourneyDefinition[] = [
     mood: "Romantic",
     tagline: "Skyline pours on an open-air rooftop, then a mezzanine dinner of craft flights.",
     occasions: ["date", "celebration"],
+    sensoryProfile: {
+      acousticDecibels: 60,
+      lightingLux: 40,
+      seatingPrivacy: "secluded",
+      sensoryContrast: 0.4,
+      secretRitual: "Time the first toast to the last light over the skyline.",
+    },
     chapters: [
       {
         role: "prelude",
@@ -289,6 +363,13 @@ const SIGNATURE_DEFINITIONS: readonly JourneyDefinition[] = [
     mood: "Restorative",
     tagline: "A lakeside sunset, an hour at the potter's wheel, a slow supper in the garden.",
     occasions: ["unwind", "weekend"],
+    sensoryProfile: {
+      acousticDecibels: 45,
+      lightingLux: 150,
+      seatingPrivacy: "semi-private",
+      sensoryContrast: 0.3,
+      secretRitual: "Press your initials into the base of the clay before it dries.",
+    },
     chapters: [
       {
         role: "prelude",
@@ -328,6 +409,13 @@ const SIGNATURE_DEFINITIONS: readonly JourneyDefinition[] = [
     mood: "Connoisseur",
     tagline: "A brewmaster’s flight in Kalyani Nagar, then hand-folded dim sum in Viman Nagar.",
     occasions: ["connoisseur", "weekend"],
+    sensoryProfile: {
+      acousticDecibels: 72,
+      lightingLux: 110,
+      seatingPrivacy: "semi-private",
+      sensoryContrast: 0.45,
+      secretRitual: "Save one sip of the final flight for the first dumpling.",
+    },
     chapters: [
       {
         role: "prelude",
@@ -357,6 +445,13 @@ const SIGNATURE_DEFINITIONS: readonly JourneyDefinition[] = [
     mood: "Celebratory",
     tagline: "Laser tag to warm up, a charcoal grill to refuel, a bidding bar to finish.",
     occasions: ["celebration", "weekend"],
+    sensoryProfile: {
+      acousticDecibels: 85,
+      lightingLux: 180,
+      seatingPrivacy: "open",
+      sensoryContrast: 0.85,
+      secretRitual: "The laser-tag winner places the first bid at the bar.",
+    },
     chapters: [
       {
         role: "prelude",
@@ -396,6 +491,13 @@ const SIGNATURE_DEFINITIONS: readonly JourneyDefinition[] = [
     mood: "Romantic",
     tagline: "From a slow pour-over for two to wood-fired pizza under the brewery lights.",
     occasions: ["date"],
+    sensoryProfile: {
+      acousticDecibels: 66,
+      lightingLux: 80,
+      seatingPrivacy: "secluded",
+      sensoryContrast: 0.5,
+      secretRitual: "Order each other's coffee without asking, then compare notes over the pizza.",
+    },
     chapters: [
       {
         role: "prelude",
@@ -425,6 +527,13 @@ const SIGNATURE_DEFINITIONS: readonly JourneyDefinition[] = [
     mood: "Thrilling",
     tagline: "Strikes under the twilight lights, then a bar where the prices move with the room.",
     occasions: ["weekend", "celebration"],
+    sensoryProfile: {
+      acousticDecibels: 84,
+      lightingLux: 220,
+      seatingPrivacy: "open",
+      sensoryContrast: 0.7,
+      secretRitual: "Bank your best frame's score and bid that number at the bar.",
+    },
     chapters: [
       {
         role: "prelude",
@@ -454,6 +563,13 @@ const SIGNATURE_DEFINITIONS: readonly JourneyDefinition[] = [
     mood: "Artisanal",
     tagline: "Clay on the wheel, sourdough in the garden, shaved-ice bingsu to close.",
     occasions: ["weekend", "unwind"],
+    sensoryProfile: {
+      acousticDecibels: 55,
+      lightingLux: 300,
+      seatingPrivacy: "open",
+      sensoryContrast: 0.35,
+      secretRitual: "Name the bowl you threw after the bingsu flavour you finish on.",
+    },
     chapters: [
       {
         role: "prelude",
@@ -516,6 +632,7 @@ export interface Journey {
   readonly mood: string;
   readonly tagline: string;
   readonly occasions: readonly JourneyOccasion[];
+  readonly sensoryProfile: SensoryProfile;
   /** True for the four launch arcs the home page presents. */
   readonly featured: boolean;
   /** First start to last finish, including the walks between venues. */
@@ -572,6 +689,23 @@ function resolveChapter(
   };
 }
 
+function assertSensoryProfile(journeyId: string, profile: SensoryProfile): void {
+  const within = (value: number, bounds: { readonly min: number; readonly max: number }) =>
+    Number.isFinite(value) && value >= bounds.min && value <= bounds.max;
+  if (!within(profile.acousticDecibels, SENSORY_BOUNDS.acousticDecibels)) {
+    throw new JourneyDefinitionError(`Journey "${journeyId}" has an implausible decibel level.`);
+  }
+  if (!within(profile.lightingLux, SENSORY_BOUNDS.lightingLux)) {
+    throw new JourneyDefinitionError(`Journey "${journeyId}" has an implausible lighting level.`);
+  }
+  if (!within(profile.sensoryContrast, { min: 0, max: 1 })) {
+    throw new JourneyDefinitionError(`Journey "${journeyId}" sensory contrast must be 0–1.`);
+  }
+  if (profile.secretRitual.trim().length === 0) {
+    throw new JourneyDefinitionError(`Journey "${journeyId}" has no secret ritual.`);
+  }
+}
+
 function resolveJourney(
   definition: JourneyDefinition,
   catalogue: ReadonlyMap<string, PilotExperienceInput>,
@@ -584,6 +718,7 @@ function resolveJourney(
   if (definition.occasions.length === 0) {
     throw new JourneyDefinitionError(`Journey "${definition.id}" answers no occasion.`);
   }
+  assertSensoryProfile(definition.id, definition.sensoryProfile);
 
   chapters.forEach((chapter, index) => {
     // Acts follow the arc in order: two acts are a prelude and a centerpiece,
@@ -619,6 +754,7 @@ function resolveJourney(
     mood: definition.mood,
     tagline: definition.tagline,
     occasions: definition.occasions,
+    sensoryProfile: definition.sensoryProfile,
     featured,
     totalDurationMinutes: last.endMinute - first.startMinute,
     totalPriceMinor: chapters.reduce((sum, chapter) => sum + chapter.priceMinor, 0),

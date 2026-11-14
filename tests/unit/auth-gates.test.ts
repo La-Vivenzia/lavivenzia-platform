@@ -46,8 +46,17 @@ describe("transaction endpoints", () => {
   it.each([
     ["app/api/v1/experiences/[slug]/checkout/route.ts"],
     ["app/api/v1/experiences/[slug]/checkout/confirm/route.ts"],
-    ["app/api/v1/journeys/[id]/pass/route.ts"],
   ])("%s requires a signed-in principal", (file) => {
     expect(readFileSync(join(SRC, file), "utf8")).toContain("await requirePrincipal()");
+  });
+
+  // Journey passes are deliberately open to guests; the per-IP limit is the gate.
+  it.each([
+    ["app/api/v1/journeys/[id]/pass/route.ts"],
+    ["app/api/v1/journeys/[id]/pass/checkout/route.ts"],
+  ])("%s lets guests unlock a pass, rate-limited per IP", (file) => {
+    const source = readFileSync(join(SRC, file), "utf8");
+    expect(source).not.toContain("requirePrincipal()");
+    expect(source).toContain('await enforceIpRateLimit("checkoutPerIp")');
   });
 });

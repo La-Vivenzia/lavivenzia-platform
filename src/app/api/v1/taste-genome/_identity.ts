@@ -39,8 +39,12 @@ function readCookie(request: Request, name: string): string | null {
  * Only a well-formed id is honoured, so the cookie cannot inject arbitrary keys.
  */
 export function readGuestPatronId(request: Request): string | null {
-  const existing = readCookie(request, GUEST_COOKIE);
-  return existing && UUID.test(existing) ? `guest:${existing}` : null;
+  return guestPatronIdOf(readCookie(request, GUEST_COOKIE));
+}
+
+/** The guest patron id for a raw cookie value, or null when it is not well-formed. */
+export function guestPatronIdOf(value: string | null | undefined): string | null {
+  return value && UUID.test(value) ? `guest:${value}` : null;
 }
 
 /**

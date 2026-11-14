@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { requirePrincipal } from "@/lib/auth-context";
+import { getPrincipal } from "@/lib/auth-context";
 import { getJourneyPassService, sendJourneyPassEmail } from "@/lib/container";
 import { jsonResponse, parseJsonBody, withRoute } from "@/lib/http";
 import { getLogger } from "@/lib/logger";
@@ -43,30 +43,32 @@ const PassBody = z.object({
  * any venue in any mode; the response says so in `simulated`, `payment` and
  * `notice`.
  *
- * Once issued, the route and secret keyword are emailed to the signed-in
- * account's own address. The send is fire-and-forget (not awaited), so the
+ * Guests may unlock a pass without an account; the per-IP limit is the gate.
+ * A signed-in patron additionally has the route and secret keyword emailed to
+ * the account's own address — a guest has none, and keeps the pass on screen. The send is fire-and-forget (not awaited), so the
  * patron is never kept waiting on a mail provider, and a delivery failure is
  * logged rather than turned into a failed booking — the pass is on screen.
  */
 export const POST = withRoute<RouteContext>(async (request, { params }) => {
   await enforceIpRateLimit("checkoutPerIp");
 
-  // Reserving is for signed-in patrons; browsing the listing is not gated.
-  const principal = await requirePrincipal();
+  const principal = await getPrincipal();
 
   const { id } = await params;
   const body = await parseJsonBody(request, PassBody);
   const pass = await getJourneyPassService().issue({ journeyId: id, ...body });
 
-  void sendJourneyPassEmail(principal.email, pass).catch((error: unknown) => {
-    getLogger().warn(
-      {
-        reference: pass.reference,
-        reason: error instanceof Error ? error.message : "unknown error",
-      },
-      "journey pass confirmation email was not sent",
-    );
-  });
+  if (principal) {
+    void sendJourneyPassEmail(principal.email, pass).catch((error: unknown) => {
+      getLogger().warn(
+        {
+          reference: pass.reference,
+          reason: error instanceof Error ? error.message : "unknown error",
+        },
+        "journey pass confirmation email was not sent",
+      );
+    });
+  }
 
   return jsonResponse(pass, 201);
 });

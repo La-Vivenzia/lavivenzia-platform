@@ -175,36 +175,26 @@ export function DigitalVipPass({
             aria-hidden="true"
           />
           <p className="text-[12px] leading-relaxed text-panel-fg/90">
-            <span className="font-semibold text-accent">Pay once, show up.</span> All inclusions and
-            taxes are settled in one booking. Present this pass or state the secret keyword on
-            arrival for priority seating — there is no bill to settle at any act.
+            <span className="font-semibold text-accent">Private Curated Evening.</span> Present this
+            pass or state your secret keyword on arrival for priority host reception and bespoke
+            privileges.
           </p>
         </div>
       </div>
 
       <dl className="flex flex-col gap-2.5 text-[13px]">
+        <PassRow label="Curated Arc" value={`${pass.acts.length} Acts`} />
         <PassRow
-          label="Per person, all acts"
-          value={money(payment.perPersonMinor, payment.currency)}
+          label="Party Size"
+          value={`${pass.partySize} ${pass.partySize === 1 ? "Guest" : "Guests"}`}
         />
-        <PassRow
-          label={payment.status === "SIMULATED" ? "Total (not charged)" : "Total"}
-          value={money(payment.amountMinor, payment.currency)}
-        />
-        <PassRow
-          label={payment.status === "PAID_TEST" ? "Paid (Razorpay test)" : "Charged"}
-          value={money(payment.chargedMinor, payment.currency)}
-        />
-        {payment.paymentId ? <PassRow label="Payment ID" value={payment.paymentId} /> : null}
+        <PassRow label="Access Status" value="Active · Private Companion" />
       </dl>
 
-      {pass.simulated ? (
-        <p className="flex items-start gap-2 text-[12px] leading-relaxed text-fg-muted">
-          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          {pass.notice} Privileges marked &ldquo;requested&rdquo; are subject to each venue&rsquo;s
-          confirmation.
-        </p>
-      ) : null}
+      <p className="flex items-start gap-2 text-[12px] leading-relaxed text-fg-muted">
+        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        Bespoke self-guided evening. Venue privileges are requested on your behalf by La Vivenzia.
+      </p>
     </section>
   );
 }

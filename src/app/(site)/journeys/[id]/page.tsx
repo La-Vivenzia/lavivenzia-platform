@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { PageBody } from "@/components/PageHeader";
@@ -6,16 +7,22 @@ import {
   JourneyExperienceView,
   type JourneyActMedia,
 } from "@/components/journeys/JourneyExperienceView";
+import { GUEST_COOKIE, guestPatronIdOf } from "@/app/api/v1/taste-genome/_identity";
 import { getPrincipal } from "@/lib/auth-context";
-import { getCheckoutService, getDiscoveryService } from "@/lib/container";
+import { getCheckoutService, getDiscoveryService, getTasteGenomeService } from "@/lib/container";
 import { NotFoundError } from "@/lib/errors";
 import { getLogger } from "@/lib/logger";
 import type { CheckoutMode } from "@/modules/booking/contract";
 import { findJourney, type Journey } from "@/modules/journeys/data";
+import {
+  computeSensoryMatch,
+  describeSensoryProfile,
+  type SensoryMatch,
+} from "@/modules/viveniq/sensory-vector";
 
 /**
  * A curated journey as one experience (Signature Curated Experiences): the
- * arc, a single combined checkout, the Digital VIP Pass and the companion map.
+ * arc, its sensory profile, the Digital VIP Pass and the companion map.
  *
  * The journey itself is static curation, so an unknown id is a 404 decided
  * before anything streams. Each act's cover and availability are read from the
@@ -56,6 +63,29 @@ async function actMedia(journey: Journey): Promise<JourneyActMedia[]> {
   );
 }
 
+/**
+ * How the evening suits the visitor's Taste Genome, or null when there is no
+ * genome to compare against. Personalisation is never a dependency: a failed
+ * session or genome read renders the page without it.
+ */
+async function sensoryMatch(journey: Journey): Promise<SensoryMatch | null> {
+  try {
+    const principal = await getPrincipal();
+    const patronId = principal
+      ? `user:${principal.userId}`
+      : guestPatronIdOf((await cookies()).get(GUEST_COOKIE)?.value);
+    if (!patronId) return null;
+    const match = computeSensoryMatch(await getTasteGenomeService().getGenome(patronId), journey);
+    return match.score === null ? null : match;
+  } catch (error) {
+    getLogger().warn(
+      { err: error, journey: journey.id },
+      "journey page could not read the taste genome; rendering without a sensory match",
+    );
+    return null;
+  }
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -86,16 +116,17 @@ export default async function JourneyPage({
   const journey = findJourney(id);
   if (!journey) notFound();
 
-  const principal = await getPrincipal();
+  const [media, match] = await Promise.all([actMedia(journey), sensoryMatch(journey)]);
 
   return (
     <PageBody>
       <JourneyExperienceView
         journey={journey}
-        media={await actMedia(journey)}
+        media={media}
+        sensory={describeSensoryProfile(journey.sensoryProfile)}
+        sensoryMatch={match}
         checkoutMode={checkoutMode()}
         initialMapOpen={map === "1"}
-        signedIn={principal !== null}
       />
     </PageBody>
   );

@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { requirePrincipal } from "@/lib/auth-context";
 import { getJourneyPassService } from "@/lib/container";
 import { jsonResponse, parseJsonBody, withRoute } from "@/lib/http";
 import { enforceIpRateLimit } from "@/lib/rate-limit";
@@ -26,10 +25,9 @@ const CheckoutBody = z.object({
  * provider is called. The intent goes back, untouched, to `POST …/pass`.
  */
 export const POST = withRoute<RouteContext>(async (request, { params }) => {
+  // Open to guests: unlocking an evening needs no account. The per-IP limit
+  // is the gate against abuse.
   await enforceIpRateLimit("checkoutPerIp");
-
-  // Reserving is for signed-in patrons; browsing the listing is not gated.
-  await requirePrincipal();
 
   const { id } = await params;
   const body = await parseJsonBody(request, CheckoutBody);

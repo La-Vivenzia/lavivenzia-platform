@@ -4,15 +4,19 @@ import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
+  Armchair,
   ArrowRight,
   ArrowUpRight,
+  AudioLines,
   Clock,
   Crown,
+  KeyRound,
+  Lamp,
   Map as MapIcon,
   MapPin,
   Navigation,
+  Sparkles,
   Timer,
 } from "lucide-react";
 
@@ -22,12 +26,9 @@ import { Button } from "@/components/ui/button";
 import { Alert, Skeleton } from "@/components/ui/feedback";
 import { TextField } from "@/components/ui/field";
 import { DigitalVipPass } from "@/components/journeys/DigitalVipPass";
-import { PaymentProcessing } from "@/components/site/payment-processing";
 import { ApiError, api } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
-import { currentPath, signInHref } from "@/lib/destinations";
-import { formatClock, formatDuration, formatMoneyMinor } from "@/lib/format";
-import { SIMULATED_PROCESSING_MS, holdAtLeast } from "@/lib/hold";
+import { formatClock, formatDuration } from "@/lib/format";
 import { brandThemeColor, openRazorpayCheckout } from "@/lib/razorpay-checkout";
 import type { CheckoutMode, RazorpayPaymentResult } from "@/modules/booking/contract";
 import {
@@ -37,6 +38,7 @@ import {
   type JourneyPassIntent,
 } from "@/modules/booking/journey-pass-contract";
 import type { Journey, JourneyChapter } from "@/modules/journeys/data";
+import type { SensoryDescription, SensoryMatch } from "@/modules/viveniq/sensory-vector";
 
 const LiveMapTracker = dynamic(
   () => import("@/components/map/LiveMapTracker").then((mod) => mod.LiveMapTracker),
@@ -57,8 +59,8 @@ export interface JourneyActMedia {
 type Phase =
   | { readonly kind: "idle"; readonly notice?: string }
   | { readonly kind: "preparing" }
-  | { readonly kind: "paying"; readonly mode: Exclude<CheckoutMode, "off"> }
-  | { readonly kind: "confirming"; readonly mode: Exclude<CheckoutMode, "off"> }
+  | { readonly kind: "paying" }
+  | { readonly kind: "confirming" }
   | { readonly kind: "failed"; readonly message: string }
   | { readonly kind: "booked"; readonly pass: JourneyPass };
 
@@ -87,35 +89,43 @@ function messageOf(error: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
-const money = (minor: number, currency: string) => formatMoneyMinor(minor, currency) ?? "—";
+const STAGE_LABEL: Readonly<Record<"preparing" | "paying" | "confirming", string>> = {
+  preparing: "Preparing your evening…",
+  paying: "Completing in the secure window…",
+  confirming: "Issuing your Digital VIP Pass…",
+};
 
 /**
- * A curated journey as one experience: the arc, every act, a single combined
- * checkout and — once booked — the VIP pass and the companion map.
+ * A curated journey as one experience: the arc, how the evening feels, every
+ * act and — once unlocked — the VIP pass and the companion map.
  *
- * Prices shown before booking are the journey's catalogue prices, for
- * preview. The pass is priced by the server from the live listings, and that
- * is the figure the pass prints (CLAUDE.md §6).
+ * No price is shown here. "Unlock Evening Pass" asks the server for a pass and
+ * renders what it issues; guests need no account. The server still decides
+ * whether a pass can be issued: in `razorpay_test` it refuses without a
+ * verified payment, so the hosted window opens when — and only when — the
+ * server's intent carries an order (CLAUDE.md §6).
  *
- * Everything but the reservation is public. A signed-out visitor is offered
- * "Sign in to Reserve Experience", which returns them here; the pass endpoint
- * refuses anonymous requests on its own.
+ * The sensory profile is the curators' editorial read, shown in words and never
+ * as measured figures. The match is VivenIQ's deterministic comparison against
+ * the visitor's Taste Genome, absent when there is nothing to compare.
  */
 export function JourneyExperienceView({
   journey,
   media,
+  sensory,
+  sensoryMatch,
   checkoutMode,
   initialMapOpen = false,
-  signedIn,
 }: {
   readonly journey: Journey;
   readonly media: readonly JourneyActMedia[];
+  readonly sensory: SensoryDescription;
+  /** Null when the visitor's genome declares nothing comparable. */
+  readonly sensoryMatch: SensoryMatch | null;
   readonly checkoutMode: CheckoutMode;
   /** Opens the companion map on arrival, e.g. from VivenIQ's journey card. */
   readonly initialMapOpen?: boolean;
-  readonly signedIn: boolean;
 }) {
-  const router = useRouter();
   const [party, setParty] = useState(2);
   const [holder, setHolder] = useState("");
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
@@ -143,12 +153,11 @@ export function JourneyExperienceView({
   const busy = phase.kind === "preparing" || phase.kind === "paying" || phase.kind === "confirming";
 
   /**
-   * Prepare → (Razorpay, when keys are configured) → issue. The server prices
-   * the party and, in test mode, creates the order; the pass is issued only
-   * after the server verifies the payment signature. The browser's "paid"
-   * callback is a prompt to ask, never the proof.
+   * Prepare → (hosted checkout, only if the server's intent carries an order)
+   * → issue. The server decides whether a payment is needed; the browser's
+   * "paid" callback is a prompt to ask, never the proof.
    */
-  const reserve = async () => {
+  const unlock = async () => {
     const base = `/api/v1/journeys/${encodeURIComponent(journey.id)}/pass`;
     setPhase({ kind: "preparing" });
     try {
@@ -156,7 +165,7 @@ export function JourneyExperienceView({
 
       let razorpay: RazorpayPaymentResult | undefined;
       if (intent.razorpay) {
-        setPhase({ kind: "paying", mode: intent.mode });
+        setPhase({ kind: "paying" });
         const outcome = await openRazorpayCheckout({
           keyId: intent.razorpay.keyId,
           orderId: intent.razorpay.orderId,
@@ -169,7 +178,7 @@ export function JourneyExperienceView({
         if (outcome.kind === "dismissed") {
           setPhase({
             kind: "idle",
-            notice: "Payment was cancelled. Nothing was charged — reserve again when you're ready.",
+            notice: "Your pass is still waiting. Unlock it whenever you're ready.",
           });
           return;
         }
@@ -180,18 +189,13 @@ export function JourneyExperienceView({
         razorpay = outcome.payment;
       }
 
-      setPhase({ kind: "confirming", mode: intent.mode });
-      const issuing = api.post<JourneyPass>(base, {
+      setPhase({ kind: "confirming" });
+      const issued = await api.post<JourneyPass>(base, {
         partySize: party,
         ...(holder.trim() ? { holderName: holder.trim() } : {}),
         intent: intent.intent,
         ...(razorpay ? { razorpay } : {}),
       });
-      // The demo has no provider to wait on, so it holds "Processing payment…"
-      // long enough to read. A real verification is never padded.
-      const issued = await (intent.mode === "demo"
-        ? holdAtLeast(issuing, SIMULATED_PROCESSING_MS)
-        : issuing);
       setPhase({ kind: "booked", pass: issued });
     } catch (error: unknown) {
       setPhase({ kind: "failed", message: messageOf(error) });
@@ -234,13 +238,14 @@ export function JourneyExperienceView({
               </dd>
             </div>
           ) : null}
-          <div>
-            <dt className="eyebrow text-[10px] text-fg-subtle">All-inclusive</dt>
-            <dd className="mt-1 font-display text-[22px] text-heading">
-              {money(journey.totalPriceMinor, journey.currency)}
-              <span className="text-[13px] text-fg-muted"> / person</span>
-            </dd>
-          </div>
+          {sensoryMatch ? (
+            <div>
+              <dt className="eyebrow text-[10px] text-fg-subtle">Sensory match</dt>
+              <dd className="mt-1 font-display text-[22px] text-heading tabular-nums">
+                {sensoryMatch.score}%
+              </dd>
+            </div>
+          ) : null}
         </dl>
       </header>
 
@@ -265,6 +270,8 @@ export function JourneyExperienceView({
         ))}
       </ol>
 
+      <SensoryPanel sensory={sensory} match={sensoryMatch} />
+
       <div className="grid gap-8 lg:grid-cols-12 lg:gap-10">
         {/* ── Acts ─────────────────────────────────────────────── */}
         <ol className="flex flex-col gap-5 lg:col-span-7 xl:col-span-8">
@@ -283,22 +290,21 @@ export function JourneyExperienceView({
           </li>
         </ol>
 
-        {/* ── Reserve / pass ───────────────────────────────────── */}
-        <aside aria-label="Reserve this experience" className="lg:col-span-5 xl:col-span-4">
+        {/* ── Unlock / pass ────────────────────────────────────── */}
+        <aside aria-label="Unlock this evening" className="lg:col-span-5 xl:col-span-4">
           <div className="flex flex-col gap-6 rounded-card border border-line bg-surface p-5 shadow-card sm:p-6 lg:sticky lg:top-24">
             {pass ? (
               <DigitalVipPass pass={pass} onStartJourney={startJourney} />
             ) : (
               <>
                 <div>
-                  <p className="eyebrow text-[10px] text-fg-subtle">One booking, every act</p>
-                  <p className="mt-2 font-display text-[26px] leading-none text-heading">
-                    {money(journey.totalPriceMinor * party, journey.currency)}
+                  <p className="eyebrow text-[10px] text-fg-subtle">One pass, every act</p>
+                  <p className="mt-2 font-display text-[24px] leading-tight text-heading">
+                    Your Evening Pass
                   </p>
                   <p className="mt-1.5 text-[12.5px] text-fg-muted">
-                    {money(journey.totalPriceMinor, journey.currency)} per person × {party} ·{" "}
-                    {journey.chapters.length === 2 ? "both acts" : "all three acts"} and their
-                    privileges
+                    {journey.chapters.length === 2 ? "Both acts" : "All three acts"} and their
+                    privileges, opened with a single keyword.
                   </p>
                 </div>
 
@@ -329,7 +335,7 @@ export function JourneyExperienceView({
                   <Alert tone="info">{phase.notice}</Alert>
                 ) : null}
                 {phase.kind === "failed" ? (
-                  <Alert tone="danger" title="The experience was not reserved">
+                  <Alert tone="danger" title="Your pass could not be unlocked">
                     {phase.message}
                   </Alert>
                 ) : null}
@@ -346,27 +352,15 @@ export function JourneyExperienceView({
                     className="w-full"
                     loading={busy}
                     disabled={!open || unavailable}
-                    onClick={
-                      signedIn ? () => void reserve() : () => router.push(signInHref(currentPath()))
-                    }
+                    onClick={() => void unlock()}
                   >
-                    {signedIn ? "Reserve Experience" : "Sign in to Reserve Experience"}
+                    Unlock Evening Pass
                   </Button>
-                  {busy && open ? (
-                    <PaymentProcessing
-                      mode={
-                        phase.kind === "paying" || phase.kind === "confirming"
-                          ? phase.mode
-                          : checkoutMode
-                      }
-                      stage={phase.kind}
-                      issuing="Issuing your Digital VIP Pass"
-                    />
-                  ) : open ? (
-                    <p className="text-[12px] leading-relaxed text-fg-muted">
-                      {checkoutMode === "razorpay_test"
-                        ? "Pay once, just show up. Razorpay test mode: use a test card or UPI ID — no real money moves, and nothing is reserved with any venue yet."
-                        : "Pay once, just show up. This pilot issues a simulated pass: nothing is charged and nothing is reserved with any venue yet."}
+                  {open ? (
+                    <p className="text-[12px] leading-relaxed text-fg-muted" aria-live="polite">
+                      {busy
+                        ? STAGE_LABEL[phase.kind as keyof typeof STAGE_LABEL]
+                        : "Keep your pass to hand and say its keyword at each door. Should anything need arranging before you set out, our concierge team is quietly at your service."}
                     </p>
                   ) : (
                     <Alert tone="info">
@@ -434,6 +428,94 @@ export function JourneyExperienceView({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** How the evening feels — the curators' read, and why it suits this visitor. */
+function SensoryPanel({
+  sensory,
+  match,
+}: {
+  readonly sensory: SensoryDescription;
+  readonly match: SensoryMatch | null;
+}) {
+  const notes = [
+    { label: "Acoustic feel", value: sensory.acousticFeel, Icon: AudioLines },
+    { label: "Lighting", value: sensory.lighting, Icon: Lamp },
+    { label: "Seating privacy", value: sensory.seatingPrivacy, Icon: Armchair },
+  ] as const;
+
+  return (
+    <section
+      aria-labelledby="sensory-profile-title"
+      className="rounded-card border border-line bg-surface p-5 shadow-card sm:p-6"
+    >
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
+        <h2
+          id="sensory-profile-title"
+          className="eyebrow text-[10px] text-accent-ink lg:text-[11px] dark:text-accent"
+        >
+          Sensory profile
+        </h2>
+        <p className="text-[12px] font-light text-fg-muted">
+          Our curators&rsquo; read of a typical evening
+        </p>
+      </div>
+
+      {match && match.highlights.length > 0 ? (
+        <div className="mt-4">
+          <p className="text-[13px] text-fg">
+            Why it suits you
+            <span className="text-fg-muted tabular-nums"> · {match.score}% sensory match</span>
+          </p>
+          <ul aria-label="Sensory match highlights" className="mt-2 flex flex-wrap gap-2">
+            {match.highlights.map((highlight) => (
+              <li
+                key={highlight}
+                className="inline-flex min-h-8 items-center gap-1.5 rounded-pill border border-accent/45 bg-surface-2 px-3 py-1 text-[12.5px] text-fg"
+              >
+                <Sparkles
+                  className="h-3.5 w-3.5 shrink-0 text-accent-ink dark:text-accent"
+                  strokeWidth={1.8}
+                  aria-hidden="true"
+                />
+                {highlight}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <dl className="mt-5 grid gap-4 border-t border-line pt-4 sm:grid-cols-3">
+        {notes.map(({ label, value, Icon }) => (
+          <div key={label} className="flex items-start gap-2.5">
+            <Icon
+              className="mt-0.5 h-4 w-4 shrink-0 text-fg-muted"
+              strokeWidth={1.6}
+              aria-hidden="true"
+            />
+            <div className="min-w-0">
+              <dt className="eyebrow text-[10px] text-fg-subtle">{label}</dt>
+              <dd className="mt-1 text-[13.5px] leading-snug text-fg">{value}</dd>
+            </div>
+          </div>
+        ))}
+      </dl>
+
+      <div className="mt-4 flex items-start gap-2.5 rounded-card bg-surface-2 px-4 py-3">
+        <KeyRound
+          className="mt-0.5 h-4 w-4 shrink-0 text-accent-ink dark:text-accent"
+          strokeWidth={1.6}
+          aria-hidden="true"
+        />
+        <div className="min-w-0">
+          <p className="eyebrow text-[10px] text-fg-subtle">Secret ritual</p>
+          <p className="mt-1 text-[13.5px] leading-relaxed font-light text-fg italic">
+            {sensory.secretRitual}
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 
