@@ -83,11 +83,16 @@ export async function getPrincipal(): Promise<Principal | null> {
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
 
-  const principal = await getAuthService().resolvePrincipal(token);
-  // Attribute every subsequent log line in this request to the user.
-  if (principal) setLogUser(principal.userId);
+  try {
+    const principal = await getAuthService().resolvePrincipal(token);
+    // Attribute every subsequent log line in this request to the user.
+    if (principal) setLogUser(principal.userId);
 
-  return principal;
+    return principal;
+  } catch (error) {
+    // If database connection pool is full or token is invalid, degrade gracefully to guest
+    return null;
+  }
 }
 
 /** Resolve the principal, or reject the request. */
