@@ -116,6 +116,34 @@ export async function requirePermission(permission: string): Promise<Principal> 
   return principal;
 }
 
+const ALLOWED_ORIGIN_HOSTS = new Set([
+  "lavivenzia.com",
+  "www.lavivenzia.com",
+  "host.lavivenzia.com",
+  "localhost",
+  "127.0.0.1",
+]);
+
+export function isAllowedOrigin(originStr: string, appUrl: string): boolean {
+  try {
+    const originUrl = new URL(originStr);
+    const configuredUrl = new URL(appUrl);
+
+    // Exact match with configured APP_URL
+    if (originUrl.origin === configuredUrl.origin) return true;
+
+    // Allowed official hostnames or subdomains
+    if (ALLOWED_ORIGIN_HOSTS.has(originUrl.hostname)) return true;
+    if (originUrl.hostname.endsWith(".lavivenzia.com")) return true;
+    if (originUrl.hostname.endsWith(".up.railway.app")) return true;
+    if (originUrl.hostname === "localhost" || originUrl.hostname === "127.0.0.1") return true;
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Reject cross-site state-changing requests.
  *
@@ -123,16 +151,16 @@ export async function requirePermission(permission: string): Promise<Principal> 
  * this is defence in depth rather than the primary control — it covers older
  * clients and any future endpoint that relaxes SameSite.
  *
- * Compares Origin against the configured app URL. Requests with no Origin are
- * allowed: non-browser clients (mobile, server-to-server) legitimately omit it,
- * and browsers always send it on cross-origin state-changing requests.
+ * Compares Origin against the configured app URL and recognized platform origins
+ * (lavivenzia.com, www.lavivenzia.com, host.lavivenzia.com, railway preview domains).
+ * Requests with no Origin are allowed: non-browser clients legitimately omit it.
  */
 export async function assertSameOrigin(appUrl: string): Promise<void> {
   const headerList = await headers();
   const origin = headerList.get("origin");
   if (!origin) return;
 
-  if (new URL(origin).origin !== new URL(appUrl).origin) {
+  if (!isAllowedOrigin(origin, appUrl)) {
     throw new ForbiddenError("Cross-origin request rejected.");
   }
 }

@@ -21,9 +21,9 @@ export function createQueue(): PgBoss {
   const boss = new PgBoss({
     connectionString: env.DATABASE_URL,
     schema: QUEUE_SCHEMA,
-    // Keep the queue's pool small and separate from Prisma's: the worker should
+    // Keep the queue's pool minimal: the worker should
     // never be the reason the web tier cannot get a connection.
-    max: 4,
+    max: 1,
   });
 
   boss.on("error", (error: Error) => {

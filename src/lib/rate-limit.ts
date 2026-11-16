@@ -46,10 +46,8 @@ export async function enforceIpRateLimit(name: RateLimitName): Promise<void> {
     }
   } catch (error) {
     if (error instanceof RateLimitedError) throw error;
-    if (process.env.NODE_ENV !== "production") {
-      // In local dev/preview when DB is offline, fail-open for rate limiting
-      return;
-    }
-    throw error;
+    // When the database connection pool is under load or unreachable, fail-open
+    // so core user experiences (AI search, discovery, login) do not fail with internal 500s.
+    return;
   }
 }

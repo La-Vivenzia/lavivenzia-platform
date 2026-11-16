@@ -25,11 +25,11 @@ function createPrismaClient(): PrismaClient {
     connectionString: env.DATABASE_URL,
     ssl: env.DATABASE_URL.includes("supabase.co") ? { rejectUnauthorized: false } : undefined,
     // Bounded pool: the web service and the worker both draw from the same
-    // Supabase session pooler (pool_size 15), so each process keeps a small
-    // pool and releases idle connections quickly.
-    max: 4,
+    // Supabase session pooler (pool_size 15), so each process keeps a minimal
+    // pool and releases idle connections immediately.
+    max: 2,
     connectionTimeoutMillis: 5_000,
-    idleTimeoutMillis: 10_000,
+    idleTimeoutMillis: 3_000,
   });
 
   return new PrismaClient({
