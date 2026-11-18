@@ -68,6 +68,15 @@ const nextConfig: NextConfig = {
 
   async redirects() {
     return [
+      // Canonical domain normalization: unconditionally redirect apex lavivenzia.com to www.lavivenzia.com
+      // to unify cookies, sessions, local storage, and edge caching.
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "lavivenzia.com" }],
+        destination: "https://www.lavivenzia.com/:path*",
+        permanent: true,
+      },
+
       { source: "/become-a-host", destination: HOST_PORTAL_URL, permanent: false },
       // `:path*` matches zero or more segments, so this covers `/host` itself.
       { source: "/host/:path*", destination: HOST_PORTAL_URL, permanent: false },
