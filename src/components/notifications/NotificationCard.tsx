@@ -1,13 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import {
-  Calendar,
-  Crown,
-  KeyRound,
-  MessageSquare,
-  Sparkles,
-} from "lucide-react";
+import { Calendar, Crown, KeyRound, MessageSquare, Sparkles } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Notification, NotificationType } from "@/modules/notifications/service";
 
@@ -77,13 +71,13 @@ export function NotificationCard({
       )}
       aria-label={notification.title}
     >
-      {/* Type icon with gold tint for unread */}
+      {/* 32px circular icon well with subtle gold background and hairline gold border */}
       <span
         className={cn(
-          "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+          "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors duration-200",
           isUnread
-            ? "bg-accent/10 text-accent"
-            : "bg-surface-2 text-fg-muted",
+            ? "border-accent/30 bg-accent/15 text-accent"
+            : "border-accent/20 bg-accent/10 text-accent/80",
         )}
       >
         <NotificationIcon type={notification.type} />
@@ -99,21 +93,18 @@ export function NotificationCard({
           >
             {notification.title}
           </p>
-          <span className="shrink-0 font-sans text-[11px] text-fg-muted">
+          <span className="shrink-0 font-sans text-[11px] font-light text-fg-subtle">
             {relativeTime(notification.createdAt)}
           </span>
         </div>
-        <p className="mt-0.5 font-sans text-[12px] leading-relaxed text-fg-muted line-clamp-2">
+        <p className="mt-0.5 line-clamp-2 font-sans text-[12px] font-light leading-relaxed text-fg-muted">
           {notification.body}
         </p>
       </div>
 
       {/* Unread indicator dot — gold, never a number badge */}
       {isUnread && (
-        <span
-          aria-hidden="true"
-          className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
-        />
+        <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
       )}
     </button>
   );

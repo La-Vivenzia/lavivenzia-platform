@@ -269,8 +269,12 @@ export function BookingPanel({
     <div className="flex flex-col gap-6" aria-busy={state.phase === "loading" || busy}>
       {/* ── Date ─────────────────────────────────────────────────────── */}
       <fieldset className="flex min-w-0 flex-col gap-3" disabled={busy}>
-        <legend className="eyebrow mb-3 flex items-center gap-2">
-          <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+        <legend className="eyebrow text-accent-ink mb-1 flex items-center gap-2">
+          <CalendarDays
+            className="h-3.5 w-3.5 shrink-0 text-accent-ink"
+            strokeWidth={1.6}
+            aria-hidden="true"
+          />
           Choose a date
         </legend>
 
@@ -280,7 +284,7 @@ export function BookingPanel({
               Loading available dates
             </span>
             {[0, 1, 2, 3].map((index) => (
-              <Skeleton key={index} className="h-[68px] w-[60px] shrink-0 rounded-md" />
+              <Skeleton key={index} className="h-[74px] w-[64px] shrink-0 rounded-card" />
             ))}
           </div>
         ) : state.phase === "load_error" ? (
@@ -293,7 +297,7 @@ export function BookingPanel({
             </Button>
           </div>
         ) : state.days.length === 0 ? (
-          <p className="border-line bg-surface-sunken text-text-muted rounded-md border px-4 py-4 text-[13px] leading-relaxed">
+          <p className="border-line bg-surface-2/40 text-fg-muted rounded-card border px-4 py-4 text-[13px] font-light leading-relaxed">
             No dates are open right now. The host adds new dates regularly — check back soon.
           </p>
         ) : (
@@ -310,18 +314,35 @@ export function BookingPanel({
                   aria-label={longDayFormat.format(dayKeyToDate(day.key))}
                   onClick={() => dispatch({ type: "SELECT_DAY", day: day.key })}
                   className={cn(
-                    "flex w-[60px] shrink-0 flex-col items-center gap-0.5 rounded-md border py-2.5 transition-colors duration-200",
+                    "flex w-[64px] shrink-0 flex-col items-center gap-0.5 rounded-card border py-2.5 transition-all duration-200",
                     "disabled:cursor-not-allowed disabled:opacity-45",
                     selected
-                      ? "border-primary bg-primary text-text-inverse"
-                      : "border-line-strong bg-surface text-text hover:border-gold",
+                      ? "border-accent bg-primary text-text-inverse shadow-sm"
+                      : "border-line bg-surface text-fg hover:border-accent/60 hover:bg-surface-2/40",
                   )}
                 >
-                  <span className="text-[10px] tracking-[0.12em] uppercase opacity-80">
+                  <span
+                    className={cn(
+                      "text-[9.5px] font-medium tracking-[0.14em] uppercase",
+                      selected ? "text-accent" : "text-fg-subtle",
+                    )}
+                  >
                     {part("weekday")}
                   </span>
-                  <span className="font-display text-[20px] leading-none">{part("day")}</span>
-                  <span className="text-[10px] tracking-[0.12em] uppercase opacity-80">
+                  <span
+                    className={cn(
+                      "font-display text-[21px] font-normal leading-none",
+                      selected ? "text-text-inverse" : "text-heading",
+                    )}
+                  >
+                    {part("day")}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-[9.5px] font-medium tracking-[0.14em] uppercase",
+                      selected ? "text-text-inverse/80" : "text-fg-muted",
+                    )}
+                  >
                     {part("month")}
                   </span>
                 </button>
@@ -334,10 +355,14 @@ export function BookingPanel({
       {/* ── Time ─────────────────────────────────────────────────────── */}
       {state.selectedDay ? (
         <fieldset className="flex flex-col gap-3" disabled={busy}>
-          <legend className="eyebrow mb-3 flex items-center gap-2">
-            <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+          <legend className="eyebrow text-accent-ink mb-1 flex items-center gap-2">
+            <Clock
+              className="h-3.5 w-3.5 shrink-0 text-accent-ink"
+              strokeWidth={1.6}
+              aria-hidden="true"
+            />
             Choose a time
-            <span className="text-text-subtle normal-case tracking-normal">
+            <span className="text-fg-subtle normal-case tracking-normal text-[11px] font-light">
               ({EXPERIENCE_TIME_ZONE_LABEL})
             </span>
           </legend>
@@ -351,20 +376,31 @@ export function BookingPanel({
                   aria-pressed={selected}
                   onClick={() => dispatch({ type: "SELECT_SLOT", slotId: candidate.id })}
                   className={cn(
-                    "flex flex-col items-start gap-0.5 rounded-md border px-3 py-2.5 text-left transition-colors duration-200",
+                    "flex flex-col items-start gap-0.5 rounded-pill border px-4 py-2.5 text-left transition-all duration-200",
                     "disabled:cursor-not-allowed disabled:opacity-45",
                     selected
-                      ? "border-primary bg-primary text-text-inverse"
-                      : "border-line-strong bg-surface text-text hover:border-gold",
+                      ? "border-accent bg-primary text-text-inverse shadow-sm"
+                      : "border-line bg-surface text-fg hover:border-accent/60 hover:bg-surface-2/40",
                   )}
                 >
-                  <span className="text-[14px] font-medium">
+                  <span
+                    className={cn(
+                      "text-[13.5px] font-medium tracking-tight",
+                      selected ? "text-text-inverse" : "text-heading",
+                    )}
+                  >
                     {timeFormat.format(new Date(candidate.startsAt))}
                   </span>
                   <span
                     className={cn(
-                      "text-[11px]",
-                      selected ? "text-text-inverse-muted" : "text-text-subtle",
+                      "text-[11px] font-light",
+                      selected
+                        ? candidate.seatsRemaining <= LOW_SEATS
+                          ? "text-accent font-medium"
+                          : "text-text-inverse/75"
+                        : candidate.seatsRemaining <= LOW_SEATS
+                          ? "text-accent-ink dark:text-accent font-medium"
+                          : "text-fg-subtle",
                     )}
                   >
                     {candidate.seatsRemaining <= LOW_SEATS
@@ -381,19 +417,26 @@ export function BookingPanel({
       {/* ── Guests ───────────────────────────────────────────────────── */}
       {state.phase !== "loading" && state.phase !== "load_error" && state.days.length > 0 ? (
         <fieldset className="flex flex-col gap-3" disabled={busy || !slot}>
-          <legend className="eyebrow mb-3 flex items-center gap-2">
-            <Users className="h-3.5 w-3.5" aria-hidden="true" />
+          <legend className="eyebrow text-accent-ink mb-1 flex items-center gap-2">
+            <Users
+              className="h-3.5 w-3.5 shrink-0 text-accent-ink"
+              strokeWidth={1.6}
+              aria-hidden="true"
+            />
             Guests
           </legend>
-          <div className="border-line-strong flex items-center justify-between rounded-pill border px-2 py-1.5">
+          <div className="border-line bg-surface flex items-center justify-between rounded-pill border px-2 py-1.5 shadow-sm">
             <StepButton
               label="Remove a guest"
               disabled={!limits || state.guests <= limits.min}
               onClick={() => dispatch({ type: "SET_GUESTS", guests: state.guests - 1 })}
             >
-              <Minus className="h-4 w-4" aria-hidden="true" />
+              <Minus className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
             </StepButton>
-            <output aria-live="polite" className="text-text text-[15px] font-medium tabular-nums">
+            <output
+              aria-live="polite"
+              className="text-heading text-[14.5px] font-medium tracking-wide tabular-nums"
+            >
               {state.guests} {state.guests === 1 ? "guest" : "guests"}
             </output>
             <StepButton
@@ -401,10 +444,10 @@ export function BookingPanel({
               disabled={!limits || state.guests >= limits.max}
               onClick={() => dispatch({ type: "SET_GUESTS", guests: state.guests + 1 })}
             >
-              <Plus className="h-4 w-4" aria-hidden="true" />
+              <Plus className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
             </StepButton>
           </div>
-          <p className="text-text-subtle text-[12px]">
+          <p className="text-fg-subtle text-[12px] font-light leading-relaxed">
             {!slot
               ? "Choose a time to set your party size."
               : guestProblem
@@ -447,7 +490,7 @@ export function BookingPanel({
           <Button variant="primary" size="lg" className="w-full" disabled>
             Booking opens soon
           </Button>
-          <p className="text-text-subtle text-[12px] leading-relaxed">
+          <p className="text-fg-subtle text-[12px] font-light leading-relaxed">
             You can explore dates and prices now. Reservations open shortly.
           </p>
         </div>
@@ -462,7 +505,7 @@ export function BookingPanel({
           >
             Sign in to Reserve
           </Button>
-          <p className="text-text-subtle text-[12px] leading-relaxed">
+          <p className="text-fg-subtle text-[12px] font-light leading-relaxed">
             Reservations are held on your patron account. Your date, time and party are kept while
             you sign in.
           </p>
@@ -517,7 +560,7 @@ function StepButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="text-text hover:bg-surface-sunken flex h-9 w-9 items-center justify-center rounded-pill transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
+      className="flex h-8 w-8 items-center justify-center rounded-pill border border-line bg-surface-2/60 text-heading transition-colors duration-200 hover:border-accent/60 hover:bg-surface-3 disabled:cursor-not-allowed disabled:border-transparent disabled:bg-transparent disabled:opacity-30 disabled:hover:bg-transparent"
     >
       {children}
     </button>
@@ -529,21 +572,23 @@ function PriceBreakdown({ quote }: { readonly quote: PriceQuote }) {
     <dl className="border-line flex flex-col gap-2.5 border-t pt-5 text-[13px]">
       {quote.lines.map((line) => (
         <div key={line.kind} className="flex items-baseline justify-between gap-4">
-          <dt className="text-text-muted">
+          <dt className="text-fg-muted font-light">
             {line.kind === "per_person"
               ? `${money(line.unitPriceMinor, quote.currency)} × ${line.quantity} ${line.quantity === 1 ? "guest" : "guests"}`
               : `Private group of ${quote.guests}`}
           </dt>
-          <dd className="text-text tabular-nums">{money(line.amountMinor, quote.currency)}</dd>
+          <dd className="text-heading font-medium tabular-nums">
+            {money(line.amountMinor, quote.currency)}
+          </dd>
         </div>
       ))}
       <div className="border-line flex items-baseline justify-between gap-4 border-t pt-3">
-        <dt className="text-text font-semibold">Total ({quote.currency})</dt>
-        <dd className="font-display text-text text-[20px] tabular-nums">
+        <dt className="text-heading font-medium">Total ({quote.currency})</dt>
+        <dd className="font-display text-heading text-[20px] font-normal tabular-nums">
           {money(quote.totalMinor, quote.currency)}
         </dd>
       </div>
-      <p className="text-text-subtle text-[11px] leading-relaxed">
+      <p className="text-fg-subtle text-[11px] font-light leading-relaxed">
         The host&rsquo;s price. No booking fee is added.
       </p>
     </dl>
@@ -584,32 +629,41 @@ function Confirmation({
   return (
     <section aria-labelledby="booking-confirmed" className="flex flex-col gap-6">
       <div className="flex flex-col items-start gap-3" role="status">
-        <span className="bg-success-wash text-success flex h-10 w-10 items-center justify-center rounded-pill">
+        <span className="bg-success/10 text-success flex h-10 w-10 items-center justify-center rounded-pill border border-success/20">
           <Check className="h-5 w-5" aria-hidden="true" />
         </span>
-        <span className="eyebrow">{isDemo ? "Demo booking" : "Test booking"} confirmed</span>
-        <h2 id="booking-confirmed" className="font-display text-text text-[24px] leading-tight">
+        <span className="eyebrow text-accent-ink">
+          {isDemo ? "Demo booking" : "Test booking"} confirmed
+        </span>
+        <h2
+          id="booking-confirmed"
+          className="font-display text-heading text-[24px] font-normal leading-tight"
+        >
           You&rsquo;re going.
         </h2>
       </div>
 
-      <div className="border-line-gold bg-gold-wash flex flex-col gap-1 rounded-md border px-4 py-3">
-        <span className="text-gold-deep text-[10px] tracking-[0.18em] uppercase">
+      <div className="border-line bg-surface-2/60 flex flex-col gap-1 rounded-card border px-4 py-3">
+        <span className="text-accent-ink text-[10px] font-medium tracking-[0.18em] uppercase">
           Booking reference
         </span>
-        <span className="text-text font-mono text-[20px] tracking-[0.08em]">
+        <span className="text-heading font-mono text-[20px] font-normal tracking-[0.08em]">
           {confirmation.reference}
         </span>
       </div>
 
       {/* Revealed only now: the server returns the venue after verifying checkout. */}
       <div className="flex flex-col gap-2">
-        <span className="eyebrow flex items-center gap-2">
-          <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+        <span className="eyebrow text-accent-ink flex items-center gap-2">
+          <MapPin
+            className="h-3.5 w-3.5 shrink-0 text-accent-ink"
+            strokeWidth={1.6}
+            aria-hidden="true"
+          />
           Venue
         </span>
         {confirmation.venue.lines.length > 0 ? (
-          <address className="text-text text-[14px] leading-relaxed not-italic">
+          <address className="text-fg text-[14px] font-light leading-relaxed not-italic">
             {confirmation.venue.lines.map((line) => (
               <span key={line} className="block">
                 {line}
@@ -617,7 +671,7 @@ function Confirmation({
             ))}
           </address>
         ) : (
-          <p className="text-text-muted text-[14px]">
+          <p className="text-fg-muted text-[14px] font-light">
             Your host will share the meeting point before the experience.
           </p>
         )}
@@ -626,7 +680,7 @@ function Confirmation({
             href={confirmation.venue.mapUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary text-[13px] font-medium underline-offset-4 hover:underline"
+            className="text-accent-ink hover:text-accent inline-flex items-center gap-1 text-[13px] font-medium tracking-wide transition-colors"
           >
             Open in maps
           </a>
@@ -635,7 +689,7 @@ function Confirmation({
 
       {/* ── Voucher ──────────────────────────────────────────────────── */}
       <div className="border-line flex flex-col gap-3 border-t pt-5">
-        <span className="eyebrow">Voucher</span>
+        <span className="eyebrow text-accent-ink">Voucher</span>
         <dl className="flex flex-col gap-2.5 text-[13px]">
           <VoucherRow label="Experience" value={confirmation.experience.title} />
           <VoucherRow label="Date" value={longDayFormat.format(startsAt)} />
@@ -688,8 +742,13 @@ function VoucherRow({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <dt className="text-text-subtle shrink-0">{label}</dt>
-      <dd className={cn("text-text text-right break-all", mono && "font-mono text-[12px]")}>
+      <dt className="text-fg-subtle shrink-0 font-light">{label}</dt>
+      <dd
+        className={cn(
+          "text-heading text-right font-medium break-all",
+          mono && "font-mono text-[12px]",
+        )}
+      >
         {value}
       </dd>
     </div>

@@ -84,13 +84,13 @@ export function DestinationCard({
     <article
       className={cn(
         "group relative flex h-full flex-col overflow-hidden rounded-card",
-        "border border-line bg-surface p-1.5 shadow-card",
+        "border border-line bg-surface shadow-card",
         "transition-[transform,box-shadow,border-color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
         "hover:-translate-y-1 hover:border-line-strong hover:shadow-raised",
         className,
       )}
     >
-      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-[calc(var(--radius-card)-0.375rem)]">
+      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-surface-2">
         <Image
           src={image}
           alt={alt}
@@ -101,33 +101,35 @@ export function DestinationCard({
           className={cn(
             "object-cover",
             "transition-transform duration-[900ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
-            "group-hover:scale-[1.07]",
+            "group-hover:scale-[1.06]",
             imageClassName,
           )}
         />
-        <FavouriteButton label={name} className="absolute top-2.5 right-2.5" size="sm" />
+        <FavouriteButton label={name} className="absolute top-2.5 right-2.5 z-20" size="sm" />
       </div>
 
-      <div className="flex flex-1 flex-col px-2 pt-3 pb-2.5 lg:px-3 lg:pt-4 lg:pb-3.5">
-        <h3 className="line-clamp-2 h-[42px] font-sans text-[15px] leading-snug font-semibold text-heading lg:h-[48px] lg:text-[17px]">
+      <div className="flex flex-1 flex-col p-3 sm:p-3.5 lg:p-4">
+        <h3 className="line-clamp-2 h-[42px] font-sans text-[14.5px] leading-snug font-medium text-heading sm:text-[15.5px] lg:h-[46px] lg:text-[16px]">
           {/* Stretched link keeps the whole card clickable while leaving the
               favourite button (z-20) on top of it. */}
           <a href={href} className="z-10 after:absolute after:inset-0 after:rounded-card">
             {name}
           </a>
         </h3>
-        <p className="mt-0.5 line-clamp-1 text-[13px] font-light text-fg-muted lg:mt-1 lg:text-[14px]">
+        <p className="mt-1 line-clamp-1 text-[12.5px] font-light text-fg-muted lg:text-[13px]">
           {country}
         </p>
-        <span
-          className={cn(
-            "mt-auto inline-flex w-fit items-center rounded-lg px-2.5 py-1.5",
-            "bg-surface-2 text-[10px] font-medium tracking-[0.14em] text-fg uppercase lg:text-[10.5px]",
-            "transition-colors duration-300 group-hover:bg-surface-3",
-          )}
-        >
-          {badge}
-        </span>
+        <div className="mt-auto pt-3">
+          <span
+            className={cn(
+              "inline-flex w-fit items-center rounded-pill border border-line px-2.5 py-0.5",
+              "text-[9.5px] font-medium tracking-[0.16em] text-fg-subtle uppercase lg:text-[10px]",
+              "transition-colors duration-300 group-hover:border-line-strong group-hover:text-heading",
+            )}
+          >
+            {badge}
+          </span>
+        </div>
       </div>
     </article>
   );
