@@ -101,7 +101,7 @@ export function HeroVisual({
           onFocus={() => setPaused(true)}
           onBlur={() => setPaused(false)}
           className={cn(
-            "pointer-events-auto absolute z-10 flex items-center rounded-pill bg-black/25 ring-1 ring-white/25 backdrop-blur-[6px] ring-inset",
+            "pointer-events-auto absolute z-10 flex items-center rounded-pill backdrop-blur-md bg-white/10 dark:bg-black/30 border border-white/20 shadow-sm",
             size === "lg" ? "px-2.5 py-1" : "px-1.5 py-0.5",
             indicatorClassName,
           )}
@@ -127,11 +127,8 @@ export function HeroVisual({
                     "block rounded-pill transition-[width,background-color] duration-500 ease-out",
                     size === "lg" ? "h-1.5" : "h-1",
                     isActive
-                      ? cn("bg-white", size === "lg" ? "w-7" : "w-5")
-                      : cn(
-                          "bg-white/45 group-hover:bg-white/75",
-                          size === "lg" ? "w-1.5" : "w-1",
-                        ),
+                      ? cn("bg-accent", size === "lg" ? "w-7" : "w-5")
+                      : cn("bg-white/50 group-hover:bg-white/80", size === "lg" ? "w-1.5" : "w-1"),
                   )}
                 />
               </button>

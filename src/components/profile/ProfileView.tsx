@@ -237,10 +237,10 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
   return (
     <div className="flex flex-col gap-10">
       {/* Patron Hero Card */}
-      <div className="relative overflow-hidden rounded-3xl border border-line-strong bg-surface-1 p-6 sm:p-8 lg:p-10 shadow-sm">
+      <div className="relative overflow-hidden rounded-card border border-line bg-surface p-6 sm:p-8 lg:p-10 shadow-card">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-5">
-            <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line-strong bg-surface-2 text-xl font-medium tracking-wider text-text">
+            <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-surface-2 ring-1 ring-accent/25 text-xl font-medium tracking-wider text-heading">
               {profile.avatarUrl && !avatarError ? (
                 <Image
                   src={profile.avatarUrl}
@@ -258,19 +258,19 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
 
             <div className="flex flex-col gap-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="font-display text-2xl font-light text-text sm:text-3xl">
+                <h1 className="font-display text-2xl font-normal text-heading sm:text-3xl">
                   {profile.fullName || "Esteemed Patron"}
                 </h1>
                 {profile.emailVerifiedAt ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-gold/30 bg-gold-light/40 px-2.5 py-0.5 text-[10px] tracking-wider uppercase text-gold font-medium">
-                    <Check className="h-3 w-3 stroke-[2.5]" />
+                  <span className="inline-flex items-center gap-1 rounded-pill border border-accent/40 bg-accent/10 px-2.5 py-0.5 text-[9.5px] font-medium tracking-[0.18em] uppercase text-accent-ink">
+                    <Check className="h-3 w-3 stroke-[2]" aria-hidden="true" />
                     Verified
                   </span>
                 ) : null}
               </div>
 
-              <p className="text-[13px] text-text-subtle font-light">{profile.email}</p>
-              <p className="text-[11px] text-text-subtle/80 tracking-wide uppercase">
+              <p className="text-[13px] text-fg-muted font-light">{profile.email}</p>
+              <p className="text-[10.5px] text-fg-subtle tracking-[0.14em] uppercase font-light">
                 Member of La Vivenzia since {memberSinceYear}
               </p>
             </div>
@@ -280,7 +280,7 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
             {profile.roles.map((r) => (
               <span
                 key={r}
-                className="rounded-full border border-line bg-surface-2 px-3 py-1 text-[11px] font-medium tracking-wider uppercase text-text-muted"
+                className="rounded-pill border border-line bg-surface-2 px-3 py-1 text-[10px] font-medium tracking-[0.16em] uppercase text-fg-muted"
               >
                 {r.replace("_", " ")}
               </span>
@@ -289,9 +289,9 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
             <form action="/sign-out" method="post" className="inline-flex">
               <button
                 type="submit"
-                className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-3.5 py-1 text-[11px] font-medium tracking-wider uppercase text-text-muted hover:border-danger/40 hover:text-danger hover:bg-danger/10 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-pill border border-line bg-surface-2 px-3.5 py-1 text-[10px] font-medium tracking-[0.16em] uppercase text-fg-muted hover:border-danger/40 hover:bg-danger/10 hover:text-danger transition-colors"
               >
-                <LogOut className="h-3 w-3" />
+                <LogOut className="h-3 w-3" aria-hidden="true" />
                 Sign out
               </button>
             </form>
@@ -301,7 +301,10 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
 
       {/* Tabs Bar */}
       <div className="border-b border-line">
-        <nav className="-mb-px flex space-x-6 overflow-x-auto pb-1" aria-label="Settings tabs">
+        <nav
+          className="rail -mb-px flex space-x-6 sm:space-x-8 overflow-x-auto"
+          aria-label="Settings tabs"
+        >
           {[
             { id: "personal", label: "Personal Details", icon: User },
             { id: "taste", label: "Taste & Curation", icon: Utensils },
@@ -316,18 +319,20 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
                 type="button"
                 onClick={() => setActiveTab(tab.id as TabId)}
                 className={cn(
-                  "group inline-flex items-center gap-2 whitespace-nowrap border-b-2 py-3 px-1 text-[13px] font-medium tracking-wide uppercase transition-colors duration-200",
+                  "group inline-flex items-center gap-2 whitespace-nowrap border-b-2 py-3.5 px-0.5 text-[11.5px] font-medium tracking-[0.18em] uppercase transition-colors duration-200",
                   isSelected
-                    ? "border-gold text-gold"
-                    : "border-transparent text-text-muted hover:border-line-strong hover:text-text",
+                    ? "border-accent text-accent-ink"
+                    : "border-transparent text-fg-muted hover:border-line-strong hover:text-heading",
                 )}
                 aria-current={isSelected ? "page" : undefined}
               >
                 <Icon
                   className={cn(
-                    "h-4 w-4 transition-colors",
-                    isSelected ? "text-gold" : "text-text-subtle group-hover:text-text",
+                    "h-3.5 w-3.5 transition-colors",
+                    isSelected ? "text-accent-ink" : "text-fg-subtle group-hover:text-heading",
                   )}
+                  strokeWidth={1.5}
+                  aria-hidden="true"
                 />
                 {tab.label}
               </button>
@@ -340,8 +345,8 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
       {activeTab === "personal" && (
         <form onSubmit={handleSavePersonal} className="flex max-w-2xl flex-col gap-6">
           <div className="flex flex-col gap-1">
-            <h2 className="font-display text-xl text-text">Personal Details</h2>
-            <p className="text-[13px] text-text-subtle font-light">
+            <h2 className="font-display text-xl text-heading">Personal Details</h2>
+            <p className="text-[13px] text-fg-subtle font-light">
               Your name, contact coordinates, and the narrative you share with hosts across Pune.
             </p>
           </div>
@@ -352,7 +357,7 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
             </Alert>
           )}
 
-          <div className="flex flex-col gap-5 rounded-2xl border border-line bg-surface-1 p-6 sm:p-8">
+          <div className="flex flex-col gap-5 rounded-card border border-line bg-surface p-6 sm:p-8 shadow-card">
             <TextField
               label="Full Name"
               value={fullName}
@@ -413,8 +418,8 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
       {activeTab === "taste" && (
         <form onSubmit={handleSaveTaste} className="flex max-w-3xl flex-col gap-8">
           <div className="flex flex-col gap-1">
-            <h2 className="font-display text-xl text-text">Taste & Palate Preferences</h2>
-            <p className="text-[13px] text-text-subtle font-light">
+            <h2 className="font-display text-xl text-heading">Taste & Palate Preferences</h2>
+            <p className="text-[13px] text-fg-subtle font-light">
               Fine-tune your personal culinary and exploration parameters. VivenIQ AI Concierge and
               private estate hosts adapt pairings and itineraries to your choices.
             </p>
@@ -427,12 +432,12 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
           )}
 
           {/* Dietary Restrictions */}
-          <div className="flex flex-col gap-4 rounded-2xl border border-line bg-surface-1 p-6 sm:p-8">
+          <div className="flex flex-col gap-4 rounded-card border border-line bg-surface p-6 sm:p-8 shadow-card">
             <div className="flex flex-col gap-1">
-              <h3 className="text-sm font-medium tracking-wide uppercase text-text">
+              <h3 className="text-[11.5px] font-medium tracking-[0.16em] uppercase text-heading">
                 Dietary Discipline & Dining Preferences
               </h3>
-              <p className="text-[12px] text-text-subtle">
+              <p className="text-[12px] text-fg-subtle font-light">
                 Private dining chefs and master distillers strictly honor these requirements.
               </p>
             </div>
@@ -446,13 +451,13 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
                     type="button"
                     onClick={() => toggleDietary(opt.value)}
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-medium tracking-wider uppercase transition-all duration-200",
+                      "inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[11px] font-medium tracking-[0.14em] uppercase transition-all duration-200",
                       isSelected
-                        ? "border border-gold bg-gold/15 text-gold shadow-sm"
-                        : "border border-line bg-surface-2 text-text-muted hover:border-line-strong hover:text-text",
+                        ? "border border-accent/60 bg-accent/10 text-accent-ink shadow-sm"
+                        : "border border-line bg-surface-2 text-fg-muted hover:border-line-strong hover:text-heading",
                     )}
                   >
-                    {isSelected && <Check className="h-3.5 w-3.5 stroke-[2.5]" />}
+                    {isSelected && <Check className="h-3 w-3 stroke-[2]" aria-hidden="true" />}
                     {opt.label}
                   </button>
                 );
@@ -461,12 +466,12 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
           </div>
 
           {/* Vibe Selection */}
-          <div className="flex flex-col gap-4 rounded-2xl border border-line bg-surface-1 p-6 sm:p-8">
+          <div className="flex flex-col gap-4 rounded-card border border-line bg-surface p-6 sm:p-8 shadow-card">
             <div className="flex flex-col gap-1">
-              <h3 className="text-sm font-medium tracking-wide uppercase text-text">
+              <h3 className="text-[11.5px] font-medium tracking-[0.16em] uppercase text-heading">
                 Preferred Experiential Vibes
               </h3>
-              <p className="text-[12px] text-text-subtle">
+              <p className="text-[12px] text-fg-subtle font-light">
                 Choose the atmospheres that resonate most with your leisure time.
               </p>
             </div>
@@ -480,13 +485,13 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
                     type="button"
                     onClick={() => toggleVibe(opt.value)}
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-medium tracking-wider uppercase transition-all duration-200",
+                      "inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[11px] font-medium tracking-[0.14em] uppercase transition-all duration-200",
                       isSelected
-                        ? "border border-gold bg-gold/15 text-gold shadow-sm"
-                        : "border border-line bg-surface-2 text-text-muted hover:border-line-strong hover:text-text",
+                        ? "border border-accent/60 bg-accent/10 text-accent-ink shadow-sm"
+                        : "border border-line bg-surface-2 text-fg-muted hover:border-line-strong hover:text-heading",
                     )}
                   >
-                    {isSelected && <Check className="h-3.5 w-3.5 stroke-[2.5]" />}
+                    {isSelected && <Check className="h-3 w-3 stroke-[2]" aria-hidden="true" />}
                     {opt.label}
                   </button>
                 );
@@ -495,12 +500,12 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
           </div>
 
           {/* Pune Neighborhood Clusters */}
-          <div className="flex flex-col gap-4 rounded-2xl border border-line bg-surface-1 p-6 sm:p-8">
+          <div className="flex flex-col gap-4 rounded-card border border-line bg-surface p-6 sm:p-8 shadow-card">
             <div className="flex flex-col gap-1">
-              <h3 className="text-sm font-medium tracking-wide uppercase text-text">
+              <h3 className="text-[11.5px] font-medium tracking-[0.16em] uppercase text-heading">
                 Favorite Pune Neighborhood Clusters
               </h3>
-              <p className="text-[12px] text-text-subtle">
+              <p className="text-[12px] text-fg-subtle font-light">
                 Prioritize experiences in proximity to your Pune residences and private clubs.
               </p>
             </div>
@@ -514,13 +519,13 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
                     type="button"
                     onClick={() => toggleCluster(opt.value)}
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-medium tracking-wider uppercase transition-all duration-200",
+                      "inline-flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[11px] font-medium tracking-[0.14em] uppercase transition-all duration-200",
                       isSelected
-                        ? "border border-gold bg-gold/15 text-gold shadow-sm"
-                        : "border border-line bg-surface-2 text-text-muted hover:border-line-strong hover:text-text",
+                        ? "border border-accent/60 bg-accent/10 text-accent-ink shadow-sm"
+                        : "border border-line bg-surface-2 text-fg-muted hover:border-line-strong hover:text-heading",
                     )}
                   >
-                    <MapPin className="h-3.5 w-3.5 opacity-70" />
+                    <MapPin className="h-3 w-3 opacity-75" strokeWidth={1.5} aria-hidden="true" />
                     {opt.label}
                   </button>
                 );
@@ -542,8 +547,8 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
           {/* Password Security */}
           <div className="flex flex-col gap-5">
             <div className="flex flex-col gap-1">
-              <h2 className="font-display text-xl text-text">Account Authentication</h2>
-              <p className="text-[13px] text-text-subtle font-light">
+              <h2 className="font-display text-xl text-heading">Account Authentication</h2>
+              <p className="text-[13px] text-fg-subtle font-light">
                 Manage your credentials and access protections.
               </p>
             </div>
@@ -551,9 +556,9 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
             {profile.hasPassword ? (
               <form
                 onSubmit={handleChangePassword}
-                className="flex flex-col gap-5 rounded-2xl border border-line bg-surface-1 p-6 sm:p-8"
+                className="flex flex-col gap-5 rounded-card border border-line bg-surface p-6 sm:p-8 shadow-card"
               >
-                <h3 className="text-sm font-medium tracking-wide uppercase text-text">
+                <h3 className="text-[11.5px] font-medium tracking-[0.16em] uppercase text-heading">
                   Change Password
                 </h3>
 
@@ -603,14 +608,20 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
                 </div>
               </form>
             ) : (
-              <div className="rounded-2xl border border-gold/30 bg-gold-light/20 p-6 flex items-start gap-4">
-                <Lock className="h-5 w-5 text-gold shrink-0 mt-0.5" />
+              <div className="rounded-card border border-accent/30 bg-accent/5 p-6 flex items-start gap-4 shadow-card">
+                <Lock
+                  className="h-5 w-5 text-accent-ink shrink-0 mt-0.5"
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                />
                 <div className="flex flex-col gap-1">
-                  <h3 className="text-sm font-medium text-text">Passwordless Magic Code Sign-in</h3>
-                  <p className="text-[13px] text-text-subtle leading-relaxed font-light">
+                  <h3 className="text-sm font-medium text-heading">
+                    Passwordless Magic Code Sign-in
+                  </h3>
+                  <p className="text-[13px] text-fg-muted leading-relaxed font-light">
                     Your patron account is authenticated securely via one-time magic codes sent
-                    directly to <span className="font-medium text-text">{profile.email}</span>. No
-                    static password to remember or compromise.
+                    directly to <span className="font-medium text-heading">{profile.email}</span>.
+                    No static password to remember or compromise.
                   </p>
                 </div>
               </div>
@@ -621,8 +632,8 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
           <div className="flex flex-col gap-5">
             <div className="flex items-center justify-between">
               <div className="flex flex-col gap-1">
-                <h3 className="font-display text-lg text-text">Active Devices & Sessions</h3>
-                <p className="text-[12px] text-text-subtle">
+                <h3 className="font-display text-lg text-heading">Active Devices & Sessions</h3>
+                <p className="text-[12px] text-fg-subtle font-light">
                   Devices currently authorized to access your La Vivenzia account.
                 </p>
               </div>
@@ -636,7 +647,7 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
                   loading={revokingSessions}
                   onClick={handleRevokeOtherSessions}
                 >
-                  <LogOut className="h-3.5 w-3.5" />
+                  <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
                   Sign Out Other Devices
                 </Button>
               )}
@@ -648,7 +659,7 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
               </Alert>
             )}
 
-            <div className="divide-y divide-line rounded-2xl border border-line bg-surface-1 overflow-hidden">
+            <div className="divide-y divide-line rounded-card border border-line bg-surface overflow-hidden shadow-card">
               {sessions.map((sess) => {
                 const isMobile = /iOS|Android/i.test(sess.device);
                 const Icon = isMobile ? Smartphone : Laptop;
@@ -656,23 +667,25 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
                 return (
                   <div
                     key={sess.id}
-                    className="flex items-center justify-between p-4 sm:p-5 transition-colors hover:bg-surface-2/50"
+                    className="flex items-center justify-between p-4 sm:p-5 transition-colors hover:bg-surface-2/60"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line bg-surface-2 text-text">
-                        <Icon className="h-5 w-5 opacity-80" />
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-card border border-line bg-surface-2 text-heading">
+                        <Icon className="h-5 w-5 opacity-80" strokeWidth={1.5} aria-hidden="true" />
                       </div>
 
                       <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-2">
-                          <span className="text-[13px] font-medium text-text">{sess.device}</span>
+                          <span className="text-[13px] font-medium text-heading">
+                            {sess.device}
+                          </span>
                           {sess.isCurrent ? (
-                            <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase text-success">
+                            <span className="rounded-pill bg-success/15 px-2 py-0.5 text-[9.5px] font-medium tracking-[0.14em] uppercase text-success">
                               This Device
                             </span>
                           ) : null}
                         </div>
-                        <span className="text-[11px] text-text-subtle">
+                        <span className="text-[11px] text-fg-subtle">
                           {sess.ip ? `IP: ${sess.ip} • ` : ""}
                           Last seen{" "}
                           {new Date(sess.lastSeenAt).toLocaleDateString("en-IN", {
@@ -696,8 +709,8 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
       {activeTab === "journeys" && (
         <div className="flex max-w-4xl flex-col gap-6">
           <div className="flex flex-col gap-1">
-            <h2 className="font-display text-xl text-text">Your Curations & Journeys</h2>
-            <p className="text-[13px] text-text-subtle font-light">
+            <h2 className="font-display text-xl text-heading">Your Curations & Journeys</h2>
+            <p className="text-[13px] text-fg-subtle font-light">
               The evenings you have saved, each ready to begin with the companion at your side.
             </p>
           </div>
@@ -705,14 +718,14 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
           <SavedCurations />
 
           {/* VivenIQ Concierge Callout */}
-          <div className="rounded-2xl border border-gold/30 bg-surface-1 p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          <div className="rounded-card border border-line bg-surface p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 shadow-card">
             <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-gold/40 bg-gold-light/30 text-gold">
-                <Sparkles className="h-6 w-6" />
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-card border border-accent/30 bg-accent/10 text-accent-ink">
+                <Sparkles className="h-6 w-6" strokeWidth={1.5} aria-hidden="true" />
               </div>
               <div className="flex flex-col gap-1">
-                <h3 className="font-display text-lg text-text">VivenIQ Private Concierge</h3>
-                <p className="text-[13px] text-text-subtle leading-relaxed max-w-xl font-light">
+                <h3 className="font-display text-lg text-heading">VivenIQ Private Concierge</h3>
+                <p className="text-[13px] text-fg-muted leading-relaxed max-w-xl font-light">
                   Powered by curated AI with high-touch hospitality tone. Ask for customized 48-hour
                   Pune weekend itineraries tailored to your taste profile.
                 </p>
@@ -721,7 +734,7 @@ export function ProfileView({ initialProfile, initialSessions }: ProfileViewProp
 
             <Link
               href="/viveniq"
-              className="shrink-0 rounded-pill bg-gold px-6 py-2.5 text-xs font-medium tracking-wider uppercase text-ink transition-transform hover:scale-[1.02] shadow-sm"
+              className="shrink-0 rounded-pill bg-accent px-6 py-2.5 text-[11px] font-medium tracking-[0.16em] uppercase text-ink transition-transform hover:scale-[1.02] shadow-sm"
             >
               Curate With VivenIQ
             </Link>

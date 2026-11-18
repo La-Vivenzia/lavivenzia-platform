@@ -19,13 +19,26 @@ export function ResultsSkeleton({ count = 6 }: { readonly count?: number }) {
       <span className="sr-only" role="status">
         Loading experiences
       </span>
-      <div className="grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-6">
         {Array.from({ length: count }, (_, index) => (
-          <div key={index} className="flex flex-col gap-4">
-            <Skeleton className="aspect-[4/3] w-full" />
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-3 w-full" />
+          <div
+            key={index}
+            className="flex h-full flex-col overflow-hidden rounded-card border border-line bg-surface shadow-card"
+          >
+            <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-surface-2">
+              <Skeleton className="h-full w-full rounded-none" />
+            </div>
+
+            <div className="flex flex-1 flex-col p-3 sm:p-3.5 lg:p-4">
+              <div className="flex h-[42px] flex-col gap-1.5 lg:h-[46px]">
+                <Skeleton className="h-3.5 w-4/5 rounded-sm" />
+                <Skeleton className="h-3.5 w-3/5 rounded-sm" />
+              </div>
+              <Skeleton className="mt-1 h-3 w-1/2 rounded-sm" />
+              <div className="mt-auto pt-3">
+                <Skeleton className="h-4.5 w-16 rounded-pill" />
+              </div>
+            </div>
           </div>
         ))}
       </div>

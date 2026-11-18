@@ -98,35 +98,39 @@ export default async function ExperiencesPage({
           description="Every listing is led by a verified host and reviewed by our team before it appears."
         />
 
-        {/* ── Categories ────────────────────────────────────────────── */}
+        {/* ── Categories (compact sticky single-row horizontal filter bar) ── */}
         <nav
           aria-label="Categories"
-          className="border-line flex flex-wrap items-center justify-between gap-4 border-b pb-6"
+          className="sticky top-[calc(max(12px,env(safe-area-inset-top))_+_44px)] xs:top-[calc(max(12px,env(safe-area-inset-top))_+_48px)] lg:top-[86px] z-30 -mx-5 px-5 sm:-mx-8 sm:px-8 lg:-mx-12 lg:px-12 py-2.5 sm:py-3 bg-bg/92 backdrop-blur-xl border-b border-line transition-colors"
         >
-          <ul className="flex flex-wrap items-center gap-2">
-            <li>
-              <CategoryPill href="/experiences" active={activeCategory === ""}>
-                All
-              </CategoryPill>
-            </li>
-            {categories.map((category) => (
-              <li key={category.key}>
-                <CategoryPill
-                  href={`/experiences?${new URLSearchParams({ category: category.key }).toString()}`}
-                  active={activeCategory === category.key}
-                >
-                  {category.name}
-                </CategoryPill>
-              </li>
-            ))}
-          </ul>
+          <div className="flex items-center justify-between gap-3">
+            <div className="rail flex-1 min-w-0 py-0.5">
+              <ul className="flex items-center gap-2" role="list">
+                <li className="rail-item shrink-0">
+                  <CategoryPill href="/experiences" active={activeCategory === ""}>
+                    All
+                  </CategoryPill>
+                </li>
+                {categories.map((category) => (
+                  <li key={category.key} className="rail-item shrink-0">
+                    <CategoryPill
+                      href={`/experiences?${new URLSearchParams({ category: category.key }).toString()}`}
+                      active={activeCategory === category.key}
+                    >
+                      {category.name}
+                    </CategoryPill>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-          <Link
-            href="/viveniq"
-            className="bg-cta text-cta-fg hover:bg-cta-hover focus-visible:outline-primary inline-flex h-10 items-center gap-2 rounded-pill px-5 text-[11px] font-medium tracking-[0.1em] uppercase transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
-          >
-            Ask VivenIQ
-          </Link>
+            <Link
+              href="/viveniq"
+              className="bg-cta text-cta-fg hover:bg-cta-hover focus-visible:outline-primary shrink-0 inline-flex h-8 sm:h-8.5 items-center gap-1.5 rounded-pill px-3.5 sm:px-4 text-[10.5px] sm:text-[11px] font-medium tracking-[0.1em] uppercase transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              Ask VivenIQ
+            </Link>
+          </div>
         </nav>
 
         {/*
@@ -202,7 +206,7 @@ async function Results({
 /**
  * One category pill. The active one is filled in the primary green with a gold
  * hairline — the same pairing the approved references use for a selected
- * navigation item — so the current choice reads without a second colour.
+ * navigation item — so the current choice reads with quiet luxury.
  */
 function CategoryPill({
   href,
@@ -218,11 +222,11 @@ function CategoryPill({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "inline-flex h-10 items-center rounded-pill border px-5 text-[13px] transition-colors",
+        "inline-flex h-8 sm:h-8.5 items-center rounded-pill border px-3.5 sm:px-4 text-[12px] sm:text-[12.5px] font-sans whitespace-nowrap transition-all",
         "focus-visible:outline-primary focus-visible:outline-2 focus-visible:outline-offset-2",
         active
-          ? "border-accent bg-primary text-text-inverse"
-          : "border-line bg-surface text-fg hover:border-line-strong",
+          ? "border-accent/80 bg-primary text-text-inverse font-medium shadow-sm"
+          : "border-line bg-surface/70 text-fg-muted hover:border-line-strong hover:bg-surface hover:text-heading",
       )}
     >
       {children}

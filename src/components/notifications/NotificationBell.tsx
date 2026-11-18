@@ -68,11 +68,7 @@ export function NotificationBell({
 
     function onPointerDown(e: PointerEvent) {
       const target = e.target as Node | null;
-      if (
-        target &&
-        !triggerRef.current?.contains(target) &&
-        !panelRef.current?.contains(target)
-      ) {
+      if (target && !triggerRef.current?.contains(target) && !panelRef.current?.contains(target)) {
         handleClose();
       }
     }
@@ -95,11 +91,7 @@ export function NotificationBell({
         onClick={toggle}
         aria-expanded={open}
         aria-controls="notification-panel"
-        aria-label={
-          hasUnread
-            ? `Notifications — ${state.unreadCount} unread`
-            : "Notifications"
-        }
+        aria-label={hasUnread ? `Notifications — ${state.unreadCount} unread` : "Notifications"}
         className={cn(
           "group relative grid h-8 w-8 place-items-center rounded-full xs:h-9 xs:w-9",
           "text-heading transition-colors duration-300",
@@ -125,19 +117,20 @@ export function NotificationBell({
         )}
       </button>
 
-      {/* ── Desktop popover ───────────────────────────────────────────── */}
+      {/* ── Desktop popover & Mobile sheet ────────────────────────────── */}
       {open && (
         <>
-          {/* Backdrop — invisible on desktop, dimmed on mobile */}
+          {/* Backdrop — subtle dark scrim with light blur on mobile */}
           <div
             aria-hidden="true"
-            className="fixed inset-0 z-40 bg-transparent lg:hidden"
+            onClick={handleClose}
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden animate-in fade-in-0 duration-200"
           />
-          {/* Mobile sheet — slides up from bottom */}
+          {/* Mobile sheet — slides up from bottom, respecting safe area */}
           <div
             className={cn(
               "fixed inset-x-0 bottom-0 z-50 lg:hidden",
-              "max-h-[85dvh] overflow-hidden rounded-t-3xl",
+              "max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top,1.5rem)))] overflow-hidden rounded-t-3xl",
               "bg-bg border-t border-line shadow-raised",
               "animate-in slide-in-from-bottom-4 duration-300 ease-out",
             )}
@@ -197,7 +190,7 @@ function NotificationPanel({
   const hasUnread = state.unreadCount > 0;
 
   return (
-    <div className="flex max-h-[85dvh] flex-col lg:max-h-[560px]">
+    <div className="flex max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top,1.5rem)))] flex-col lg:max-h-[560px]">
       {/* Handle bar — mobile only */}
       <div className="flex justify-center pb-1 pt-3 lg:hidden" aria-hidden="true">
         <div className="h-1 w-10 rounded-full bg-line-strong" />
@@ -241,7 +234,7 @@ function NotificationPanel({
       </div>
 
       {/* Notification list */}
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pt-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:pb-2">
         {state.loading && state.notifications.length === 0 ? (
           <NotificationSkeleton />
         ) : state.notifications.length === 0 ? (
@@ -276,8 +269,8 @@ function EmptyState() {
       />
       <p className="font-display text-base text-heading">All quiet for now</p>
       <p className="mt-2 font-sans text-[13px] leading-relaxed text-fg-muted">
-        Your evening concierge will notify you here of confirmed reservations, table privileges,
-        and pass updates.
+        Your evening concierge will notify you here of confirmed reservations, table privileges, and
+        pass updates.
       </p>
     </div>
   );
@@ -287,11 +280,8 @@ function NotificationSkeleton() {
   return (
     <div className="flex flex-col gap-2 px-2 py-2" aria-hidden="true">
       {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="flex items-start gap-3 rounded-xl px-4 py-3.5 animate-pulse"
-        >
-          <div className="mt-0.5 h-7 w-7 shrink-0 rounded-full bg-surface-2" />
+        <div key={i} className="flex items-start gap-3 rounded-xl px-4 py-3.5 animate-pulse">
+          <div className="mt-0.5 h-8 w-8 shrink-0 rounded-full bg-surface-2" />
           <div className="flex-1 space-y-2">
             <div className="h-3 w-3/4 rounded bg-surface-2" />
             <div className="h-3 w-full rounded bg-surface-2" />

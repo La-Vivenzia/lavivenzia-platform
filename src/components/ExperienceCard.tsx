@@ -26,7 +26,10 @@ export function ExperienceCard({
   const hasColon = title.includes(":");
   const venue = hasColon ? title.split(":")[0]!.trim() : title;
   const subtitle = hasColon
-    ? title.split(":")[1]!.trim().replace(/\s*\([^)]*\)\s*$/, "")
+    ? title
+        .split(":")[1]!
+        .trim()
+        .replace(/\s*\([^)]*\)\s*$/, "")
     : "";
 
   return (
@@ -35,7 +38,7 @@ export function ExperienceCard({
       className={cn("group relative flex flex-col", className)}
     >
       {/* 1. Immersive, Unobscured Photography */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-surface-2 shadow-card">
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-card bg-surface-2 shadow-card">
         <Image
           src={image}
           alt={alt}
@@ -59,15 +62,13 @@ export function ExperienceCard({
         <h3 className="truncate font-display text-[17px] font-medium text-heading sm:text-[18px]">
           <Link
             href={href}
-            className="outline-none after:absolute after:inset-0 after:z-0 after:rounded-2xl focus-visible:after:outline-2 focus-visible:after:outline-primary"
+            className="outline-none after:absolute after:inset-0 after:z-0 after:rounded-card focus-visible:after:outline-2 focus-visible:after:outline-primary"
           >
             {venue}
           </Link>
         </h3>
         {subtitle ? (
-          <p className="mt-0.5 truncate text-[13px] font-light text-fg-muted">
-            {subtitle}
-          </p>
+          <p className="mt-0.5 truncate text-[13px] font-light text-fg-muted">{subtitle}</p>
         ) : null}
         <p className="mt-1 flex items-center gap-1.5 text-[12px] font-light text-fg-subtle">
           <span>{place}</span>
