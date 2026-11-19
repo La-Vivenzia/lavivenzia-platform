@@ -29,10 +29,18 @@ export const passwordSchema = z
  */
 export const otpCodeSchema = z
   .string()
-  .length(OTP_LENGTH, "Enter the code from your email.")
-  .regex(/^\d+$/, "Enter the code from your email.");
+  .transform((val) => val.trim().replace(/\s+/g, ""))
+  .pipe(
+    z
+      .string()
+      .length(OTP_LENGTH, "Enter the code from your email.")
+      .regex(/^\d+$/, "Enter the code from your email."),
+  );
 
-export const totpCodeSchema = z.string().regex(/^\d{6}$/, "Enter the 6-digit code from your app.");
+export const totpCodeSchema = z
+  .string()
+  .transform((val) => val.trim().replace(/\s+/g, ""))
+  .pipe(z.string().regex(/^\d{6}$/, "Enter the 6-digit code from your app."));
 
 export const registerSchema = z
   .object({

@@ -112,3 +112,25 @@ describe("otpExpiryFrom", () => {
     expect(OTP_TTL_MS).toBe(10 * 60 * 1000);
   });
 });
+
+describe("otpCodeSchema", () => {
+  it("normalises codes with trailing, leading, or inner whitespace", async () => {
+    const { otpCodeSchema, totpCodeSchema } = await import("@/app/api/v1/auth/_schemas");
+
+    expect(otpCodeSchema.parse("123456")).toBe("123456");
+    expect(otpCodeSchema.parse(" 123456 ")).toBe("123456");
+    expect(otpCodeSchema.parse("123 456")).toBe("123456");
+    expect(otpCodeSchema.parse("615749 ")).toBe("615749");
+
+    expect(totpCodeSchema.parse(" 654321 ")).toBe("654321");
+    expect(totpCodeSchema.parse("654 321")).toBe("654321");
+  });
+
+  it("rejects non-numeric or malformed codes", async () => {
+    const { otpCodeSchema } = await import("@/app/api/v1/auth/_schemas");
+
+    expect(() => otpCodeSchema.parse("12345")).toThrow();
+    expect(() => otpCodeSchema.parse("1234567")).toThrow();
+    expect(() => otpCodeSchema.parse("abcdef")).toThrow();
+  });
+});

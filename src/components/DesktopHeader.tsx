@@ -94,6 +94,19 @@ export function DesktopHeader({
             Curate With VivenIQ
           </Link>
           <NotificationButton signedIn={signedIn} accountHref={accountHref} />
+          {!signedIn ? (
+            <Link
+              href="/join"
+              className={cn(
+                "xs:h-9 xs:px-4 rounded-pill hidden sm:grid h-8 shrink-0 place-items-center px-3.5",
+                "bg-accent text-accent-fg font-medium text-[12px] tracking-wide whitespace-nowrap",
+                "transition-[background-color,box-shadow,transform] duration-300",
+                "hover:bg-accent-ink hover:-translate-y-px",
+              )}
+            >
+              Join
+            </Link>
+          ) : null}
           <ProfileButton signedIn={signedIn} accountHref={accountHref} initials={initials} />
           <ThemeToggle className="ml-1" />
         </div>

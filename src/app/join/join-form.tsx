@@ -42,8 +42,10 @@ export function TravellerJoinForm() {
     setError(null);
     setPending(true);
 
+    const cleanEmail = email.trim().toLowerCase();
+
     try {
-      await startTravellerJoin(api, email);
+      await startTravellerJoin(api, cleanEmail);
       setSent(true);
     } catch (caught) {
       setError(
@@ -61,8 +63,11 @@ export function TravellerJoinForm() {
     setError(null);
     setPending(true);
 
+    const cleanCode = code.replace(/\D/g, "");
+    const cleanEmail = email.trim().toLowerCase();
+
     try {
-      await api.post("/api/v1/auth/otp/verify", { email, code });
+      await api.post("/api/v1/auth/otp/verify", { email: cleanEmail, code: cleanCode });
       router.refresh();
       // A brand-new traveller holds only the traveller role, and travellers have
       // no console yet, so the honest destination is where they were going.
@@ -106,7 +111,7 @@ export function TravellerJoinForm() {
           autoComplete="one-time-code"
           required
           value={code}
-          onChange={(event) => setCode(event.target.value)}
+          onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
           placeholder="Six-digit code"
           aria-label="Six-digit code"
         />

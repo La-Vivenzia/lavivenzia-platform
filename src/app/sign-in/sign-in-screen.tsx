@@ -65,15 +65,17 @@ export function SignInScreen({ next }: { readonly next?: string }) {
     setError(null);
     setPending(true);
 
+    const cleanEmail = email.trim().toLowerCase();
+
     try {
       // No password given: this is the traveller path, so ask for a code.
       if (password.length === 0) {
-        await api.post("/api/v1/auth/otp/request", { email });
+        await api.post("/api/v1/auth/otp/request", { email: cleanEmail });
         setStep("code");
         return;
       }
 
-      const result = await api.post<LoginResponse>("/api/v1/auth/login", { email, password });
+      const result = await api.post<LoginResponse>("/api/v1/auth/login", { email: cleanEmail, password });
 
       if (result.mfaRequired) {
         // A privileged account lands on an MFA-unsatisfied session, where every
@@ -101,8 +103,11 @@ export function SignInScreen({ next }: { readonly next?: string }) {
     setError(null);
     setPending(true);
 
+    const cleanCode = code.replace(/\D/g, "");
+    const cleanEmail = email.trim().toLowerCase();
+
     try {
-      await api.post("/api/v1/auth/otp/verify", { email, code });
+      await api.post("/api/v1/auth/otp/verify", { email: cleanEmail, code: cleanCode });
       await landAfterSignIn();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "We could not verify that code.");
@@ -128,7 +133,7 @@ export function SignInScreen({ next }: { readonly next?: string }) {
           autoComplete="one-time-code"
           required
           value={code}
-          onChange={(event) => setCode(event.target.value)}
+          onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
           placeholder="Six-digit code"
           aria-label="Six-digit code"
         />

@@ -11,7 +11,7 @@ export const POST = withRoute(async (request) => {
   const body = await parseJsonBody(request, otpRequestSchema);
   const context = await getRequestContext();
 
-  await getAuthService().requestLoginOtp({ email: body.email, context });
+  await getAuthService().requestTravellerAccessOtp({ email: body.email, context });
 
   // Always 202, whether or not the address has an account. Any difference here
   // — status, body, or timing — turns this endpoint into a way to discover who

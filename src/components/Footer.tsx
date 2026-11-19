@@ -117,6 +117,7 @@ export function Footer() {
                       >
                         <Link
                           href={item.href}
+                          prefetch={item.href === "/become-a-host" ? false : undefined}
                           className="inline-flex min-h-10 items-center text-[14px] font-light text-fg-muted transition-colors duration-300 hover:text-heading focus-visible:text-heading lg:min-h-0"
                         >
                           {item.label}
