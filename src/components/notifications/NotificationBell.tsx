@@ -1,8 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal, flushSync } from "react-dom";
+import { useRouter } from "next/navigation";
 import { Bell, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import type { Notification } from "@/modules/notifications/service";
 import { NotificationCard } from "./NotificationCard";
 import { useNotifications } from "./useNotifications";
 
@@ -10,7 +13,7 @@ import { useNotifications } from "./useNotifications";
  * NotificationBell — the full notification trigger + inbox for La Vivenzia.
  *
  * Desktop: an anchored popover that opens beneath the bell trigger.
- * Mobile:  a full-height slide-up sheet from the bottom of the viewport.
+ * Mobile:  a full-height slide-up sheet portaled to document.body.
  *
  * Both surfaces share the same list component, so the content is never
  * duplicated and the read state is consistent between viewports.
@@ -29,10 +32,51 @@ export function NotificationBell({
   readonly className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const mobilePanelRef = useRef<HTMLDivElement>(null);
+  const desktopPanelRef = useRef<HTMLDivElement>(null);
 
   const { state, refetch, markRead, markAllRead } = useNotifications(signedIn);
+  const router = useRouter();
+
+  const handleNotificationSelect = useCallback(
+    (notification: Notification) => {
+      // 1. Preserve mark-as-read behavior
+      if (notification.readAt === null) {
+        void markRead(notification.id);
+      }
+
+      // 2. Ensure overlay and backdrop are completely removed before navigation
+      flushSync(() => {
+        setOpen(false);
+      });
+
+      // 3. Immediately navigate to actionUrl if present
+      if (notification.actionUrl) {
+        router.push(notification.actionUrl);
+      } else {
+        requestAnimationFrame(() => triggerRef.current?.focus());
+      }
+    },
+    [markRead, router],
+  );
+
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window === "undefined" || !window.matchMedia) return;
+
+    const mql = window.matchMedia("(min-width: 1024px)");
+    setIsDesktop(mql.matches);
+
+    const onChange = () => {
+      setIsDesktop(mql.matches);
+    };
+
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
 
   // Refetch when the popover opens so it is always current.
   const handleOpen = useCallback(() => {
@@ -68,7 +112,12 @@ export function NotificationBell({
 
     function onPointerDown(e: PointerEvent) {
       const target = e.target as Node | null;
-      if (target && !triggerRef.current?.contains(target) && !panelRef.current?.contains(target)) {
+      if (
+        target &&
+        !triggerRef.current?.contains(target) &&
+        !mobilePanelRef.current?.contains(target) &&
+        !desktopPanelRef.current?.contains(target)
+      ) {
         handleClose();
       }
     }
@@ -81,6 +130,7 @@ export function NotificationBell({
   if (!signedIn) return null;
 
   const hasUnread = state.unreadCount > 0;
+  const panelId = mounted && isDesktop ? "notification-panel-desktop" : "notification-panel-mobile";
 
   return (
     <div className={cn("relative", className)}>
@@ -90,7 +140,7 @@ export function NotificationBell({
         type="button"
         onClick={toggle}
         aria-expanded={open}
-        aria-controls="notification-panel"
+        aria-controls={panelId}
         aria-label={hasUnread ? `Notifications — ${state.unreadCount} unread` : "Notifications"}
         className={cn(
           "group relative grid h-8 w-8 place-items-center rounded-full xs:h-9 xs:w-9",
@@ -117,58 +167,65 @@ export function NotificationBell({
         )}
       </button>
 
-      {/* ── Desktop popover & Mobile sheet ────────────────────────────── */}
-      {open && (
-        <>
-          {/* Backdrop — subtle dark scrim with light blur on mobile */}
-          <div
-            aria-hidden="true"
-            onClick={handleClose}
-            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden animate-in fade-in-0 duration-200"
-          />
-          {/* Mobile sheet — slides up from bottom, respecting safe area */}
-          <div
-            className={cn(
-              "fixed inset-x-0 bottom-0 z-50 lg:hidden",
-              "max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top,1.5rem)))] overflow-hidden rounded-t-3xl",
-              "bg-bg border-t border-line shadow-raised",
-              "animate-in slide-in-from-bottom-4 duration-300 ease-out",
-            )}
-            id="notification-panel"
-            role="dialog"
-            aria-label="Notifications"
-            ref={panelRef}
-          >
-            <NotificationPanel
-              state={state}
-              onMarkAllRead={markAllRead}
-              onMarkRead={markRead}
-              onClose={handleClose}
+      {/* ── Mobile sheet & backdrop portaled to document.body ───────── */}
+      {open &&
+        mounted &&
+        typeof document !== "undefined" &&
+        document.body &&
+        createPortal(
+          <>
+            {/* Backdrop — subtle dark scrim with light blur on mobile */}
+            <div
+              aria-hidden="true"
+              onClick={handleClose}
+              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden animate-in fade-in-0 duration-200"
             />
-          </div>
+            {/* Mobile sheet — slides up from bottom, respecting safe area */}
+            <div
+              className={cn(
+                "fixed inset-x-0 bottom-0 z-50 lg:hidden",
+                "max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top,1.5rem)))] overflow-hidden rounded-t-3xl",
+                "bg-bg border-t border-line shadow-raised",
+                "animate-in slide-in-from-bottom-4 duration-300 ease-out",
+              )}
+              id="notification-panel-mobile"
+              role="dialog"
+              aria-label="Notifications"
+              ref={mobilePanelRef}
+            >
+              <NotificationPanel
+                state={state}
+                onMarkAllRead={markAllRead}
+                onNotificationSelect={handleNotificationSelect}
+                onClose={handleClose}
+              />
+            </div>
+          </>,
+          document.body,
+        )}
 
-          {/* Desktop popover — anchored below the trigger */}
-          <div
-            className={cn(
-              "absolute right-0 top-full z-50 mt-2 hidden lg:block",
-              "w-[380px] xl:w-[420px]",
-              "overflow-hidden rounded-2xl",
-              "bg-bg border border-line shadow-raised",
-              "animate-in fade-in-0 slide-in-from-top-2 duration-200 ease-out",
-            )}
-            id="notification-panel"
-            role="dialog"
-            aria-label="Notifications"
-            ref={panelRef}
-          >
-            <NotificationPanel
-              state={state}
-              onMarkAllRead={markAllRead}
-              onMarkRead={markRead}
-              onClose={handleClose}
-            />
-          </div>
-        </>
+      {/* ── Desktop popover — anchored below the trigger ────────────── */}
+      {open && (
+        <div
+          className={cn(
+            "absolute right-0 top-full z-50 mt-2 hidden lg:block",
+            "w-[380px] xl:w-[420px]",
+            "overflow-hidden rounded-2xl",
+            "bg-bg border border-line shadow-raised",
+            "animate-in fade-in-0 slide-in-from-top-2 duration-200 ease-out",
+          )}
+          id="notification-panel-desktop"
+          role="dialog"
+          aria-label="Notifications"
+          ref={desktopPanelRef}
+        >
+          <NotificationPanel
+            state={state}
+            onMarkAllRead={markAllRead}
+            onNotificationSelect={handleNotificationSelect}
+            onClose={handleClose}
+          />
+        </div>
       )}
     </div>
   );
@@ -179,12 +236,12 @@ export function NotificationBell({
 function NotificationPanel({
   state,
   onMarkAllRead,
-  onMarkRead,
+  onNotificationSelect,
   onClose,
 }: {
   readonly state: ReturnType<typeof useNotifications>["state"];
   readonly onMarkAllRead: () => void;
-  readonly onMarkRead: (id: string) => void;
+  readonly onNotificationSelect: (notification: Notification) => void;
   readonly onClose: () => void;
 }) {
   const hasUnread = state.unreadCount > 0;
@@ -242,13 +299,16 @@ function NotificationPanel({
         ) : (
           <ul role="list" className="flex flex-col gap-0.5">
             {state.notifications.map((notification) => (
-              <li key={notification.id}>
+              <li
+                key={notification.id}
+                onClickCapture={(e) => {
+                  e.stopPropagation();
+                  onNotificationSelect(notification);
+                }}
+              >
                 <NotificationCard
                   notification={notification}
-                  onRead={(id) => {
-                    onMarkRead(id);
-                    onClose();
-                  }}
+                  onRead={() => onNotificationSelect(notification)}
                 />
               </li>
             ))}

@@ -3,6 +3,7 @@ import { ExperiencesSection } from "@/components/ExperiencesSection";
 import { Footer } from "@/components/Footer";
 import { Hero } from "@/components/Hero";
 import { JourneyRail } from "@/components/journeys/JourneyRail";
+import { MembershipActivationBanner } from "@/components/notifications/MembershipActivationBanner";
 import { MobileHeader } from "@/components/MobileHeader";
 import { Reveal } from "@/components/Reveal";
 import { SearchBar } from "@/components/SearchBar";
@@ -23,18 +24,11 @@ import type { Trip } from "@/modules/trips/data";
  * 3. The Collection (curated listings)
  */
 export function MobileHome(props: HomeData) {
-  const {
-    signedIn,
-    accountHref,
-    initials,
-    stories,
-    heroImage,
-    heroImages,
-    journeys,
-  } = props;
+  const { signedIn, accountHref, initials, stories, heroImage, heroImages, journeys } = props;
 
   return (
     <div className="lg:hidden bg-bg text-fg">
+      <MembershipActivationBanner signedIn={signedIn} />
       <MobileHeader signedIn={signedIn} accountHref={accountHref} initials={initials} />
 
       <main id="m-top" className="pb-12">
@@ -48,11 +42,7 @@ export function MobileHome(props: HomeData) {
 
         {/* Section 2: Signature Journeys */}
         {journeys.length > 0 ? (
-          <section
-            id="m-journeys"
-            aria-labelledby="lv-journeys"
-            className="scroll-mt-20 px-5 pt-12"
-          >
+          <section id="m-journeys" aria-labelledby="lv-journeys" className="scroll-mt-20 px-5 pt-8">
             <Reveal>
               <SectionHeader
                 id="lv-journeys"

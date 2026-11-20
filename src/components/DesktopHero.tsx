@@ -19,11 +19,10 @@ export function DesktopHero({
 }) {
   const slides = resolveHeroSlides(images, image);
 
-
   return (
-    <section aria-labelledby="lv-hero-heading-desktop" className="relative pt-4 pb-20 xl:pb-24">
+    <section aria-labelledby="lv-hero-heading-desktop" className="relative pt-4 pb-6">
       {/* Photograph — bleeds to the viewport edge, independent of the grid. */}
-      <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[46%] pt-4 pb-20 lg:block xl:w-[47%] xl:pb-24 2xl:w-[46%]">
+      <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[46%] pt-4 pb-6 lg:block xl:w-[47%] 2xl:w-[46%]">
         <div className="relative h-full w-full overflow-hidden rounded-tl-[7rem] xl:rounded-tl-[9rem]">
           <HeroVisual
             images={slides}
@@ -35,7 +34,7 @@ export function DesktopHero({
       </div>
 
       <div className="mx-auto w-full max-w-[1440px] px-8 xl:px-12 3xl:max-w-[1680px]">
-        <div className="w-[50%] max-w-[640px] pt-10 pb-6 xl:pt-16 2xl:pt-20">
+        <div className="w-[50%] max-w-[640px] pt-10 pb-2 xl:pt-14 2xl:pt-16">
           <Reveal>
             <p className="eyebrow text-[11px] text-fg-subtle dark:text-accent-ink xl:text-[12px]">
               {brand.eyebrow}
@@ -57,7 +56,8 @@ export function DesktopHero({
 
           <Reveal delay={170}>
             <p className="mt-6 max-w-[42ch] text-[16px] leading-[1.65] font-light text-fg-muted xl:text-[17px]">
-              Choreographed multi-venue evenings and verified experiences, reserved in one touch with VIP privileges.
+              Choreographed multi-venue evenings and verified experiences, reserved in one touch
+              with VIP privileges.
             </p>
           </Reveal>
 

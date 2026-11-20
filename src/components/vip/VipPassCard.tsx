@@ -155,8 +155,8 @@ export function VipPassCard({
           <div className="mt-4 flex items-end justify-between gap-4 border-t border-accent/25 pt-3">
             <p className="flex min-w-0 items-start gap-1.5 text-[11px] leading-snug text-panel-fg/90 xs:text-[12px]">
               <Crown
-                className="mt-px h-[13px] w-[13px] shrink-0 text-accent"
-                strokeWidth={1.6}
+                className="mt-px h-3.5 w-3.5 shrink-0 text-accent"
+                strokeWidth={1.5}
                 aria-hidden="true"
               />
               <span className="truncate">{privilege.title}</span>
@@ -175,7 +175,7 @@ export function VipPassCard({
           onClick={requestTilt}
           className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-pill px-3 text-[12px] text-fg-muted hover:text-fg"
         >
-          <Smartphone className="h-4 w-4" strokeWidth={1.6} aria-hidden="true" />
+          <Smartphone className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
           Tilt the pass with your phone
         </button>
       ) : null}

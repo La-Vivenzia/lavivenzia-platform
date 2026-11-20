@@ -82,7 +82,7 @@ export function DigitalVipPass({
         {/* The keyword: what the traveller says at every door. */}
         <div className="mt-5 rounded-card border border-accent/40 bg-panel-fg/5 px-4 py-3">
           <p className="flex items-center gap-1.5 text-[10px] tracking-[0.18em] text-panel-fg/80 uppercase">
-            <KeyRound className="h-3.5 w-3.5 text-accent" strokeWidth={1.8} aria-hidden="true" />
+            <KeyRound className="h-3.5 w-3.5 text-accent" strokeWidth={1.5} aria-hidden="true" />
             Secret host keyword
           </p>
           <p className="mt-1.5 font-display text-[22px] leading-tight tracking-[0.08em] text-accent sm:text-[26px]">
@@ -102,7 +102,7 @@ export function DigitalVipPass({
             </p>
             <span className="lv-gold-glow block">
               <Button variant="gold" size="lg" className="w-full" onClick={onStartJourney}>
-                <Navigation className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                <Navigation className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
                 Begin Evening Journey
               </Button>
             </span>
@@ -149,8 +149,8 @@ export function DigitalVipPass({
                 <p className="mt-0.5 text-[13.5px] leading-snug text-panel-fg">{act.title}</p>
                 <p className="mt-1 flex items-start gap-1.5 text-[12px] leading-snug text-panel-fg/85">
                   <Crown
-                    className="mt-0.5 h-3 w-3 shrink-0 text-accent"
-                    strokeWidth={1.8}
+                    className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent"
+                    strokeWidth={1.5}
                     aria-hidden="true"
                   />
                   <span>
@@ -171,7 +171,7 @@ export function DigitalVipPass({
         <div className="mt-5 flex items-start gap-2 rounded-card bg-panel-fg/5 px-3 py-2.5">
           <ShieldCheck
             className="mt-0.5 h-4 w-4 shrink-0 text-accent"
-            strokeWidth={1.8}
+            strokeWidth={1.5}
             aria-hidden="true"
           />
           <p className="text-[12px] leading-relaxed text-panel-fg/90">
@@ -192,7 +192,7 @@ export function DigitalVipPass({
       </dl>
 
       <p className="flex items-start gap-2 text-[12px] leading-relaxed text-fg-muted">
-        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.5} aria-hidden="true" />
         Bespoke self-guided evening. Venue privileges are requested on your behalf by La Vivenzia.
       </p>
     </section>

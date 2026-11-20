@@ -108,11 +108,11 @@ export function TasteArchetypeFinder({
             {journey ? (
               <Button variant="primary" onClick={showJourney}>
                 See the full journey
-                <ArrowRight className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                <ArrowRight className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
               </Button>
             ) : null}
             <Button variant="ghost" onClick={restart}>
-              <RotateCcw className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+              <RotateCcw className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
               Start again
             </Button>
           </div>
@@ -176,7 +176,7 @@ export function TasteArchetypeFinder({
                   {option.label}
                   <ArrowRight
                     className="h-4 w-4 shrink-0 text-fg-subtle"
-                    strokeWidth={1.6}
+                    strokeWidth={1.5}
                     aria-hidden="true"
                   />
                 </button>
@@ -193,7 +193,7 @@ export function TasteArchetypeFinder({
           disabled={step === 0}
           onClick={() => setStep((current) => Math.max(0, current - 1))}
         >
-          <ArrowLeft className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+          <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
           Back
         </Button>
       </div>
