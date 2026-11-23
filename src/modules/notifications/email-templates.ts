@@ -1,9 +1,9 @@
 import { ValidationError } from "@/lib/errors";
 
 /**
- * Transactional email templates (FR-12).
+ * Transactional email templates (FR-12, LA-22).
  *
- * Bodies are assembled here, not by callers, for two reasons. Callers pass
+ * Bodies are assembled here, not by callers, for two reasons: Callers pass
  * structured variables, so a template change never becomes a change at every
  * call site; and the content stays provider-neutral, so swapping SES for
  * another sender touches the adapter and nothing else.
@@ -16,18 +16,58 @@ import { ValidationError } from "@/lib/errors";
 export const EMAIL_SENDER_NAME = "La Vivenzia";
 
 /**
+ * La Vivenzia official luxury brand palette and typography tokens.
+ *
+ * Specified by LA-22 / DESIGN.md §A:
+ * - Deep Pine: #0D1611
+ * - Warm Ivory: #FBF9F5
+ * - Champagne Gold: #C5A880
+ * - Border: #E6E1D8
+ */
+export const LUXURY_BRAND = {
+  deepPine: "#0D1611",
+  warmIvory: "#FBF9F5",
+  champagneGold: "#C5A880",
+  border: "#E6E1D8",
+  cardBg: "#FFFFFF",
+  cardAlt: "#F4EFEA",
+  textMuted: "#606A63",
+  textBody: "#16261E",
+  pineCardBg: "#13211A",
+  pineBorder: "#22382F",
+  pineMuted: "#9DAAA2",
+  tagline: "Experience Every Journey Through Its Soul",
+  serif: "'Playfair Display', Georgia, 'Times New Roman', serif",
+  sans: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+  mono: "'JetBrains Mono', Menlo, Monaco, Consolas, 'Courier New', monospace",
+} as const;
+
+/**
  * Variables each template expects.
  *
  * Adding a template means adding an entry here and one to `TEMPLATES` below;
- * the compiler then requires every caller to pass the right shape. That is the
- * point of keying the message type off this map rather than accepting a loose
- * record.
+ * the compiler then requires every caller to pass the right shape.
  */
 export interface EmailTemplatePayloads {
   /** Passwordless login code for travellers (ADR-0005). */
   "auth.login-code": {
     readonly code: string;
     readonly expiresInMinutes: number;
+  };
+  /** Automatic booking confirmation sent immediately upon reservation. */
+  "traveler.booking-confirmation": {
+    readonly patronName: string;
+    readonly experienceTitle: string;
+    readonly hostName: string;
+    readonly reference: string;
+    readonly startsAtFormatted: string;
+    readonly endsAtFormatted: string;
+    readonly guests: number;
+    readonly totalFormatted: string;
+    readonly venueLines: readonly string[];
+    readonly directionsUrl: string | null;
+    readonly experienceUrl: string;
+    readonly confirmedAt: string;
   };
   /** The in-journey live butler: curated gems near where the traveller is now. */
   "traveler.in-journey-companion": {
@@ -77,7 +117,7 @@ export interface EmailTemplatePayloads {
 }
 
 /** One act as both journey emails print it. */
-interface JourneyActPayload {
+export interface JourneyActPayload {
   /** "Chapter I · Prelude". */
   readonly heading: string;
   readonly title: string;
@@ -107,9 +147,6 @@ interface EmailTemplate<K extends EmailTemplateId> {
  * Escape text before it reaches the HTML body.
  *
  * Every variable is escaped, including ones that "cannot" contain markup today.
- * A template variable is untrusted input the moment someone reuses a template
- * with a user-supplied value, and that reuse never comes with a review of this
- * file.
  */
 export function escapeHtml(value: string): string {
   return value
@@ -120,23 +157,8 @@ export function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-/** Shared shell so every email looks like the same product without a build step. */
-function layout(heading: string, bodyHtml: string): string {
-  return [
-    '<div style="font-family:system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif;',
-    'max-width:520px;margin:0 auto;padding:32px 24px;color:#1a1a1a;line-height:1.6">',
-    `<h1 style="font-size:20px;margin:0 0 20px">${escapeHtml(heading)}</h1>`,
-    bodyHtml,
-    '<hr style="border:none;border-top:1px solid #e5e5e5;margin:32px 0 16px">',
-    `<p style="font-size:12px;color:#767676;margin:0">${escapeHtml(EMAIL_SENDER_NAME)}</p>`,
-    "</div>",
-  ].join("");
-}
-
 /**
- * An href that can only ever be a web link. Anything else — `javascript:`,
- * `data:`, a relative path that resolves against the mail client — becomes an
- * inert anchor rather than a live one.
+ * An href that can only ever be a web link. Anything else becomes an inert anchor.
  */
 function safeHref(url: string): string {
   try {
@@ -149,49 +171,201 @@ function safeHref(url: string): string {
   }
 }
 
+function guestsLabel(partySize: number): string {
+  return `${partySize} ${partySize === 1 ? "guest" : "guests"}`;
+}
+
 /**
- * The live butler's palette.
- *
- * Literal values, unlike the product UI: mail clients cannot read the CSS
- * custom properties in `globals.css`, so the brand's dark luxury register is
- * spelled out here, once, for every email that uses it.
+ * Shared luxury container shell ensuring Gmail, Apple Mail, and Outlook compatibility.
+ * Employs inline CSS, fluid table layout, and the official La Vivenzia luxury palette.
  */
-const BUTLER = {
-  night: "#080806",
-  pine: "#0e2a22",
-  gold: "#cda851",
-  ivory: "#FAF8F5",
-  muted: "#b9b4a8",
-  rule: "#22382f",
-  serif: "Georgia,'Times New Roman',Times,serif",
-  sans: "system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif",
-} as const;
+function renderLuxuryEmailShell({
+  previewText,
+  badgeText,
+  heading,
+  subheading,
+  bodyContentHtml,
+  footerNoteHtml,
+  theme = "ivory",
+}: {
+  readonly previewText?: string;
+  readonly badgeText?: string;
+  readonly heading: string;
+  readonly subheading?: string;
+  readonly bodyContentHtml: string;
+  readonly footerNoteHtml?: string;
+  readonly theme?: "ivory" | "pine";
+}): string {
+  const b = LUXURY_BRAND;
+  const isDark = theme === "pine";
+
+  const outerBg = isDark ? b.deepPine : b.warmIvory;
+  const containerBg = isDark ? b.deepPine : b.cardBg;
+  const borderCol = isDark ? b.pineBorder : b.border;
+  const headingCol = isDark ? b.warmIvory : b.deepPine;
+  const subCol = isDark ? b.pineMuted : b.textMuted;
+  const footerTextCol = isDark ? b.pineMuted : b.textMuted;
+
+  return [
+    `<!doctype html><html lang="en"><head><meta charset="utf-8">`,
+    `<meta name="viewport" content="width=device-width,initial-scale=1">`,
+    `<meta name="color-scheme" content="${isDark ? "dark" : "light"}">`,
+    `<title>${escapeHtml(EMAIL_SENDER_NAME)}</title>`,
+    `<!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->`,
+    `</head>`,
+    `<body style="margin:0;padding:0;background-color:${outerBg};-webkit-font-smoothing:antialiased">`,
+    previewText
+      ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(previewText)}</div>`
+      : "",
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${outerBg}">`,
+    `<tr><td align="center" style="padding:32px 16px">`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:580px;background-color:${containerBg};border:1px solid ${borderCol};border-radius:12px;overflow:hidden">`,
+
+    // Header bar with official La Vivenzia luxury branding
+    `<tr><td style="background-color:${b.deepPine};padding:28px 24px 24px;text-align:center;border-bottom:1px solid ${b.champagneGold}">`,
+    `<p style="margin:0 0 6px;font-family:${b.serif};font-size:18px;letter-spacing:5px;font-weight:600;text-transform:uppercase;color:${b.champagneGold}">`,
+    `${escapeHtml(EMAIL_SENDER_NAME)}</p>`,
+    `<p style="margin:0;font-family:${b.sans};font-size:10px;letter-spacing:2px;text-transform:uppercase;color:${b.warmIvory}">`,
+    `${escapeHtml(b.tagline)}</p>`,
+    badgeText
+      ? `<div style="margin-top:14px"><span style="display:inline-block;padding:5px 14px;border:1px solid ${b.champagneGold};border-radius:999px;font-family:${b.sans};font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:${b.champagneGold}">${escapeHtml(badgeText)}</span></div>`
+      : "",
+    `</td></tr>`,
+
+    // Headline & Lead
+    `<tr><td style="padding:28px 24px 12px">`,
+    `<h1 style="margin:0 0 10px;font-family:${b.serif};font-size:24px;line-height:1.3;font-weight:normal;color:${headingCol}">${escapeHtml(heading)}</h1>`,
+    subheading
+      ? `<p style="margin:0;font-family:${b.sans};font-size:14px;line-height:1.6;color:${subCol}">${escapeHtml(subheading)}</p>`
+      : "",
+    `</td></tr>`,
+
+    // Main Body
+    `<tr><td style="padding:0 24px 28px">`,
+    bodyContentHtml,
+    `</td></tr>`,
+
+    // Footer
+    `<tr><td style="background-color:${isDark ? b.deepPine : b.warmIvory};padding:20px 24px;border-top:1px solid ${borderCol};text-align:center">`,
+    footerNoteHtml
+      ? `<div style="margin:0 0 10px;font-family:${b.sans};font-size:11px;line-height:1.5;color:${footerTextCol}">${footerNoteHtml}</div>`
+      : "",
+    `<p style="margin:0;font-family:${b.sans};font-size:11px;color:${footerTextCol}">`,
+    `&copy; ${escapeHtml(EMAIL_SENDER_NAME)} &middot; All privileges and reservations subject to patron terms.</p>`,
+    `</td></tr>`,
+
+    `</table></td></tr></table></body></html>`,
+  ].join("");
+}
+
+/* ------------------------------------------------------------- 1. Login Code */
+
+function loginCodeHtml(variables: EmailTemplatePayloads["auth.login-code"]): string {
+  const b = LUXURY_BRAND;
+  const content = [
+    `<p style="margin:0 0 18px;font-family:${b.sans};font-size:14.5px;line-height:1.6;color:${b.textBody}">`,
+    `Use this confidential verification code to sign in to your La Vivenzia account:</p>`,
+    `<div style="background-color:${b.deepPine};border:1px solid ${b.champagneGold};border-radius:10px;padding:20px;text-align:center;margin:0 0 20px">`,
+    `<p style="margin:0;font-family:${b.mono};font-size:32px;font-weight:700;letter-spacing:8px;color:${b.champagneGold}">`,
+    `${escapeHtml(variables.code)}</p>`,
+    `</div>`,
+    `<p style="margin:0 0 12px;font-family:${b.sans};font-size:13px;line-height:1.5;color:${b.textMuted}">`,
+    `This single-use code expires in ${escapeHtml(String(variables.expiresInMinutes))} minutes.</p>`,
+    `<p style="margin:0;font-family:${b.sans};font-size:12px;line-height:1.5;color:${b.textMuted}">`,
+    `If you did not request this login code, you can safely disregard this email. Nobody can access your account with this code alone.</p>`,
+  ].join("");
+
+  return renderLuxuryEmailShell({
+    previewText: `Your ${EMAIL_SENDER_NAME} single-use code is ${variables.code}`,
+    badgeText: "Secure Access",
+    heading: "Single-Use Verification Code",
+    subheading: "Your Patron Circle access code is ready.",
+    bodyContentHtml: content,
+    theme: "ivory",
+  });
+}
+
+/* ------------------------------------------------ 2. Booking Confirmation */
+
+function bookingConfirmationHtml(
+  variables: EmailTemplatePayloads["traveler.booking-confirmation"],
+): string {
+  const b = LUXURY_BRAND;
+
+  const content = [
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
+    `style="background-color:${b.warmIvory};border:1px solid ${b.border};border-radius:10px;margin-bottom:20px">`,
+    `<tr><td style="padding:18px 20px">`,
+    `<p style="margin:0 0 6px;font-family:${b.sans};font-size:10px;letter-spacing:2px;text-transform:uppercase;color:${b.champagneGold}">`,
+    `Reservation Reference</p>`,
+    `<p style="margin:0;font-family:${b.mono};font-size:20px;font-weight:700;color:${b.deepPine}">`,
+    `#${escapeHtml(variables.reference)}</p>`,
+    `</td></tr></table>`,
+
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
+    `style="border:1px solid ${b.border};border-radius:10px;margin-bottom:22px;border-collapse:collapse">`,
+    `<tr><td style="padding:14px 18px;border-bottom:1px solid ${b.border};font-family:${b.sans};font-size:12px;color:${b.textMuted};width:32%">Experience</td>`,
+    `<td style="padding:14px 18px;border-bottom:1px solid ${b.border};font-family:${b.serif};font-size:15px;font-weight:600;color:${b.deepPine}">${escapeHtml(variables.experienceTitle)}</td></tr>`,
+    `<tr><td style="padding:14px 18px;border-bottom:1px solid ${b.border};font-family:${b.sans};font-size:12px;color:${b.textMuted}">Host</td>`,
+    `<td style="padding:14px 18px;border-bottom:1px solid ${b.border};font-family:${b.sans};font-size:13.5px;color:${b.textBody}">${escapeHtml(variables.hostName)}</td></tr>`,
+    `<tr><td style="padding:14px 18px;border-bottom:1px solid ${b.border};font-family:${b.sans};font-size:12px;color:${b.textMuted}">Party Size</td>`,
+    `<td style="padding:14px 18px;border-bottom:1px solid ${b.border};font-family:${b.sans};font-size:13.5px;color:${b.textBody}">${escapeHtml(guestsLabel(variables.guests))}</td></tr>`,
+    `<tr><td style="padding:14px 18px;border-bottom:1px solid ${b.border};font-family:${b.sans};font-size:12px;color:${b.textMuted}">Schedule</td>`,
+    `<td style="padding:14px 18px;border-bottom:1px solid ${b.border};font-family:${b.sans};font-size:13.5px;color:${b.textBody}">${escapeHtml(variables.startsAtFormatted)} &ndash; ${escapeHtml(variables.endsAtFormatted)}</td></tr>`,
+    `<tr><td style="padding:14px 18px;border-bottom:1px solid ${b.border};font-family:${b.sans};font-size:12px;color:${b.textMuted}">Total Amount</td>`,
+    `<td style="padding:14px 18px;border-bottom:1px solid ${b.border};font-family:${b.mono};font-size:14px;font-weight:600;color:${b.deepPine}">${escapeHtml(variables.totalFormatted)}</td></tr>`,
+    `<tr><td style="padding:14px 18px;font-family:${b.sans};font-size:12px;color:${b.textMuted};vertical-align:top">Venue Address</td>`,
+    `<td style="padding:14px 18px;font-family:${b.sans};font-size:13px;line-height:1.5;color:${b.textBody}">`,
+    variables.venueLines.map((l) => escapeHtml(l)).join("<br>"),
+    variables.directionsUrl
+      ? `<br><a href="${safeHref(variables.directionsUrl)}" style="display:inline-block;margin-top:6px;font-size:12px;font-weight:600;color:${b.champagneGold};text-decoration:none">View on Map &rarr;</a>`
+      : "",
+    `</td></tr></table>`,
+
+    `<div style="text-align:center;padding:8px 0 0">`,
+    `<a href="${safeHref(variables.experienceUrl)}" `,
+    `style="display:inline-block;padding:13px 26px;border-radius:999px;background-color:${b.champagneGold};`,
+    `color:${b.deepPine};font-family:${b.sans};font-size:13px;font-weight:600;letter-spacing:0.5px;text-decoration:none">`,
+    `View Experience &amp; Pass &rarr;</a>`,
+    `</div>`,
+  ].join("");
+
+  return renderLuxuryEmailShell({
+    previewText: `Reservation Confirmed: ${variables.experienceTitle} · #${variables.reference}`,
+    badgeText: "Booking Confirmed",
+    heading: `${variables.patronName}, your reservation is set.`,
+    subheading: `Your host ${variables.hostName} has confirmed your reservation. Present your pass upon arrival.`,
+    bodyContentHtml: content,
+    theme: "ivory",
+  });
+}
+
+/* ----------------------------------------- 3. In-Journey Live Butler */
 
 type CompanionPayload = EmailTemplatePayloads["traveler.in-journey-companion"];
 
 function companionRecommendationHtml(
   recommendation: CompanionPayload["recommendations"][number],
 ): string {
-  const b = BUTLER;
+  const b = LUXURY_BRAND;
   return [
     `<tr><td style="padding:0 0 16px">`,
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
-    `style="background:${b.pine};border:1px solid ${b.rule};border-radius:14px">`,
-    `<tr><td style="padding:22px 22px 24px">`,
-    `<p style="margin:0 0 8px;font-family:${b.sans};font-size:10px;letter-spacing:2.5px;color:${b.gold}">`,
+    `style="background:${b.pineCardBg};border:1px solid ${b.pineBorder};border-radius:12px">`,
+    `<tr><td style="padding:20px 22px">`,
+    `<p style="margin:0 0 8px;font-family:${b.sans};font-size:10px;letter-spacing:2px;color:${b.champagneGold}">`,
     `<span style="text-transform:uppercase">${escapeHtml(recommendation.categoryName)}</span>`,
-    // Units stay lower-case: an upper-cased "930 M" reads as millions.
-    `<span style="letter-spacing:1px"> &nbsp;·&nbsp; ${escapeHtml(recommendation.distanceOrTime)}</span></p>`,
-    `<h2 style="margin:0 0 14px;font-family:${b.serif};font-size:21px;line-height:1.3;`,
-    `font-weight:normal;color:${b.ivory}">${escapeHtml(recommendation.title)}</h2>`,
-    `<p style="margin:0 0 10px;font-family:${b.sans};font-size:14px;line-height:1.55;color:${b.ivory}">`,
-    `<span style="color:${b.gold}">&#10022;</span>&nbsp; ${escapeHtml(recommendation.vipPerk)}</p>`,
-    `<p style="margin:0 0 20px;padding-left:12px;border-left:2px solid ${b.gold};`,
-    `font-family:${b.serif};font-style:italic;font-size:14px;line-height:1.6;color:${b.muted}">`,
+    `<span style="letter-spacing:1px"> &nbsp;&middot;&nbsp; ${escapeHtml(recommendation.distanceOrTime)}</span></p>`,
+    `<h2 style="margin:0 0 10px;font-family:${b.serif};font-size:19px;line-height:1.3;`,
+    `font-weight:normal;color:${b.warmIvory}">${escapeHtml(recommendation.title)}</h2>`,
+    `<p style="margin:0 0 10px;font-family:${b.sans};font-size:13.5px;line-height:1.55;color:${b.warmIvory}">`,
+    `<span style="color:${b.champagneGold}">&#10022;</span>&nbsp; ${escapeHtml(recommendation.vipPerk)}</p>`,
+    `<p style="margin:0 0 16px;padding-left:12px;border-left:2px solid ${b.champagneGold};`,
+    `font-family:${b.serif};font-style:italic;font-size:13.5px;line-height:1.55;color:${b.pineMuted}">`,
     `${escapeHtml(recommendation.curatorSecret)}</p>`,
     `<a href="${safeHref(recommendation.experienceUrl)}" `,
-    `style="display:inline-block;padding:12px 22px;border-radius:999px;background:${b.gold};`,
-    `color:${b.night};font-family:${b.sans};font-size:13px;font-weight:600;letter-spacing:0.5px;`,
+    `style="display:inline-block;padding:10px 20px;border-radius:999px;background:${b.champagneGold};`,
+    `color:${b.deepPine};font-family:${b.sans};font-size:12.5px;font-weight:600;letter-spacing:0.5px;`,
     `text-decoration:none">Reserve my pass &rarr;</a>`,
     `</td></tr></table>`,
     `</td></tr>`,
@@ -199,183 +373,128 @@ function companionRecommendationHtml(
 }
 
 function companionHtml(variables: CompanionPayload): string {
-  const b = BUTLER;
-  return [
-    `<!doctype html><html lang="en"><head><meta charset="utf-8">`,
-    `<meta name="viewport" content="width=device-width,initial-scale=1">`,
-    `<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark">`,
-    `<title>${escapeHtml(EMAIL_SENDER_NAME)}</title></head>`,
-    `<body style="margin:0;padding:0;background:${b.night}">`,
-    // Inbox preview text; hidden in the body itself.
-    `<div style="display:none;max-height:0;overflow:hidden;opacity:0">`,
-    `${escapeHtml(variables.butlerNote)}</div>`,
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
-    `style="background:${b.night}"><tr><td align="center" style="padding:32px 16px">`,
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
-    `style="max-width:560px">`,
-    `<tr><td style="padding:0 0 28px;text-align:center">`,
-    `<p style="margin:0 0 18px;font-family:${b.serif};font-size:15px;letter-spacing:4px;`,
-    `text-transform:uppercase;color:${b.gold}">${escapeHtml(EMAIL_SENDER_NAME)}</p>`,
-    `<span style="display:inline-block;padding:6px 14px;border:1px solid ${b.gold};border-radius:999px;`,
-    `font-family:${b.sans};font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${b.gold}">`,
-    `&#9679;&nbsp; Live in ${escapeHtml(variables.activeZone)}</span>`,
-    `</td></tr>`,
-    `<tr><td style="padding:0 0 28px">`,
-    `<h1 style="margin:0 0 14px;font-family:${b.serif};font-size:28px;line-height:1.25;`,
-    `font-weight:normal;color:${b.ivory}">${escapeHtml(variables.patronName)}, a note from your butler.</h1>`,
-    `<p style="margin:0 0 14px;font-family:${b.sans};font-size:15px;line-height:1.65;color:${b.ivory}">`,
+  const b = LUXURY_BRAND;
+  const content = [
+    `<p style="margin:0 0 14px;font-family:${b.sans};font-size:14.5px;line-height:1.65;color:${b.warmIvory}">`,
     `${escapeHtml(variables.butlerNote)}</p>`,
-    `<p style="margin:0;font-family:${b.sans};font-size:12px;letter-spacing:1px;color:${b.muted}">`,
+    `<p style="margin:0 0 20px;font-family:${b.sans};font-size:12px;letter-spacing:1px;color:${b.pineMuted}">`,
     `Curated around ${escapeHtml(variables.activeVenueTitle)}</p>`,
-    `</td></tr>`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">`,
     variables.recommendations.map(companionRecommendationHtml).join(""),
-    `<tr><td style="padding:12px 0 0;border-top:1px solid ${b.rule}">`,
-    `<p style="margin:16px 0 0;font-family:${b.sans};font-size:11px;line-height:1.6;color:${b.muted}">`,
-    `Your live butler from ${escapeHtml(EMAIL_SENDER_NAME)}. Times and tables are confirmed live `,
-    `on each experience page. You received this because you asked for in-journey recommendations.</p>`,
-    `</td></tr>`,
-    `</table></td></tr></table></body></html>`,
+    `</table>`,
   ].join("");
+
+  return renderLuxuryEmailShell({
+    previewText: variables.butlerNote,
+    badgeText: `Live in ${variables.activeZone}`,
+    heading: `${variables.patronName}, a note from your butler.`,
+    subheading: `Personalized additions within easy reach of your active experience.`,
+    bodyContentHtml: content,
+    footerNoteHtml: `Times and tables are confirmed live on each experience page. You received this because you requested in-journey companion recommendations.`,
+    theme: "pine",
+  });
 }
+
+/* ------------------------------------- 4. Journey Pass Confirmation */
 
 type PassPayload = EmailTemplatePayloads["traveler.journey-pass-confirmation"];
 
 function passActHtml(act: JourneyActPayload): string {
-  const b = BUTLER;
+  const b = LUXURY_BRAND;
   return [
     `<tr><td style="padding:0 0 14px">`,
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
-    `style="background:${b.pine};border:1px solid ${b.rule};border-radius:14px">`,
-    `<tr><td style="padding:18px 20px 20px">`,
-    `<p style="margin:0 0 6px;font-family:${b.sans};font-size:10px;letter-spacing:2.5px;`,
-    `text-transform:uppercase;color:${b.gold}">${escapeHtml(act.heading)} &nbsp;·&nbsp; `,
+    `style="background:${b.pineCardBg};border:1px solid ${b.pineBorder};border-radius:12px">`,
+    `<tr><td style="padding:18px 20px">`,
+    `<p style="margin:0 0 6px;font-family:${b.sans};font-size:10px;letter-spacing:2px;`,
+    `text-transform:uppercase;color:${b.champagneGold}">${escapeHtml(act.heading)} &nbsp;&middot;&nbsp; `,
     `${escapeHtml(act.startsAt)}</p>`,
-    `<h2 style="margin:0 0 8px;font-family:${b.serif};font-size:19px;line-height:1.3;`,
-    `font-weight:normal;color:${b.ivory}">${escapeHtml(act.title)}</h2>`,
-    `<p style="margin:0 0 8px;font-family:${b.sans};font-size:13px;line-height:1.5;color:${b.muted}">`,
+    `<h2 style="margin:0 0 8px;font-family:${b.serif};font-size:18px;line-height:1.3;`,
+    `font-weight:normal;color:${b.warmIvory}">${escapeHtml(act.title)}</h2>`,
+    `<p style="margin:0 0 8px;font-family:${b.sans};font-size:13px;line-height:1.5;color:${b.pineMuted}">`,
     `${escapeHtml(act.addressLine)}</p>`,
-    `<p style="margin:0 0 14px;font-family:${b.sans};font-size:13px;line-height:1.5;color:${b.ivory}">`,
-    `<span style="color:${b.gold}">&#10022;</span>&nbsp; ${escapeHtml(act.privilege)}`,
-    `<span style="color:${b.muted}"> · ${act.privilegeConfirmed ? "confirmed" : "requested"}</span></p>`,
+    `<p style="margin:0 0 12px;font-family:${b.sans};font-size:13px;line-height:1.5;color:${b.warmIvory}">`,
+    `<span style="color:${b.champagneGold}">&#10022;</span>&nbsp; ${escapeHtml(act.privilege)}`,
+    `<span style="color:${b.pineMuted}"> &middot; ${act.privilegeConfirmed ? "confirmed" : "requested"}</span></p>`,
     `<a href="${safeHref(act.directionsUrl)}" style="font-family:${b.sans};font-size:12px;`,
-    `letter-spacing:0.5px;color:${b.gold};text-decoration:none">Directions &rarr;</a>`,
+    `letter-spacing:0.5px;color:${b.champagneGold};text-decoration:none">Directions &rarr;</a>`,
     `</td></tr></table>`,
     `</td></tr>`,
   ].join("");
 }
 
 function passHtml(variables: PassPayload): string {
-  const b = BUTLER;
-  const guests = `${variables.partySize} ${variables.partySize === 1 ? "guest" : "guests"}`;
-  return [
-    `<!doctype html><html lang="en"><head><meta charset="utf-8">`,
-    `<meta name="viewport" content="width=device-width,initial-scale=1">`,
-    `<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark">`,
-    `<title>${escapeHtml(EMAIL_SENDER_NAME)}</title></head>`,
-    `<body style="margin:0;padding:0;background:${b.night}">`,
-    `<div style="display:none;max-height:0;overflow:hidden;opacity:0">`,
-    `Your pass for ${escapeHtml(variables.journeyTitle)} · #${escapeHtml(variables.reference)}</div>`,
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
-    `style="background:${b.night}"><tr><td align="center" style="padding:32px 16px">`,
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
-    `style="max-width:560px">`,
-    `<tr><td style="padding:0 0 28px;text-align:center">`,
-    `<p style="margin:0;font-family:${b.serif};font-size:15px;letter-spacing:4px;`,
-    `text-transform:uppercase;color:${b.gold}">${escapeHtml(EMAIL_SENDER_NAME)}</p>`,
-    `</td></tr>`,
-    `<tr><td style="padding:0 0 24px">`,
-    `<h1 style="margin:0 0 10px;font-family:${b.serif};font-size:26px;line-height:1.25;`,
-    `font-weight:normal;color:${b.ivory}">${escapeHtml(variables.holderName)}, your evening is set.</h1>`,
-    `<p style="margin:0;font-family:${b.sans};font-size:14px;line-height:1.6;color:${b.muted}">`,
-    `${escapeHtml(variables.journeyTitle)} · ${escapeHtml(guests)} · `,
-    `<span style="font-family:ui-monospace,Menlo,monospace">#${escapeHtml(variables.reference)}</span></p>`,
-    `</td></tr>`,
-    `<tr><td style="padding:0 0 24px">`,
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
-    `style="border:1px solid ${b.gold};border-radius:14px">`,
-    `<tr><td style="padding:18px 20px;text-align:center">`,
-    `<p style="margin:0 0 6px;font-family:${b.sans};font-size:10px;letter-spacing:3px;`,
-    `text-transform:uppercase;color:${b.muted}">Secret host keyword</p>`,
-    `<p style="margin:0;font-family:${b.serif};font-size:24px;letter-spacing:3px;color:${b.gold}">`,
+  const b = LUXURY_BRAND;
+  const guests = guestsLabel(variables.partySize);
+
+  const content = [
+    `<div style="background-color:${b.pineCardBg};border:1px solid ${b.champagneGold};border-radius:12px;padding:20px;text-align:center;margin:0 0 24px">`,
+    `<p style="margin:0 0 6px;font-family:${b.sans};font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${b.pineMuted}">Secret host keyword</p>`,
+    `<p style="margin:0;font-family:${b.serif};font-size:24px;letter-spacing:3px;color:${b.champagneGold}">`,
     `${escapeHtml(variables.secretKeyword)}</p>`,
-    `</td></tr></table>`,
-    `</td></tr>`,
+    `</div>`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">`,
     variables.acts.map(passActHtml).join(""),
-    `<tr><td style="padding:10px 0 0;text-align:center">`,
+    `</table>`,
+    `<div style="padding:12px 0 0;text-align:center">`,
     `<a href="${safeHref(variables.journeyUrl)}" `,
-    `style="display:inline-block;padding:12px 22px;border-radius:999px;background:${b.gold};`,
-    `color:${b.night};font-family:${b.sans};font-size:13px;font-weight:600;letter-spacing:0.5px;`,
-    `text-decoration:none">Open my journey &rarr;</a>`,
-    `</td></tr>`,
-    `<tr><td style="padding:24px 0 0;border-top:1px solid ${b.rule}">`,
-    variables.simulated
-      ? `<p style="margin:16px 0 0;font-family:${b.sans};font-size:11px;line-height:1.6;color:${b.muted}">${escapeHtml(variables.notice)}</p>`
-      : "",
-    `<p style="margin:12px 0 0;font-family:${b.sans};font-size:11px;line-height:1.6;color:${b.muted}">`,
-    `You received this because you reserved this journey with ${escapeHtml(EMAIL_SENDER_NAME)}.</p>`,
-    `</td></tr>`,
-    `</table></td></tr></table></body></html>`,
+    `style="display:inline-block;padding:12px 24px;border-radius:999px;background:${b.champagneGold};`,
+    `color:${b.deepPine};font-family:${b.sans};font-size:13px;font-weight:600;letter-spacing:0.5px;text-decoration:none">`,
+    `Open my journey &rarr;</a>`,
+    `</div>`,
   ].join("");
+
+  return renderLuxuryEmailShell({
+    previewText: `Your pass for ${variables.journeyTitle} · #${variables.reference}`,
+    badgeText: variables.simulated ? "Simulated Pass" : "VIP Journey Pass",
+    heading: `${variables.holderName}, your evening is set.`,
+    subheading: `${variables.journeyTitle} · ${guests} · #${variables.reference}`,
+    bodyContentHtml: content,
+    footerNoteHtml: variables.simulated ? escapeHtml(variables.notice) : undefined,
+    theme: "pine",
+  });
 }
+
+/* ----------------------------------------- 5. Curated Itinerary */
 
 type ItineraryPayload = EmailTemplatePayloads["traveler.curated-itinerary"];
 
-function guestsLabel(partySize: number): string {
-  return `${partySize} ${partySize === 1 ? "guest" : "guests"}`;
-}
-
 function itineraryHtml(variables: ItineraryPayload): string {
-  const b = BUTLER;
+  const b = LUXURY_BRAND;
   const meta = [
     variables.mood,
     variables.duration,
     ...(variables.partySize ? [guestsLabel(variables.partySize)] : []),
   ].join(" · ");
-  return [
-    `<!doctype html><html lang="en"><head><meta charset="utf-8">`,
-    `<meta name="viewport" content="width=device-width,initial-scale=1">`,
-    `<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark">`,
-    `<title>${escapeHtml(EMAIL_SENDER_NAME)}</title></head>`,
-    `<body style="margin:0;padding:0;background:${b.night}">`,
-    `<div style="display:none;max-height:0;overflow:hidden;opacity:0">`,
-    `${escapeHtml(variables.journeyTitle)} — ${escapeHtml(variables.tagline)}</div>`,
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
-    `style="background:${b.night}"><tr><td align="center" style="padding:32px 16px">`,
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" `,
-    `style="max-width:560px">`,
-    `<tr><td style="padding:0 0 28px;text-align:center">`,
-    `<p style="margin:0 0 18px;font-family:${b.serif};font-size:15px;letter-spacing:4px;`,
-    `text-transform:uppercase;color:${b.gold}">${escapeHtml(EMAIL_SENDER_NAME)}</p>`,
-    `<span style="display:inline-block;padding:6px 14px;border:1px solid ${b.gold};border-radius:999px;`,
-    `font-family:${b.sans};font-size:10px;letter-spacing:3px;text-transform:uppercase;color:${b.gold}">`,
-    `Saved to your curations</span>`,
-    `</td></tr>`,
-    `<tr><td style="padding:0 0 24px">`,
-    `<h1 style="margin:0 0 10px;font-family:${b.serif};font-size:26px;line-height:1.25;`,
-    `font-weight:normal;color:${b.ivory}">${escapeHtml(variables.journeyTitle)}</h1>`,
-    `<p style="margin:0 0 10px;font-family:${b.sans};font-size:15px;line-height:1.6;color:${b.ivory}">`,
+
+  const content = [
+    `<p style="margin:0 0 8px;font-family:${b.sans};font-size:14.5px;line-height:1.6;color:${b.warmIvory}">`,
     `${escapeHtml(variables.tagline)}</p>`,
-    `<p style="margin:0;font-family:${b.sans};font-size:12px;letter-spacing:1px;color:${b.muted}">`,
+    `<p style="margin:0 0 20px;font-family:${b.sans};font-size:12px;letter-spacing:1px;color:${b.pineMuted}">`,
     `${escapeHtml(meta)}</p>`,
-    `</td></tr>`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">`,
     variables.acts.map(passActHtml).join(""),
-    `<tr><td style="padding:10px 0 0;text-align:center">`,
+    `</table>`,
+    `<div style="padding:12px 0 0;text-align:center">`,
     `<a href="${safeHref(variables.journeyUrl)}" `,
-    `style="display:inline-block;padding:12px 22px;border-radius:999px;background:${b.gold};`,
-    `color:${b.night};font-family:${b.sans};font-size:13px;font-weight:600;letter-spacing:0.5px;`,
-    `text-decoration:none">Start my journey &rarr;</a>`,
-    `</td></tr>`,
-    `<tr><td style="padding:24px 0 0;border-top:1px solid ${b.rule}">`,
-    `<p style="margin:16px 0 0;font-family:${b.sans};font-size:11px;line-height:1.6;color:${b.muted}">`,
-    `Start times are a suggested running order. Nothing has been booked or held with any venue; `,
-    `each experience page confirms times and tables live.</p>`,
-    `<p style="margin:12px 0 0;font-family:${b.sans};font-size:11px;line-height:1.6;color:${b.muted}">`,
-    `You received this because this journey was saved to My Curations at `,
-    `${escapeHtml(EMAIL_SENDER_NAME)}.</p>`,
-    `</td></tr>`,
-    `</table></td></tr></table></body></html>`,
+    `style="display:inline-block;padding:12px 24px;border-radius:999px;background:${b.champagneGold};`,
+    `color:${b.deepPine};font-family:${b.sans};font-size:13px;font-weight:600;letter-spacing:0.5px;text-decoration:none">`,
+    `Start my journey &rarr;</a>`,
+    `</div>`,
   ].join("");
+
+  return renderLuxuryEmailShell({
+    previewText: `${variables.journeyTitle} — ${variables.tagline}`,
+    badgeText: "Saved to your curations",
+    heading: variables.journeyTitle,
+    subheading: `Your personalized running order has been preserved.`,
+    bodyContentHtml: content,
+    footerNoteHtml: `Start times are a suggested running order. Nothing has been booked or held with any venue; each experience page confirms times and tables live.`,
+    theme: "pine",
+  });
 }
+
+/* ----------------------------------------------------------- Template Map */
 
 const TEMPLATES: { [K in EmailTemplateId]: EmailTemplate<K> } = {
   "auth.login-code": {
@@ -389,21 +508,50 @@ const TEMPLATES: { [K in EmailTemplateId]: EmailTemplate<K> } = {
         "",
         "If you did not try to sign in, you can ignore this email. Nobody can",
         "access your account with this code alone.",
+        "",
+        `${EMAIL_SENDER_NAME} · ${LUXURY_BRAND.tagline}`,
       ].join("\n"),
 
-    html: ({ code, expiresInMinutes }) =>
-      layout(
-        "Your login code",
-        [
-          '<p style="margin:0 0 16px">Use this code to sign in:</p>',
-          '<p style="font-size:32px;font-weight:600;letter-spacing:6px;margin:0 0 16px;',
-          `font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${escapeHtml(code)}</p>`,
-          `<p style="margin:0 0 16px">It expires in ${escapeHtml(String(expiresInMinutes))} `,
-          "minutes and can be used once.</p>",
-          '<p style="margin:0;color:#767676">If you did not try to sign in, ignore this ',
-          "email. Nobody can access your account with this code alone.</p>",
-        ].join(""),
-      ),
+    html: loginCodeHtml,
+  },
+
+  "traveler.booking-confirmation": {
+    subject: ({ experienceTitle, reference }) =>
+      `Booking Confirmed: ${experienceTitle} · #${reference}`,
+
+    text: ({
+      patronName,
+      experienceTitle,
+      hostName,
+      reference,
+      startsAtFormatted,
+      endsAtFormatted,
+      guests,
+      totalFormatted,
+      venueLines,
+      directionsUrl,
+      experienceUrl,
+    }) =>
+      [
+        `${patronName}, your reservation is confirmed.`,
+        "",
+        `Experience: ${experienceTitle}`,
+        `Host: ${hostName}`,
+        `Reference: #${reference}`,
+        `Schedule: ${startsAtFormatted} – ${endsAtFormatted}`,
+        `Party: ${guestsLabel(guests)}`,
+        `Total: ${totalFormatted}`,
+        "",
+        "Venue Address:",
+        ...venueLines.map((line) => `  ${line}`),
+        ...(directionsUrl ? [`Directions: ${directionsUrl}`] : []),
+        "",
+        `View your booking: ${experienceUrl}`,
+        "",
+        `${EMAIL_SENDER_NAME} · ${LUXURY_BRAND.tagline}`,
+      ].join("\n"),
+
+    html: bookingConfirmationHtml,
   },
 
   "traveler.in-journey-companion": {
@@ -429,7 +577,8 @@ const TEMPLATES: { [K in EmailTemplateId]: EmailTemplate<K> } = {
           "",
         ]),
         "Times and tables are confirmed live on each experience page.",
-        `${EMAIL_SENDER_NAME}`,
+        "",
+        `${EMAIL_SENDER_NAME} · ${LUXURY_BRAND.tagline}`,
       ].join("\n"),
 
     html: companionHtml,
@@ -460,11 +609,12 @@ const TEMPLATES: { [K in EmailTemplateId]: EmailTemplate<K> } = {
         `Open your journey: ${variables.journeyUrl}`,
         ...(variables.simulated ? ["", variables.notice] : []),
         "",
-        `${EMAIL_SENDER_NAME}`,
+        `${EMAIL_SENDER_NAME} · ${LUXURY_BRAND.tagline}`,
       ].join("\n"),
 
     html: passHtml,
   },
+
   "traveler.curated-itinerary": {
     subject: ({ journeyTitle }) => `Your curated itinerary: ${journeyTitle}`,
 
@@ -492,7 +642,7 @@ const TEMPLATES: { [K in EmailTemplateId]: EmailTemplate<K> } = {
         "Start times are a suggested running order. Nothing has been booked or held with any",
         "venue; each experience page confirms times and tables live.",
         "",
-        `${EMAIL_SENDER_NAME}`,
+        `${EMAIL_SENDER_NAME} · ${LUXURY_BRAND.tagline}`,
       ].join("\n"),
 
     html: itineraryHtml,
@@ -507,19 +657,12 @@ export const EMAIL_TEMPLATE_IDS = Object.keys(TEMPLATES) as readonly EmailTempla
 
 /**
  * Render a template to subject, plain text and HTML.
- *
- * Both bodies are always produced. A text alternative is not politeness: a
- * transactional message with no text part is scored as more likely to be spam,
- * and login codes that land in a spam folder read to the user as a broken
- * product.
  */
 export function renderEmailTemplate<K extends EmailTemplateId>(
   template: K,
   variables: EmailTemplatePayloads[K],
 ): RenderedEmail {
   if (!isEmailTemplateId(template)) {
-    // Reachable if a template id ever arrives from queued or persisted data,
-    // which is untrusted input like any other.
     throw new ValidationError("Unknown email template.", { template });
   }
 

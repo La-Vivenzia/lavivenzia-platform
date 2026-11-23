@@ -72,10 +72,15 @@ export interface InJourneyRecommendations {
 export interface CompanionDispatchInput extends InJourneyRequest {
   /** Recipient. The route decides who may be written to; the service does not. */
   readonly to: string;
+  /** Optional patron user id to emit an in-app notification alongside email (LA-22). */
+  readonly userId?: string | undefined;
+  /** Force sending even if recently dispatched (bypasses idempotency window). */
+  readonly force?: boolean | undefined;
 }
 
 export interface CompanionDispatchResult extends InJourneyRecommendations {
   readonly providerMessageId: string;
+  readonly alreadyDispatched?: boolean;
 }
 
 /** `GET /api/v1/companion/nearby` — what the companion map's drawer reads. */

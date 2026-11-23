@@ -54,7 +54,18 @@ export function ButlerDetoursDrawer({
         `/api/v1/companion/nearby?activeSlug=${encodeURIComponent(activeSlug)}`,
       )
       .then((data) => {
-        if (!cancelled) setLoad({ kind: "ready", data });
+        if (!cancelled) {
+          setLoad({ kind: "ready", data });
+          // Automatically dispatch nearby recommendations (email + in-app notification) without manual button click (LA-22)
+          api
+            .post("/api/v1/companion/dispatch", { activeSlug })
+            .then(() => {
+              if (!cancelled) setSend({ kind: "sent" });
+            })
+            .catch(() => {
+              // Non-fatal if guest or rate limited
+            });
+        }
       })
       .catch((error: unknown) => {
         if (!cancelled) {
@@ -194,18 +205,20 @@ export function ButlerDetoursDrawer({
           <div className="flex items-center justify-between gap-3">
             <p className="text-[11.5px] leading-snug text-panel-fg/75" role="status">
               {send.kind === "sent"
-                ? "Sent to your inbox."
-                : "Times are estimates; tables are confirmed on each page."}
+                ? "Dispatched to your email & in-app notifications."
+                : send.kind === "sending"
+                  ? "Dispatching to your inbox & notifications..."
+                  : "Times are estimates; tables are confirmed on each page."}
             </p>
             <button
               type="button"
               onClick={sendToInbox}
-              disabled={send.kind === "sending" || send.kind === "sent"}
+              disabled={send.kind === "sending"}
               aria-busy={send.kind === "sending" || undefined}
               className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-pill bg-accent px-4 text-[12.5px] font-medium text-accent-fg transition-opacity duration-200 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Mail className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-              {send.kind === "sending" ? "Sending…" : send.kind === "sent" ? "Sent" : "Send to me"}
+              {send.kind === "sending" ? "Dispatching…" : send.kind === "sent" ? "Dispatched" : "Send to me"}
             </button>
           </div>
         </footer>

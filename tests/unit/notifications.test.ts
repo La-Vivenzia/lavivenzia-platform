@@ -11,6 +11,7 @@ import {
 } from "@/modules/notifications/repository";
 import {
   emitNotification,
+  ensureOnboardingNotifications,
   getNotificationsForUser,
   markAllNotificationsRead,
   markNotificationRead,
@@ -196,9 +197,32 @@ describe("seedNotificationsForUser", () => {
     );
     expect(welcome).toBeDefined();
   });
+
+  it("includes an onboarding journey pass in the seed", () => {
+    seedNotificationsForUser(USER_A);
+    const pass = listNotifications(USER_A).find(
+      (n) => n.type === "journey_pass" && n.title.toLowerCase().includes("journey pass"),
+    );
+    expect(pass).toBeDefined();
+    expect(pass?.actionUrl).toContain("/journeys");
+  });
 });
 
 // ── Service façade ───────────────────────────────────────────────────────────
+
+describe("ensureOnboardingNotifications", () => {
+  it("creates onboarding and welcome notifications for a registered user", () => {
+    ensureOnboardingNotifications(USER_A);
+    const notifications = listNotifications(USER_A);
+    expect(notifications.length).toBeGreaterThan(0);
+
+    const hasWelcome = notifications.some((n) => n.title.includes("Welcome"));
+    const hasPass = notifications.some((n) => n.type === "journey_pass");
+
+    expect(hasWelcome).toBe(true);
+    expect(hasPass).toBe(true);
+  });
+});
 
 describe("getNotificationsForUser", () => {
   it("seeds the inbox on first call and returns notifications with an unread count", () => {

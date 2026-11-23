@@ -16,7 +16,8 @@ import type { CreateNotificationParams, Notification } from "./types";
 const store = new Map<string, Notification>();
 
 /**
- * Seed a patron's inbox so it feels alive on first sign-in.
+ * Seed a patron's inbox with welcome and onboarding notifications so it
+ * feels alive immediately on registration and first sign-in (LA-22).
  *
  * The seed is idempotent: a user who already has notifications is left alone.
  * That is correct — a returning patron must not see the welcome message twice.
@@ -37,11 +38,18 @@ export function seedNotificationsForUser(userId: string): void {
       createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
     },
     {
+      type: "journey_pass",
+      title: "Inaugural Journey Pass: East Pune Twilight",
+      body: "Your Patron Journey Pass is issued. Experience an unhurried evening of craft tastings and alfresco dining across Kalyani Nagar and Magarpatta.",
+      actionUrl: "/journeys/east-pune-twilight",
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+    },
+    {
       type: "privilege_unlocked",
       title: "Host Privilege Confirmed: Effingut Reserve Table",
       body: "Your reserved corner table at Effingut Brewhouse, Seasons Mall is confirmed. Present your Patron pass on arrival.",
       actionUrl: "/experiences/effingut-brewhouse-craft-tasting-seasons",
-      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+      createdAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
     },
     {
       type: "concierge_update",

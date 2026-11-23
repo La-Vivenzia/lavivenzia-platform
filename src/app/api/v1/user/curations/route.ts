@@ -20,6 +20,7 @@ import {
 } from "@/lib/saved-curations";
 import { JOURNEY_PARTY_MAX } from "@/modules/booking/journey-pass-contract";
 import { findJourney } from "@/modules/journeys/data";
+import { emitNotification } from "@/modules/notifications/service";
 import { emailSchema } from "../../auth/_schemas";
 
 export const dynamic = "force-dynamic";
@@ -102,6 +103,20 @@ export const POST = withRoute(async (request) => {
         );
       },
     );
+  }
+
+  if (principal) {
+    try {
+      emitNotification({
+        userId: principal.userId,
+        type: "journey_pass",
+        title: `Curated Itinerary Saved: ${journey.title}`,
+        body: `Your itinerary for ${journey.title} (${journey.mood}) has been saved to My Curations${recipient ? ` and emailed to ${recipient}` : ""}.`,
+        actionUrl: `/journeys/${encodeURIComponent(journey.id)}`,
+      });
+    } catch {
+      // Non-fatal — the curation is saved regardless.
+    }
   }
 
   const response = jsonResponse(

@@ -3,6 +3,7 @@ import { CURATION_TRACK_LABELS, type CurationTrack } from "@/modules/discovery/c
 import type { ExperienceDetail, ExperienceSummary } from "@/modules/discovery/ports";
 import { VIBE_OPTIONS, type TravelPreferences } from "@/modules/user-profile/profile";
 import { favouredTracks, tasteAffinity } from "@/modules/viveniq/tracks";
+import { emitNotification } from "@/modules/notifications/service";
 import type {
   CompanionDependencies,
   CompanionDispatchInput,
@@ -102,9 +103,17 @@ function normalisePatronName(name: string | undefined): string {
 
 export class CompanionService {
   readonly #deps: CompanionDependencies;
+  readonly #dispatchHistory = new Map<string, number>();
 
   constructor(deps: CompanionDependencies) {
     this.#deps = deps;
+  }
+
+  /**
+   * Clear in-memory dispatch history (for test isolation).
+   */
+  _clearDispatchHistory(): void {
+    this.#dispatchHistory.clear();
   }
 
   /**
@@ -193,7 +202,8 @@ export class CompanionService {
   }
 
   /**
-   * Compute recommendations and send them as one email.
+   * Compute recommendations and send them as one email, while optionally
+   * emitting an in-app notification when `userId` is provided (LA-22).
    *
    * Nothing curated nearby is reported as not-found rather than sent: an
    * empty butler email is worse than none.
@@ -202,6 +212,15 @@ export class CompanionService {
     const result = await this.getInJourneyRecommendations(input);
     if (result.recommendations.length === 0) {
       throw new NotFoundError("Nothing curated within easy reach of that experience just yet.");
+    }
+
+    const cacheKey = `${input.to.toLowerCase()}:${result.active.slug}`;
+    const now = Date.now();
+    const lastSent = this.#dispatchHistory.get(cacheKey);
+
+    // Idempotency: suppress duplicate dispatch within 30 minutes unless forced
+    if (!input.force && lastSent && now - lastSent < 30 * 60_000) {
+      return { ...result, providerMessageId: `cached_${lastSent}`, alreadyDispatched: true };
     }
 
     const { providerMessageId } = await this.#deps.email.send({
@@ -223,7 +242,31 @@ export class CompanionService {
       },
     });
 
+    this.#dispatchHistory.set(cacheKey, now);
+
+    // Automatically emit in-app notification when userId is present (LA-22)
+    if (input.userId) {
+      try {
+        emitNotification({
+          userId: input.userId,
+          type: "concierge_update",
+          title: `Curated Near ${result.active.zone}: Butler Recommendations`,
+          body: `Your butler curated ${result.recommendations.length} additions near ${shortTitle(result.active.title)}. ${result.butlerNote}`,
+          actionUrl: `/experiences/${result.active.slug}`,
+        });
+      } catch {
+        // Notification emission is non-fatal
+      }
+    }
+
     return { ...result, providerMessageId };
+  }
+
+  /**
+   * Automated dispatch of recommendations without manual user triggering (LA-22).
+   */
+  async autoDispatch(input: CompanionDispatchInput): Promise<CompanionDispatchResult> {
+    return this.dispatch({ ...input, force: false });
   }
 
   #score(

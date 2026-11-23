@@ -7,6 +7,7 @@ import {
   withCookie,
 } from "@/lib/auth-context";
 import { getAuthService } from "@/lib/container";
+import { ensureOnboardingNotifications } from "@/modules/notifications/service";
 import { loginSchema } from "../_schemas";
 
 /** POST /api/v1/auth/login — password authentication for hosts and admins. */
@@ -21,6 +22,9 @@ export const POST = withRoute(async (request) => {
     password: body.password,
     context,
   });
+
+  // Automatically ensure welcome notification and onboarding/Journey Pass experience (LA-22)
+  ensureOnboardingNotifications(session.userId);
 
   // A fresh token is minted on every login, so a session fixed before
   // authentication cannot survive it (session fixation).

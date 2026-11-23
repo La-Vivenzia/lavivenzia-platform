@@ -13,6 +13,7 @@ import { DiscoveryService } from "@/modules/discovery/service";
 import type { ExperienceDetail, ExperienceSummary } from "@/modules/discovery/ports";
 import type { Page } from "@/modules/shared/pagination";
 import type { EmailMessage, EmailPort } from "@/ports/email";
+import { listNotifications, _clearStore } from "@/modules/notifications/repository";
 
 /**
  * The in-journey live butler. It must recommend only curated, published
@@ -263,5 +264,80 @@ describe("CompanionService.dispatch", () => {
     await expect(
       companion.dispatch({ to: "traveller@example.test", activeExperienceSlug: TOIT }),
     ).rejects.toThrow("provider down");
+  });
+
+  it("automatically emits an in-app concierge_update notification when userId is provided (LA-22)", async () => {
+    _clearStore();
+    const { companion, email } = service();
+    const userId = "patron-user-123";
+
+    await companion.dispatch({
+      to: "patron@example.test",
+      userId,
+      activeExperienceSlug: TOIT,
+      patronName: "Kabir",
+      force: true,
+    });
+
+    expect(email.sent).toHaveLength(1);
+
+    const notifications = listNotifications(userId);
+    expect(notifications).toHaveLength(1);
+
+    const notification = notifications[0];
+    expect(notification).toBeDefined();
+    if (!notification) throw new Error("expected notification");
+    expect(notification.type).toBe("concierge_update");
+    expect(notification.title).toContain("Butler Recommendations");
+    expect(notification.title).toContain("Kalyani Nagar");
+    expect(notification.actionUrl).toBe(`/experiences/${TOIT}`);
+  });
+
+  it("suppresses duplicate email dispatch within the idempotency window unless forced (LA-22)", async () => {
+    const { companion, email } = service();
+
+    const first = await companion.dispatch({
+      to: "repeat-user@example.test",
+      activeExperienceSlug: TOIT,
+      patronName: "Asha",
+    });
+
+    expect(email.sent).toHaveLength(1);
+    expect(first.alreadyDispatched).toBeUndefined();
+
+    // Second call within 30 minutes
+    const second = await companion.dispatch({
+      to: "repeat-user@example.test",
+      activeExperienceSlug: TOIT,
+      patronName: "Asha",
+    });
+
+    // Still only 1 email sent!
+    expect(email.sent).toHaveLength(1);
+    expect(second.alreadyDispatched).toBe(true);
+
+    // Call with force: true
+    const forced = await companion.dispatch({
+      to: "repeat-user@example.test",
+      activeExperienceSlug: TOIT,
+      patronName: "Asha",
+      force: true,
+    });
+
+    expect(email.sent).toHaveLength(2);
+    expect(forced.alreadyDispatched).toBeUndefined();
+  });
+
+  it("autoDispatch helper automatically dispatches without manual trigger", async () => {
+    const { companion, email } = service();
+
+    const result = await companion.autoDispatch({
+      to: "auto-user@example.test",
+      activeExperienceSlug: TOIT,
+      patronName: "Maya",
+    });
+
+    expect(email.sent).toHaveLength(1);
+    expect(result.active.zone).toBe("Kalyani Nagar");
   });
 });
