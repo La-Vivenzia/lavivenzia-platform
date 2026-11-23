@@ -23,15 +23,7 @@ import type { Trip } from "@/modules/trips/data";
  * 3. The Collection (curated listings)
  */
 export function MobileHome(props: HomeData) {
-  const {
-    signedIn,
-    accountHref,
-    initials,
-    stories,
-    heroImage,
-    heroImages,
-    journeys,
-  } = props;
+  const { signedIn, accountHref, initials, stories, heroImage, heroImages, journeys } = props;
 
   return (
     <div className="lg:hidden bg-bg text-fg">

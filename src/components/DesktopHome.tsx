@@ -67,11 +67,7 @@ export function DesktopHome(props: HomeData) {
 
           <ul className="mt-8 grid grid-cols-3 gap-6 xl:gap-8">
             {stories.slice(0, 6).map((experience, index) => (
-              <Reveal
-                as="li"
-                key={experience.id}
-                delay={index * 80}
-              >
+              <Reveal as="li" key={experience.id} delay={index * 80}>
                 <ExperienceCard
                   experience={experience}
                   href={experience.href}

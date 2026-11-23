@@ -45,10 +45,7 @@ export function ensureOnboardingNotifications(userId: string): void {
   seedNotificationsForUser(userId);
 }
 
-export function markNotificationRead(
-  notificationId: string,
-  userId: string,
-): Notification | null {
+export function markNotificationRead(notificationId: string, userId: string): Notification | null {
   return markAsRead(notificationId, userId);
 }
 

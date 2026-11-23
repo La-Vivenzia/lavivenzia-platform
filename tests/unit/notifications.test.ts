@@ -293,9 +293,7 @@ describe("emitNotification", () => {
     ] as const;
 
     for (const type of types) {
-      expect(() =>
-        emitNotification({ userId: USER_A, type, title: type, body: "" }),
-      ).not.toThrow();
+      expect(() => emitNotification({ userId: USER_A, type, title: type, body: "" })).not.toThrow();
     }
   });
 });

@@ -75,7 +75,10 @@ export function SignInScreen({ next }: { readonly next?: string }) {
         return;
       }
 
-      const result = await api.post<LoginResponse>("/api/v1/auth/login", { email: cleanEmail, password });
+      const result = await api.post<LoginResponse>("/api/v1/auth/login", {
+        email: cleanEmail,
+        password,
+      });
 
       if (result.mfaRequired) {
         // A privileged account lands on an MFA-unsatisfied session, where every

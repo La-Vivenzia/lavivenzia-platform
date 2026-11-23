@@ -233,7 +233,8 @@ export class CompanionService {
 
       const activeSlugKey = `${input.to.toLowerCase()}:${result.active.slug}`;
       const now = Date.now();
-      const lastSent = this.#dispatchHistory.get(cacheKey) ?? this.#dispatchHistory.get(activeSlugKey);
+      const lastSent =
+        this.#dispatchHistory.get(cacheKey) ?? this.#dispatchHistory.get(activeSlugKey);
 
       // Idempotency: suppress duplicate dispatch within 30 minutes unless forced
       if (!input.force && lastSent && now - lastSent < 30 * 60_000) {

@@ -361,7 +361,9 @@ describe("CompanionService.dispatch", () => {
     expect(email.sent).toHaveLength(1);
 
     // One promise is the primary dispatch, the other is marked alreadyDispatched
-    const alreadyDispatchedCount = [first.alreadyDispatched, second.alreadyDispatched].filter(Boolean).length;
+    const alreadyDispatchedCount = [first.alreadyDispatched, second.alreadyDispatched].filter(
+      Boolean,
+    ).length;
     expect(alreadyDispatchedCount).toBe(1);
 
     // Both returned valid recommendation results

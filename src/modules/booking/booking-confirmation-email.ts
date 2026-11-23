@@ -77,7 +77,11 @@ export async function sendBookingConfirmation(
   const message = {
     to: input.to,
     template: "traveler.booking-confirmation",
-    variables: bookingConfirmationEmailVariables(input.confirmation, input.appUrl, input.patronName),
+    variables: bookingConfirmationEmailVariables(
+      input.confirmation,
+      input.appUrl,
+      input.patronName,
+    ),
   } as const;
 
   try {

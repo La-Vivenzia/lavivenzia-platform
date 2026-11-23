@@ -218,7 +218,11 @@ export function ButlerDetoursDrawer({
               className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-pill bg-accent px-4 text-[12.5px] font-medium text-accent-fg transition-opacity duration-200 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Mail className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-              {send.kind === "sending" ? "Dispatching…" : send.kind === "sent" ? "Dispatched" : "Send to me"}
+              {send.kind === "sending"
+                ? "Dispatching…"
+                : send.kind === "sent"
+                  ? "Dispatched"
+                  : "Send to me"}
             </button>
           </div>
         </footer>
