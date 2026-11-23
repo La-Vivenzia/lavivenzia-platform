@@ -340,4 +340,34 @@ describe("CompanionService.dispatch", () => {
     expect(email.sent).toHaveLength(1);
     expect(result.active.zone).toBe("Kalyani Nagar");
   });
+
+  it("prevents duplicate dispatch under concurrent calls for the same key (in-process lock)", async () => {
+    const { companion, email } = service();
+
+    const [first, second] = await Promise.all([
+      companion.dispatch({
+        to: "concurrent-user@example.test",
+        activeExperienceSlug: TOIT,
+        patronName: "Asha",
+      }),
+      companion.dispatch({
+        to: "concurrent-user@example.test",
+        activeExperienceSlug: TOIT,
+        patronName: "Asha",
+      }),
+    ]);
+
+    // Only 1 email sent despite simultaneous in-flight dispatch
+    expect(email.sent).toHaveLength(1);
+
+    // One promise is the primary dispatch, the other is marked alreadyDispatched
+    const alreadyDispatchedCount = [first.alreadyDispatched, second.alreadyDispatched].filter(Boolean).length;
+    expect(alreadyDispatchedCount).toBe(1);
+
+    // Both returned valid recommendation results
+    expect(first.active.slug).toBe(TOIT);
+    expect(second.active.slug).toBe(TOIT);
+    expect(first.recommendations.length).toBeGreaterThan(0);
+    expect(second.recommendations.length).toBeGreaterThan(0);
+  });
 });
