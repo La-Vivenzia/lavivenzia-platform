@@ -32,7 +32,11 @@ export function useNotifications(signedIn: boolean) {
         notifications: Notification[];
         unreadCount: number;
       };
-      setState({ notifications: data.notifications, unreadCount: data.unreadCount, loading: false });
+      setState({
+        notifications: data.notifications,
+        unreadCount: data.unreadCount,
+        loading: false,
+      });
     } catch {
       setState((s) => ({ ...s, loading: false }));
     }
@@ -46,24 +50,21 @@ export function useNotifications(signedIn: boolean) {
     }
   }, [signedIn, fetch]);
 
-  const markRead = useCallback(
-    async (id: string) => {
-      // Optimistic update
-      setState((s) => ({
-        ...s,
-        notifications: s.notifications.map((n) =>
-          n.id === id ? { ...n, readAt: new Date().toISOString() } : n,
-        ),
-        unreadCount: Math.max(0, s.unreadCount - 1),
-      }));
-      try {
-        await window.fetch(`/api/v1/notifications/${id}/read`, { method: "POST" });
-      } catch {
-        // Silently ignore — worst case the dot reappears on next fetch
-      }
-    },
-    [],
-  );
+  const markRead = useCallback(async (id: string) => {
+    // Optimistic update
+    setState((s) => ({
+      ...s,
+      notifications: s.notifications.map((n) =>
+        n.id === id ? { ...n, readAt: new Date().toISOString() } : n,
+      ),
+      unreadCount: Math.max(0, s.unreadCount - 1),
+    }));
+    try {
+      await window.fetch(`/api/v1/notifications/${id}/read`, { method: "POST" });
+    } catch {
+      // Silently ignore — worst case the dot reappears on next fetch
+    }
+  }, []);
 
   const markAllRead = useCallback(async () => {
     // Optimistic update

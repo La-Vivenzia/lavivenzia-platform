@@ -14,9 +14,10 @@ import { VivenIQService } from "@/modules/viveniq/service";
 import { CompanionService } from "@/modules/companion/service";
 import { CheckoutService, resolveCheckoutMode } from "@/modules/booking/checkout";
 import { JourneyPassService } from "@/modules/booking/journey-pass";
-import type { CheckoutMode } from "@/modules/booking/contract";
+import type { BookingConfirmation, CheckoutMode } from "@/modules/booking/contract";
 import type { JourneyPass } from "@/modules/booking/journey-pass-contract";
 import { sendJourneyPassConfirmation } from "@/modules/booking/journey-pass-email";
+import { sendBookingConfirmation } from "@/modules/booking/booking-confirmation-email";
 import { TasteGenomeService } from "@/modules/taste-genome/service";
 import { findJourney, listCuratedJourneys, type Journey } from "@/modules/journeys/data";
 import { sendCuratedItinerary } from "@/modules/journeys/curated-itinerary-email";
@@ -435,6 +436,24 @@ export function getJourneyPassService(): JourneyPassService {
   });
 
   return journeyPassService;
+}
+
+/**
+ * The patron's experience booking confirmation email, sent through the configured
+ * transactional transport (LA-22). Delivery failures are the caller's to log;
+ * the reservation itself is already confirmed.
+ */
+export function sendBookingConfirmationEmail(
+  to: string,
+  confirmation: BookingConfirmation,
+  patronName?: string,
+): Promise<SendEmailResult> {
+  return sendBookingConfirmation(getEmailPort(), {
+    to,
+    confirmation,
+    appUrl: env.APP_URL,
+    patronName,
+  });
 }
 
 /**

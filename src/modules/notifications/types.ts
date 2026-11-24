@@ -7,11 +7,7 @@
  */
 
 export type NotificationType =
-  | "booking_confirmed"
-  | "journey_pass"
-  | "privilege_unlocked"
-  | "concierge_update"
-  | "system";
+  "booking_confirmed" | "journey_pass" | "privilege_unlocked" | "concierge_update" | "system";
 
 export interface Notification {
   readonly id: string;

@@ -37,10 +37,15 @@ export function getNotificationsForUser(userId: string): NotificationList {
   return { notifications, unreadCount };
 }
 
-export function markNotificationRead(
-  notificationId: string,
-  userId: string,
-): Notification | null {
+/**
+ * Automatically ensure welcome notification and onboarding/Journey Pass
+ * experience are seeded for a patron on registration or sign-in (LA-22).
+ */
+export function ensureOnboardingNotifications(userId: string): void {
+  seedNotificationsForUser(userId);
+}
+
+export function markNotificationRead(notificationId: string, userId: string): Notification | null {
   return markAsRead(notificationId, userId);
 }
 

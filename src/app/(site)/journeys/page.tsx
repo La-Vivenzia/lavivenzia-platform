@@ -35,8 +35,9 @@ export default function JourneysIndexPage() {
             <div>
               <h2 className="font-display text-xl text-heading">Want a Personalized Evening?</h2>
               <p className="mt-1 text-[13.5px] leading-relaxed text-fg-muted font-light max-w-2xl">
-                Tell VivenIQ what you are celebrating, your culinary taste, or who you are with.
-                Our AI concierge will choreograph a bespoke multi-stop evening with verified host privileges in seconds.
+                Tell VivenIQ what you are celebrating, your culinary taste, or who you are with. Our
+                AI concierge will choreograph a bespoke multi-stop evening with verified host
+                privileges in seconds.
               </p>
             </div>
           </div>
@@ -69,9 +70,7 @@ export default function JourneysIndexPage() {
                 </div>
 
                 <h3 className="mt-3 font-display text-2xl text-heading group-hover:text-accent transition-colors">
-                  <Link href={`/journeys/${journey.id}`}>
-                    {journey.title}
-                  </Link>
+                  <Link href={`/journeys/${journey.id}`}>{journey.title}</Link>
                 </h3>
                 <p className="mt-2 text-[13.5px] leading-relaxed text-fg-muted font-light">
                   {journey.tagline}

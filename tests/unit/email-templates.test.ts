@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   EMAIL_SENDER_NAME,
   EMAIL_TEMPLATE_IDS,
+  LUXURY_BRAND,
   escapeHtml,
   isEmailTemplateId,
   renderEmailTemplate,
@@ -20,8 +21,6 @@ describe("escapeHtml", () => {
   });
 
   it("escapes ampersands first, so an escape is not double-encoded into a literal", () => {
-    // Getting the order wrong turns `<` into `&amp;lt;`, which renders as the
-    // text "&lt;" rather than a less-than sign.
     expect(escapeHtml("&lt;")).toBe("&amp;lt;");
   });
 });
@@ -37,8 +36,6 @@ describe("renderEmailTemplate", () => {
   });
 
   it("states the expiry it was given rather than a hard-coded number", () => {
-    // The caller derives this from OTP_TTL_MS. An email that contradicts the
-    // actual lifetime is worse than one that omits it.
     const rendered = renderEmailTemplate("auth.login-code", {
       code: "111111",
       expiresInMinutes: 3,
@@ -50,8 +47,6 @@ describe("renderEmailTemplate", () => {
   });
 
   it("always produces a plain-text alternative", () => {
-    // A transactional message with no text part scores as more likely to be
-    // spam, and a login code in a spam folder reads to the user as an outage.
     const rendered = renderEmailTemplate("auth.login-code", LOGIN_CODE);
 
     expect(rendered.text.length).toBeGreaterThan(0);
@@ -75,7 +70,6 @@ describe("renderEmailTemplate", () => {
   });
 
   it("rejects an unknown template rather than sending an empty body", () => {
-    // Reachable if a template id ever arrives from persisted or queued data.
     expect(() =>
       renderEmailTemplate(
         "auth.does-not-exist" as "auth.login-code",
@@ -84,22 +78,28 @@ describe("renderEmailTemplate", () => {
     ).toThrow(ValidationError);
   });
 
-  it("produces well-formed HTML with balanced wrapper tags", () => {
+  it("produces well-formed HTML with balanced wrapper tables and doctype", () => {
     const rendered = renderEmailTemplate("auth.login-code", LOGIN_CODE);
-    const opens = (rendered.html.match(/<div/g) ?? []).length;
-    const closes = (rendered.html.match(/<\/div>/g) ?? []).length;
+    const opens = (rendered.html.match(/<table/g) ?? []).length;
+    const closes = (rendered.html.match(/<\/table>/g) ?? []).length;
 
     expect(opens).toBe(closes);
-    expect(rendered.html.startsWith("<div")).toBe(true);
+    expect(rendered.html.startsWith("<!doctype html>")).toBe(true);
+  });
+
+  it("renders official La Vivenzia luxury branding tokens", () => {
+    const rendered = renderEmailTemplate("auth.login-code", LOGIN_CODE);
+    expect(rendered.html).toContain(LUXURY_BRAND.deepPine);
+    expect(rendered.html).toContain(LUXURY_BRAND.champagneGold);
+    expect(rendered.html).toContain(LUXURY_BRAND.warmIvory);
   });
 });
 
 describe("template registry", () => {
-  it("exposes exactly the templates the product sends today", () => {
-    // Guards against a template being added without a flow that sends it, and
-    // against one being renamed out from under a caller.
+  it("exposes exactly the templates the product sends today including booking-confirmation", () => {
     expect([...EMAIL_TEMPLATE_IDS]).toEqual([
       "auth.login-code",
+      "traveler.booking-confirmation",
       "traveler.in-journey-companion",
       "traveler.journey-pass-confirmation",
       "traveler.curated-itinerary",
@@ -108,10 +108,72 @@ describe("template registry", () => {
 
   it("narrows a string to a known template id", () => {
     expect(isEmailTemplateId("auth.login-code")).toBe(true);
+    expect(isEmailTemplateId("traveler.booking-confirmation")).toBe(true);
     expect(isEmailTemplateId("auth.password-reset")).toBe(false);
-    // Must not be fooled by inherited object properties.
     expect(isEmailTemplateId("toString")).toBe(false);
     expect(isEmailTemplateId("constructor")).toBe(false);
+  });
+});
+
+describe("booking confirmation email (LA-22)", () => {
+  const BOOKING = {
+    patronName: "Kabir",
+    experienceTitle: "Effingut Craft Brewery: Private Tasting",
+    hostName: "Effingut Brewhouse",
+    reference: "LV-EF-8942",
+    startsAtFormatted: "Sat, 28 Nov 2026, 07:30 PM",
+    endsAtFormatted: "Sat, 28 Nov 2026, 09:30 PM",
+    guests: 2,
+    totalFormatted: "₹5,400",
+    venueLines: ["Effingut Brewhouse, Seasons Mall", "Magarpatta, Pune 411028", "India"],
+    directionsUrl: "https://maps.google.com/?q=18.519,73.931",
+    experienceUrl: "https://lavivenzia.com/experiences/effingut-craft-brewery",
+    confirmedAt: "2026-11-28T14:00:00.000Z",
+  } as const;
+
+  it("renders booking details with reference, host, date, party, and luxury styling", () => {
+    const rendered = renderEmailTemplate("traveler.booking-confirmation", BOOKING);
+
+    expect(rendered.subject).toContain("Booking Confirmed: Effingut Craft Brewery");
+    expect(rendered.subject).toContain("LV-EF-8942");
+
+    // Text fallback
+    expect(rendered.text).toContain("Kabir");
+    expect(rendered.text).toContain("Effingut Craft Brewery");
+    expect(rendered.text).toContain("LV-EF-8942");
+    expect(rendered.text).toContain("₹5,400");
+    expect(rendered.text).toContain("2 guests");
+    expect(rendered.text).toContain("Seasons Mall");
+    expect(rendered.text).not.toContain("<");
+
+    // HTML luxury branding
+    expect(rendered.html).toContain(LUXURY_BRAND.deepPine);
+    expect(rendered.html).toContain(LUXURY_BRAND.champagneGold);
+    expect(rendered.html).toContain(LUXURY_BRAND.warmIvory);
+    expect(rendered.html).toContain(LUXURY_BRAND.border);
+    expect(rendered.html).toContain("LV-EF-8942");
+    expect(rendered.html).toContain("Effingut Craft Brewery");
+    expect(rendered.html).toContain("View Experience &amp; Pass");
+  });
+
+  it("escapes untrusted variables in booking confirmation", () => {
+    const rendered = renderEmailTemplate("traveler.booking-confirmation", {
+      ...BOOKING,
+      patronName: "<script>alert('xss')</script>",
+      experienceTitle: "Craft & Sip <img src=x onerror=1>",
+    });
+
+    expect(rendered.html).not.toContain("<script>");
+    expect(rendered.html).not.toContain("<img");
+    expect(rendered.html).toContain("&lt;script&gt;");
+  });
+
+  it("has balanced tables and doctype in HTML", () => {
+    const rendered = renderEmailTemplate("traveler.booking-confirmation", BOOKING);
+    const opens = (rendered.html.match(/<table/g) ?? []).length;
+    const closes = (rendered.html.match(/<\/table>/g) ?? []).length;
+    expect(opens).toBe(closes);
+    expect(rendered.html.startsWith("<!doctype html>")).toBe(true);
   });
 });
 
@@ -141,7 +203,7 @@ describe("in-journey companion email", () => {
     ],
   } as const;
 
-  it("renders every recommendation with its perk, secret and pass link", () => {
+  it("renders every recommendation with its perk, secret and pass link in luxury branding", () => {
     const rendered = renderEmailTemplate("traveler.in-journey-companion", COMPANION);
 
     expect(rendered.subject).toBe("Your live butler in Kalyani Nagar — 2 curated gems nearby");
@@ -152,8 +214,8 @@ describe("in-journey companion email", () => {
       expect(rendered.text).toContain(recommendation.experienceUrl);
     }
     expect(rendered.html).toContain("Live in Kalyani Nagar");
-    expect(rendered.html).toContain("#080806");
-    expect(rendered.html).toContain("#cda851");
+    expect(rendered.html).toContain(LUXURY_BRAND.deepPine);
+    expect(rendered.html).toContain(LUXURY_BRAND.champagneGold);
   });
 
   it("counts what it actually recommends in the subject", () => {

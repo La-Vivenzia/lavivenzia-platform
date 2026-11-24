@@ -7,6 +7,7 @@ import {
   withCookie,
 } from "@/lib/auth-context";
 import { getAuthService } from "@/lib/container";
+import { ensureOnboardingNotifications } from "@/modules/notifications/service";
 import { otpVerifySchema } from "../../_schemas";
 
 /** POST /api/v1/auth/otp/verify — exchange a valid code for a session. */
@@ -21,6 +22,9 @@ export const POST = withRoute(async (request) => {
     code: body.code,
     context,
   });
+
+  // Automatically ensure welcome notification and onboarding/Journey Pass experience (LA-22)
+  ensureOnboardingNotifications(session.userId);
 
   const response = jsonResponse({
     userId: session.userId,

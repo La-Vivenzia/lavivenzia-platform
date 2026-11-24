@@ -89,7 +89,7 @@ export async function getPrincipal(): Promise<Principal | null> {
     if (principal) setLogUser(principal.userId);
 
     return principal;
-  } catch (error) {
+  } catch {
     // If database connection pool is full or token is invalid, degrade gracefully to guest
     return null;
   }
