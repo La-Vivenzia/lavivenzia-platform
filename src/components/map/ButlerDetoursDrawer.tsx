@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowUpRight, Crown, Mail, X } from "lucide-react";
+import { ArrowUpRight, Crown, Sparkles, X } from "lucide-react";
 
 import { Alert, Skeleton } from "@/components/ui/feedback";
 import { ApiError, api } from "@/lib/api-client";
@@ -12,12 +12,6 @@ type Load =
   | { readonly kind: "failed"; readonly message: string }
   | { readonly kind: "ready"; readonly data: CompanionNearbyResponse };
 
-type Send =
-  | { readonly kind: "idle" }
-  | { readonly kind: "sending" }
-  | { readonly kind: "sent" }
-  | { readonly kind: "failed"; readonly message: string };
-
 function messageOf(error: unknown, fallback: string): string {
   if (error instanceof ApiError) return error.message;
   return fallback;
@@ -25,8 +19,10 @@ function messageOf(error: unknown, fallback: string): string {
 
 /**
  * "Butler Detours" — curated gems within easy reach of the act the traveller
- * is at, read from the live butler (`GET /api/v1/companion/nearby`), with the
- * option to have the same note sent to their inbox (`POST /companion/dispatch`).
+ * is at, read from the live butler (`GET /api/v1/companion/nearby`).
+ *
+ * Recommendations are automatically dispatched to the traveller's email and
+ * in-app notifications on destination arrival (LA-22 zero manual triggers).
  *
  * Every line is the companion service's: titles, perks, curator secrets and
  * distances are catalogue facts, and times are labelled estimates. Nothing
@@ -44,7 +40,6 @@ export function ButlerDetoursDrawer({
   readonly onClose: () => void;
 }) {
   const [load, setLoad] = useState<Load>({ kind: "loading" });
-  const [send, setSend] = useState<Send>({ kind: "idle" });
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -56,15 +51,6 @@ export function ButlerDetoursDrawer({
       .then((data) => {
         if (!cancelled) {
           setLoad({ kind: "ready", data });
-          // Automatically dispatch nearby recommendations (email + in-app notification) without manual button click (LA-22)
-          api
-            .post("/api/v1/companion/dispatch", { activeSlug })
-            .then(() => {
-              if (!cancelled) setSend({ kind: "sent" });
-            })
-            .catch(() => {
-              // Non-fatal if guest or rate limited
-            });
         }
       })
       .catch((error: unknown) => {
@@ -83,19 +69,6 @@ export function ButlerDetoursDrawer({
   function retry() {
     setLoad({ kind: "loading" });
     setAttempt((n) => n + 1);
-  }
-
-  function sendToInbox() {
-    setSend({ kind: "sending" });
-    api
-      .post("/api/v1/companion/dispatch", { activeSlug })
-      .then(() => setSend({ kind: "sent" }))
-      .catch((error: unknown) =>
-        setSend({
-          kind: "failed",
-          message: messageOf(error, "The note wasn’t sent. Please try again."),
-        }),
-      );
   }
 
   const recommendations = load.kind === "ready" ? load.data.recommendations : [];
@@ -200,31 +173,18 @@ export function ButlerDetoursDrawer({
       </div>
 
       {load.kind === "ready" && recommendations.length > 0 ? (
-        <footer className="flex flex-col gap-2 border-t border-accent/25 px-4 py-3">
-          {send.kind === "failed" ? <Alert tone="danger">{send.message}</Alert> : null}
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[11.5px] leading-snug text-panel-fg/75" role="status">
-              {send.kind === "sent"
-                ? "Dispatched to your email & in-app notifications."
-                : send.kind === "sending"
-                  ? "Dispatching to your inbox & notifications..."
-                  : "Times are estimates; tables are confirmed on each page."}
-            </p>
-            <button
-              type="button"
-              onClick={sendToInbox}
-              disabled={send.kind === "sending"}
-              aria-busy={send.kind === "sending" || undefined}
-              className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-pill bg-accent px-4 text-[12.5px] font-medium text-accent-fg transition-opacity duration-200 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Mail className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-              {send.kind === "sending"
-                ? "Dispatching…"
-                : send.kind === "sent"
-                  ? "Dispatched"
-                  : "Send to me"}
-            </button>
-          </div>
+        <footer className="flex flex-col gap-1 border-t border-accent/25 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="flex items-center gap-1.5 text-[11.5px] leading-snug font-medium text-accent">
+            <Sparkles
+              className="h-3.5 w-3.5 shrink-0 text-accent"
+              strokeWidth={1.8}
+              aria-hidden="true"
+            />
+            Curations automatically dispatched to your email & notifications inbox.
+          </p>
+          <p className="text-[11px] text-panel-fg/60">
+            Times are estimates · confirmed upon reservation
+          </p>
         </footer>
       ) : null}
     </section>
