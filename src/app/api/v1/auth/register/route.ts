@@ -2,6 +2,7 @@ import { env } from "@/lib/env";
 import { jsonResponse, parseJsonBody, withRoute } from "@/lib/http";
 import { assertSameOrigin, getRequestContext } from "@/lib/auth-context";
 import { getAuthService } from "@/lib/container";
+import { ensureOnboardingNotifications } from "@/modules/notifications/service";
 import { registerSchema } from "../_schemas";
 
 /** POST /api/v1/auth/register — traveller (passwordless) or host (password). */
@@ -17,6 +18,9 @@ export const POST = withRoute(async (request) => {
     role: body.role,
     context,
   });
+
+  // Automatically seed welcome notification and onboarding/Journey Pass experience (LA-22).
+  ensureOnboardingNotifications(userId);
 
   // 201 with the id only. No session is issued: a traveller must still prove
   // control of the address by completing an emailed code, and a host must log

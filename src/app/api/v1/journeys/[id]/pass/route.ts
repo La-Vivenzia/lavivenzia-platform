@@ -6,6 +6,7 @@ import { jsonResponse, parseJsonBody, withRoute } from "@/lib/http";
 import { getLogger } from "@/lib/logger";
 import { enforceIpRateLimit } from "@/lib/rate-limit";
 import { JOURNEY_HOLDER_MAX, JOURNEY_PARTY_MAX } from "@/modules/booking/journey-pass-contract";
+import { emitNotification } from "@/modules/notifications/service";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,18 @@ export const POST = withRoute<RouteContext>(async (request, { params }) => {
   const pass = await getJourneyPassService().issue({ journeyId: id, ...body });
 
   if (principal) {
+    try {
+      emitNotification({
+        userId: principal.userId,
+        type: "booking_confirmed",
+        title: `Booking Confirmed: ${pass.journey.title}`,
+        body: `Your Journey Pass #${pass.reference} for ${pass.partySize} ${pass.partySize === 1 ? "guest" : "guests"} is confirmed. Secret door keyword: ${pass.secretKeyword}.`,
+        actionUrl: `/journeys/${encodeURIComponent(pass.journey.id)}`,
+      });
+    } catch {
+      // Non-fatal — pass is already issued.
+    }
+
     void sendJourneyPassEmail(principal.email, pass).catch((error: unknown) => {
       getLogger().warn(
         {

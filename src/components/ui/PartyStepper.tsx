@@ -38,11 +38,7 @@ export function PartyStepper({
         <output aria-live="polite" className="text-[15px] font-medium text-fg tabular-nums">
           {value} {value === 1 ? "guest" : "guests"}
         </output>
-        <StepButton
-          label="Add a guest"
-          disabled={value >= max}
-          onClick={() => onChange(value + 1)}
-        >
+        <StepButton label="Add a guest" disabled={value >= max} onClick={() => onChange(value + 1)}>
           <Plus className="h-4 w-4" aria-hidden="true" />
         </StepButton>
       </div>

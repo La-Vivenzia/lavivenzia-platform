@@ -83,6 +83,7 @@ export const POST = withRoute(async (request) => {
 
   const result = await getCompanionService().dispatch({
     to,
+    userId: own ? principal.userId : undefined,
     activeExperienceSlug: body.activeSlug,
     patronName,
     tastePreferences,
@@ -92,5 +93,6 @@ export const POST = withRoute(async (request) => {
     success: true,
     providerMessageId: result.providerMessageId,
     recommendations: result.recommendations,
+    alreadyDispatched: result.alreadyDispatched ?? false,
   });
 });

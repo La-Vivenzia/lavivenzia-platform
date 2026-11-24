@@ -29,6 +29,7 @@ import {
 
 import { ButlerDetoursDrawer } from "@/components/map/ButlerDetoursDrawer";
 import { Alert, Skeleton } from "@/components/ui/feedback";
+import { api } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
 import { chapterNumeral } from "@/modules/booking/journey-chapters";
 import {
@@ -278,6 +279,16 @@ export function LiveMapTracker(props: SingleDestinationProps | JourneyProps) {
         )
       : null;
   const heading = simulating ? simHeading : gpsHeading;
+
+  // Automatically trigger check-in and zone companion recommendations upon arrival (LA-22)
+  useEffect(() => {
+    if (!journeyMode || !arrived || !activeStop?.slug) return;
+    api
+      .post(`/api/v1/experiences/${encodeURIComponent(activeStop.slug)}/check-in`, {})
+      .catch(() => {
+        // Non-fatal if guest, offline, or rate-limited
+      });
+  }, [journeyMode, arrived, activeStop?.slug]);
 
   /* ---------------------------------------------------------------- map */
 

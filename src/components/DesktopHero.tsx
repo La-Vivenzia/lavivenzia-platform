@@ -19,7 +19,6 @@ export function DesktopHero({
 }) {
   const slides = resolveHeroSlides(images, image);
 
-
   return (
     <section aria-labelledby="lv-hero-heading-desktop" className="relative pt-4 pb-20 xl:pb-24">
       {/* Photograph — bleeds to the viewport edge, independent of the grid. */}
@@ -57,7 +56,8 @@ export function DesktopHero({
 
           <Reveal delay={170}>
             <p className="mt-6 max-w-[42ch] text-[16px] leading-[1.65] font-light text-fg-muted xl:text-[17px]">
-              Choreographed multi-venue evenings and verified experiences, reserved in one touch with VIP privileges.
+              Choreographed multi-venue evenings and verified experiences, reserved in one touch
+              with VIP privileges.
             </p>
           </Reveal>
 

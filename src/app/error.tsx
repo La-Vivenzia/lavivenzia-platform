@@ -32,7 +32,8 @@ export default function GlobalError({
       </h1>
 
       <p className="text-fg-muted mt-4 max-w-md text-[14.5px] leading-relaxed font-light">
-        A temporary service condition occurred while assembling this curation. You may refresh the view or return to the collection.
+        A temporary service condition occurred while assembling this curation. You may refresh the
+        view or return to the collection.
       </p>
 
       {error.digest ? (

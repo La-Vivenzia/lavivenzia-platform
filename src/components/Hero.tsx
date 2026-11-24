@@ -18,7 +18,10 @@ export function Hero({
   const slides = resolveHeroSlides(images, image);
 
   return (
-    <section aria-labelledby="lv-hero-heading" className="relative px-5 pt-4 pb-8 min-h-[220px] xs:min-h-[250px] flex items-center">
+    <section
+      aria-labelledby="lv-hero-heading"
+      className="relative px-5 pt-4 pb-8 min-h-[220px] xs:min-h-[250px] flex items-center"
+    >
       {/* Photograph — dominant visual presence with deep radius */}
       <div
         className="absolute inset-y-0 right-0 w-[47%] min-w-[150px] overflow-hidden rounded-tl-[3.5rem] xs:w-[49%] sm:w-[50%] sm:rounded-tl-[4.5rem]"
@@ -55,4 +58,3 @@ export function Hero({
     </section>
   );
 }
-
