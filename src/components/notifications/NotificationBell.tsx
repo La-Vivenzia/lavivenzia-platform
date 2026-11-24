@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Bell, X } from "lucide-react";
@@ -8,6 +8,22 @@ import { cn } from "@/lib/cn";
 import type { Notification } from "@/modules/notifications/service";
 import { NotificationCard } from "./NotificationCard";
 import { useNotifications } from "./useNotifications";
+
+const subscribeMounted = () => () => {};
+const getMountedSnapshot = () => true;
+const getMountedServerSnapshot = () => false;
+
+const subscribeMedia = (callback: () => void) => {
+  if (typeof window === "undefined" || !window.matchMedia) return () => {};
+  const mql = window.matchMedia("(min-width: 1024px)");
+  mql.addEventListener("change", callback);
+  return () => mql.removeEventListener("change", callback);
+};
+const getDesktopSnapshot = () => {
+  if (typeof window === "undefined" || !window.matchMedia) return false;
+  return window.matchMedia("(min-width: 1024px)").matches;
+};
+const getDesktopServerSnapshot = () => false;
 
 /**
  * NotificationBell — the full notification trigger + inbox for La Vivenzia.
@@ -32,8 +48,16 @@ export function NotificationBell({
   readonly className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(false);
+  const mounted = useSyncExternalStore(
+    subscribeMounted,
+    getMountedSnapshot,
+    getMountedServerSnapshot,
+  );
+  const isDesktop = useSyncExternalStore(
+    subscribeMedia,
+    getDesktopSnapshot,
+    getDesktopServerSnapshot,
+  );
   const triggerRef = useRef<HTMLButtonElement>(null);
   const mobilePanelRef = useRef<HTMLDivElement>(null);
   const desktopPanelRef = useRef<HTMLDivElement>(null);
@@ -62,21 +86,6 @@ export function NotificationBell({
     },
     [markRead, router],
   );
-
-  useEffect(() => {
-    setMounted(true);
-    if (typeof window === "undefined" || !window.matchMedia) return;
-
-    const mql = window.matchMedia("(min-width: 1024px)");
-    setIsDesktop(mql.matches);
-
-    const onChange = () => {
-      setIsDesktop(mql.matches);
-    };
-
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
 
   // Refetch when the popover opens so it is always current.
   const handleOpen = useCallback(() => {

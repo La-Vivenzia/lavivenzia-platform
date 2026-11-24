@@ -248,7 +248,6 @@ export function LiveMapTracker(props: SingleDestinationProps | JourneyProps) {
   const displayDestinationLabel = cleanDestinationLabel(destinationLabel);
 
   const position = gpsPosition ?? fallbackOrigin ?? destination;
-  const approximate = !gpsPosition;
   const arrived = journeyMode
     ? progress.arrived || hasArrived(position, destination, STOP_ARRIVAL_RADIUS_METRES)
     : hasArrived(position, destination);
@@ -815,7 +814,7 @@ export function LiveMapTracker(props: SingleDestinationProps | JourneyProps) {
                 ·
               </span>
               <div className="flex items-center gap-1.5 font-display text-[18px] font-medium leading-none text-heading tabular-nums sm:text-[20px]">
-                <Footprints
+                <ModeIcon
                   className="h-4 w-4 shrink-0 text-accent-ink dark:text-accent"
                   strokeWidth={1.8}
                   aria-hidden="true"
