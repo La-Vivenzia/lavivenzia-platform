@@ -5,11 +5,9 @@ import { Check, Crown, KeyRound, Navigation, ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/ui/wordmark";
-import { formatClock, formatMoneyMinor } from "@/lib/format";
+import { formatClock } from "@/lib/format";
 import { departureStatus } from "@/modules/booking/journey-chapters";
 import type { JourneyPass } from "@/modules/booking/journey-pass-contract";
-
-const money = (minor: number, currency: string) => formatMoneyMinor(minor, currency) ?? "—";
 
 /**
  * The Digital VIP Passcard — one pass for every act of a booked journey.
@@ -36,7 +34,6 @@ export function DigitalVipPass({
   readonly onStartJourney?: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const { payment } = pass;
   const firstAct = pass.acts[0];
 
   // Move focus to the result so keyboard and screen-reader users land on it.
