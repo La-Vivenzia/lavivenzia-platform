@@ -266,9 +266,9 @@ describe("Live map tracker — journey mode", () => {
     expect(html).not.toContain("EMERALD BREEZE");
   });
 
-  it("offers Curated Nearby only for a booked journey", () => {
+  it("does not render manual Curated Nearby button since recommendations are automated on arrival", () => {
     const far = north(first.coordinates, 1_500);
-    expect(render(far, { butlerDetours: true })).toContain("Curated Nearby");
+    expect(render(far, { butlerDetours: true })).not.toContain("Curated Nearby");
     expect(render(far)).not.toContain("Curated Nearby");
   });
 

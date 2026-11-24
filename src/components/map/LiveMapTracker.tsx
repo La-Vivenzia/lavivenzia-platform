@@ -16,7 +16,6 @@ import type { DivIcon, Map as LeafletMap, Marker, Polyline, TileLayer } from "le
 import {
   ArrowLeft,
   CarFront,
-  ConciergeBell,
   Footprints,
   KeyRound,
   LocateFixed,
@@ -25,7 +24,6 @@ import {
   SkipForward,
 } from "lucide-react";
 
-import { ButlerDetoursDrawer } from "@/components/map/ButlerDetoursDrawer";
 import { Alert, Skeleton } from "@/components/ui/feedback";
 import { api } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
@@ -234,7 +232,6 @@ export function LiveMapTracker(props: SingleDestinationProps | JourneyProps) {
   const [legs, setLegs] = useState<readonly WalkingRoute[] | null>(null);
   const [progress, setProgress] = useState<JourneyProgress>(JOURNEY_START);
   const [follow, setFollow] = useState(true);
-  const [detoursOpen, setDetoursOpen] = useState(false);
   /** The longest distance seen on the current leg — the progress bar's 0%. */
   const [leg, setLeg] = useState<{ readonly index: number; readonly metres: number }>({
     index: -1,
@@ -473,7 +470,6 @@ export function LiveMapTracker(props: SingleDestinationProps | JourneyProps) {
 
   const moveTo = useCallback((next: JourneyProgress, from: LatLng) => {
     setProgress(next);
-    setDetoursOpen(false);
     setRoute(null);
     setRouteFrom(from);
     setFollow(true);
@@ -623,7 +619,6 @@ export function LiveMapTracker(props: SingleDestinationProps | JourneyProps) {
     !!props.secretKeyword &&
     mapStatus !== "error" &&
     isKeywordRevealed(position, destination, arrived);
-  const detoursSlug = journeyMode && props.butlerDetours ? activeStop.slug : undefined;
 
   return (
     <div
@@ -693,15 +688,6 @@ export function LiveMapTracker(props: SingleDestinationProps | JourneyProps) {
         ref={hudRef}
         className="absolute inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] mx-auto flex max-w-xl flex-col gap-1.5"
       >
-        {detoursOpen && detoursSlug ? (
-          <ButlerDetoursDrawer
-            key={detoursSlug}
-            activeSlug={detoursSlug}
-            actLabel={`Chapter ${numeral} · ${activeStop.role}`}
-            onClose={() => setDetoursOpen(false)}
-          />
-        ) : null}
-
         {showKeyword ? (
           <div
             role="status"
@@ -874,26 +860,6 @@ export function LiveMapTracker(props: SingleDestinationProps | JourneyProps) {
               >
                 <SkipForward className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
                 {arrived ? `On to Act ${activeIndex + 2}` : `Skip to Act ${activeIndex + 2}`}
-              </button>
-            ) : null}
-            {detoursSlug ? (
-              <button
-                type="button"
-                onClick={() => setDetoursOpen((open) => !open)}
-                aria-expanded={detoursOpen}
-                className={cn(
-                  "inline-flex h-8.5 items-center justify-center gap-1.5 rounded-pill border px-3 text-[12px] font-medium transition-colors duration-200",
-                  detoursOpen
-                    ? "border-transparent bg-panel text-panel-fg hover:opacity-90"
-                    : "border-accent/60 text-fg hover:bg-surface-2",
-                )}
-              >
-                <ConciergeBell
-                  className="h-3.5 w-3.5 text-accent-ink dark:text-accent"
-                  strokeWidth={1.8}
-                  aria-hidden="true"
-                />
-                Curated Nearby
               </button>
             ) : null}
           </div>
